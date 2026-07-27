@@ -39,7 +39,11 @@ Not yet. Planned stack: CMake + MSVC/Clang x64 + SDL2. See ADR-001.
 
 ## Project board
 
-GitHub Projects tracks epics (M0–M8) and user stories. Start with **M0 Repo & governance** and **M1 Runnable shell**.
+- **Repo:** https://github.com/mkalkhoven-po/wolf3d-win64 (private)
+- **Board:** https://github.com/users/mkalkhoven-po/projects/1
+- **Issues:** https://github.com/mkalkhoven-po/wolf3d-win64/issues
+
+Milestones **M0–M8** track epics E0–E8. **M0 is done** — next is **M1 Runnable shell** (#4–#6).
 
 ## Credits
 
