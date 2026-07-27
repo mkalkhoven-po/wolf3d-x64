@@ -27,11 +27,11 @@ int main(int argc, char *argv[])
     }
 
     printf("wolf3d-win64 starting (E3 data path)...\n");
-        fflush(stdout);
+    fflush(stdout);
 
-        if (!Wolf_ResolveDataDir(argc, argv, &data_dir)) {
-            return 2;
-        }
+    if (!Wolf_ResolveDataDir(argc, argv, &data_dir)) {
+        return 2;
+    }
     if (!Wolf_CheckRequiredFiles(&data_dir)) {
         return 3;
     }
