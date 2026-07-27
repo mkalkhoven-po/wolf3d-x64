@@ -3,21 +3,36 @@
 Native **Windows 11 x64** port project for the 1992 id Software *Wolfenstein 3D* engine sources.
 
 > **Status:** Planning & governance. No playable port binary yet.  
-> **Repo visibility:** Private  
+> **Repo visibility:** Private (you must be signed into GitHub as an account with access — guests see “Page not found”)  
 > **MVP target:** Shareware episode (`WL1`) via SDL2 software renderer
+
+## Live GitHub links (named)
+
+| Name | URL |
+|------|-----|
+| **Repository** | [mkalkhoven-po/wolf3d-win64](https://github.com/mkalkhoven-po/wolf3d-win64) |
+| **Project board — Wolf3D Win64 Port** | [users/mkalkhoven-po/projects/1](https://github.com/users/mkalkhoven-po/projects/1) |
+| **All issues** | [Issues](https://github.com/mkalkhoven-po/wolf3d-win64/issues) |
+| **Milestones M0–M8** | [Milestones](https://github.com/mkalkhoven-po/wolf3d-win64/milestones) |
+| **Epic E1 — Runnable shell** | [#4 Epic E1: Runnable shell](https://github.com/mkalkhoven-po/wolf3d-win64/issues/4) |
+| **Story — CMake x64 build** | [#5 Story: CMake x64 build produces wolf3d.exe](https://github.com/mkalkhoven-po/wolf3d-win64/issues/5) |
+| **Story — SDL window** | [#6 Story: SDL window opens and quits cleanly](https://github.com/mkalkhoven-po/wolf3d-win64/issues/6) |
+| **Closed — Epic E0** | [#1 Epic E0: Repo & governance](https://github.com/mkalkhoven-po/wolf3d-win64/issues/1) |
+
+If a link shows **Page not found**, open GitHub in the browser, confirm you are logged in as **`mkalkhoven-po`** (or an account invited to this private repo), then retry.
 
 ## What this is
 
 | Path | Purpose |
 |------|---------|
-| `reference/original/` | Unmodified original source drop (Borland C++ / DOS) for study |
-| `docs/product/` | Vision, exclusions, functional requirements |
-| `docs/adr/` | Architecture Decision Records |
-| `docs/epics/` | Epic briefs (goal, stories, FRs, exclusions, acceptance) |
-| `src/` | *(future)* modern port code — not started |
-| `.github/` | Issue templates, label notes |
+| [`reference/original/`](reference/original/) | Unmodified original source drop (Borland C++ / DOS) for study |
+| [`docs/product/`](docs/product/) | Vision, exclusions, functional requirements |
+| [`docs/adr/`](docs/adr/) | Architecture Decision Records |
+| [`docs/epics/`](docs/epics/) | Epic briefs (goal, stories, FRs, exclusions, acceptance) |
+| [`src/`](src/) | *(future)* modern port code — not started |
+| [`.github/`](.github/) | Issue templates |
 
-## Quick links
+## Docs (in-repo)
 
 - [Vision](docs/product/VISION.md)
 - [Exclusions](docs/product/EXCLUSIONS.md)
@@ -35,15 +50,12 @@ Native **Windows 11 x64** port project for the 1992 id Software *Wolfenstein 3D*
 
 ## Building (future)
 
-Not yet. Planned stack: CMake + MSVC/Clang x64 + SDL2. See ADR-001.
+Not yet. Planned stack: CMake + MSVC/Clang x64 + SDL2. See [ADR-001](docs/adr/001-platform-backend.md).
 
-## Project board
+## Roadmap pointer
 
-- **Repo:** https://github.com/mkalkhoven-po/wolf3d-win64 (private)
-- **Board:** https://github.com/users/mkalkhoven-po/projects/1
-- **Issues:** https://github.com/mkalkhoven-po/wolf3d-win64/issues
-
-Milestones **M0–M8** track epics E0–E8. **M0 is done** — next is **M1 Runnable shell** (#4–#6).
+Milestones **M0–M8** track epics **E0–E8**.  
+**M0 is done.** Next: **[M1 Runnable shell](https://github.com/mkalkhoven-po/wolf3d-win64/milestone/2)** — epic [#4](https://github.com/mkalkhoven-po/wolf3d-win64/issues/4), stories [#5](https://github.com/mkalkhoven-po/wolf3d-win64/issues/5) and [#6](https://github.com/mkalkhoven-po/wolf3d-win64/issues/6).
 
 ## Credits
 
