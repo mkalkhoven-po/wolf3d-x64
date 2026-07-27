@@ -1,11 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
-project(wolf3d-win64 VERSION 0.1.0 LANGUAGES C)
+project(wolf3d-win64 VERSION 0.2.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
-# Nice defaults on multi-config single-config generators
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
 endif()
@@ -29,28 +28,38 @@ else()
   find_package(SDL2 REQUIRED CONFIG)
 endif()
 
+set(WOLF_ID_SOURCES
+  src/id/id_heads.c
+  src/id/id_us.c
+  src/id/id_mm.c
+  src/id/id_pm.c
+  src/id/id_ca.c
+  src/id/id_vl.c
+  src/id/id_vh.c
+  src/id/id_in.c
+  src/id/id_sd.c
+)
+
 add_executable(wolf3d
   src/main.c
   src/platform/win_sdl/platform_sdl.c
+  ${WOLF_ID_SOURCES}
 )
 
 target_include_directories(wolf3d PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/id
   ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
 )
 
 # Console-subsystem bring-up: keep our own main(); skip WinMain/SDL2main.
-# (Link order of SDL2main before SDL2 is flaky with some MinGW+FetchContent combos.)
 target_compile_definitions(wolf3d PRIVATE SDL_MAIN_HANDLED)
 target_link_libraries(wolf3d PRIVATE SDL2::SDL2)
 
 if(WIN32)
-  # Console subsystem for early bring-up (see quit codes / printf);
-  # switch to WIN32_EXECUTABLE later in productization if desired.
   set_target_properties(wolf3d PROPERTIES WIN32_EXECUTABLE FALSE)
 endif()
 
-# Copy SDL2.dll next to the exe for easy double-click runs (shared build).
 if(WIN32 AND TARGET SDL2)
   add_custom_command(TARGET wolf3d POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

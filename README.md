@@ -41,6 +41,7 @@ If a link shows **Page not found**, open GitHub in the browser, confirm you are 
 - [ADR-001 Platform backend](docs/adr/001-platform-backend.md)
 - [Port analysis plan](docs/plans/wolf3d-win64-port-analysis.md)
 - [Epic index](docs/epics/README.md)
+- [ID module map (original → modern)](docs/architecture/ID_MODULE_MAP.md)
 
 ## Legal / data
 

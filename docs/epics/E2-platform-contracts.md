@@ -16,6 +16,6 @@ Introduce modern typed headers and stub implementations of ID-style APIs (`VL`, 
 - Real asset codecs, real audio mixer, real raycaster
 
 ## Acceptance
-- [ ] `src/` layout exists with platform + id stub libraries
-- [ ] Clean compile; zero ASM in build
-- [ ] Documented mapping table: original module → new file
+- [x] `src/` layout exists with platform + id stub libraries
+- [x] Clean compile; zero ASM in build
+- [x] Documented mapping table: original module → new file (`docs/architecture/ID_MODULE_MAP.md`)
