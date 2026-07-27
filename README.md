@@ -48,9 +48,35 @@ If a link shows **Page not found**, open GitHub in the browser, confirm you are 
 - Original source is provided by id under their Limited Use terms (see `reference/original/README/`). Educational porting only unless you obtain appropriate rights.
 - Do **not** open a PR that adds `.WL6` / `.WL1` binaries.
 
-## Building (future)
+## Building (E1 shell)
 
-Not yet. Planned stack: CMake + MSVC/Clang x64 + SDL2. See [ADR-001](docs/adr/001-platform-backend.md).
+Prerequisites (Windows 11 x64):
+
+- [CMake](https://cmake.org/) 3.20+
+- A C17 toolchain: **MinGW-w64** (WinLibs) or MSVC 2022
+- Ninja (recommended) or a multi-config VS generator
+- Network on first configure (SDL2 is fetched via CMake `FetchContent` unless you turn that off)
+
+```bat
+:: Example: MinGW + Ninja (adjust COMPILER paths to your install)
+set PATH=C:\path\to\mingw64\bin;%PATH%
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build
+build\wolf3d.exe
+```
+
+```powershell
+# Visual Studio 2022 generator (x64)
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config RelWithDebInfo
+.\build\RelWithDebInfo\wolf3d.exe
+```
+
+What you should see: a dark-blue window titled **Wolf3D Win64 — E1 shell**. Close the window or press **Esc** for a clean exit (`SDL2.dll` is copied next to the exe when using the shared SDL build).
+
+Optional CMake flag: `-DWOLF_FETCH_SDL2=OFF` if you provide SDL2 yourself (`find_package(SDL2)`).
+
+See [ADR-001](docs/adr/001-platform-backend.md).
 
 ## Roadmap pointer
 
