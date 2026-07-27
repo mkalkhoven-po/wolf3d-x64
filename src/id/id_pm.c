@@ -12,6 +12,7 @@ word PMSoundStart;
 pm_page_info_t *PMPages;
 
 static FILE *page_file;
+static byte **page_cache;
 
 static uint16_t rd_u16_le(FILE *f, boolean *ok)
 {
@@ -39,6 +40,14 @@ void PM_Startup(void)
 
 void PM_Shutdown(void)
 {
+    word i;
+    if (page_cache) {
+        for (i = 0; i < ChunksInFile; ++i) {
+            free(page_cache[i]);
+        }
+        free(page_cache);
+        page_cache = NULL;
+    }
     if (page_file) {
         fclose(page_file);
         page_file = NULL;
@@ -87,9 +96,10 @@ boolean PM_OpenPageFile(const wolf_data_dir_t *dir)
     }
 
     PMPages = (pm_page_info_t *)calloc(ChunksInFile, sizeof(pm_page_info_t));
+    page_cache = (byte **)calloc(ChunksInFile, sizeof(byte *));
     offsets = (longword *)calloc(ChunksInFile, sizeof(longword));
     lengths = (word *)calloc(ChunksInFile, sizeof(word));
-    if (!PMPages || !offsets || !lengths) {
+    if (!PMPages || !page_cache || !offsets || !lengths) {
         free(offsets);
         free(lengths);
         PM_Shutdown();
@@ -118,8 +128,8 @@ boolean PM_OpenPageFile(const wolf_data_dir_t *dir)
     free(lengths);
 
     printf("VSWAP: %s\n", path);
-    printf("VSWAP chunks=%u spriteStart=%u soundStart=%u\n",
-           ChunksInFile, PMSpriteStart, PMSoundStart);
+    printf("VSWAP chunks=%u spriteStart=%u soundStart=%u\n", ChunksInFile,
+           PMSpriteStart, PMSoundStart);
     return true;
 }
 
@@ -145,15 +155,41 @@ void PM_PrintSmoke(void)
     }
     printf("VSWAP smoke: nonempty_pages=%u total_bytes~=%lu max_page_len=%lu\n",
            nonempty, (unsigned long)total, (unsigned long)max_len);
-    /* Walls are before sprite start typically. */
     printf("VSWAP wall pages [0..%u), sprites [%u..%u), sounds [%u..%u)\n",
            PMSpriteStart, PMSpriteStart, PMSoundStart, PMSoundStart, ChunksInFile);
 }
 
 memptr PM_GetPage(int pagenum)
 {
-    (void)pagenum;
-    return NULL; /* full page cache deferred — E4/E5 need locked pages */
+    word len;
+    byte *buf;
+
+    if (pagenum < 0 || (word)pagenum >= ChunksInFile || !page_file || !PMPages) {
+        return NULL;
+    }
+    if (page_cache && page_cache[pagenum]) {
+        return page_cache[pagenum];
+    }
+
+    len = PMPages[pagenum].length;
+    if (!len || !PMPages[pagenum].offset) {
+        return NULL;
+    }
+    if (fseek(page_file, (long)PMPages[pagenum].offset, SEEK_SET) != 0) {
+        return NULL;
+    }
+    buf = (byte *)malloc(len);
+    if (!buf) {
+        return NULL;
+    }
+    if (fread(buf, 1, len, page_file) != len) {
+        free(buf);
+        return NULL;
+    }
+    if (page_cache) {
+        page_cache[pagenum] = buf;
+    }
+    return buf;
 }
 
 memptr PM_GetPageAddress(int pagenum)

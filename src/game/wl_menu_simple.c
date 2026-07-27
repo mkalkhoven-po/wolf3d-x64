@@ -13,6 +13,7 @@
 #include "id/id_vh.h"
 #include "id/id_vl.h"
 #include "id/gfxv_wl6.h"
+#include "wl_game.h"
 
 typedef enum {
     UI_TITLE = 0,
@@ -173,18 +174,73 @@ int Wolf_RunIntroMenu(void)
                         state = UI_TITLE;
                         draw_title();
                     } else if (k == SDLK_RETURN) {
-                        if (cursor == 0) {
-                            /* New Game — stub for E4 */
-                            VL_Bar(40, 150, 240, 20, 0);
-                            VH_DrawString(50, 154, "NEW GAME - COMING IN E5!", 14);
-                        } else if (cursor == 1) {
-                            VL_Bar(40, 150, 240, 20, 0);
-                            VH_DrawString(70, 154, "OPTIONS STUB", 14);
-                        } else {
-                            state = UI_QUIT;
-                            running = 0;
-                        }
-                    }
+                                            if (cursor == 0) {
+                                                /* Hand off to E5 game loop; tear down menu window first. */
+                                                free(pixels);
+                                                pixels = NULL;
+                                                SDL_DestroyTexture(texture);
+                                                texture = NULL;
+                                                SDL_DestroyRenderer(renderer);
+                                                renderer = NULL;
+                                                SDL_DestroyWindow(window);
+                                                window = NULL;
+                                                SDL_Quit();
+                                                {
+                                                    int grc = Wolf_RunGame();
+                                                    if (grc != 0) {
+                                                        return grc;
+                                                    }
+                                                }
+                                                /* Restart menu SDL session after game returns. */
+                                                if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
+                                                    fprintf(stderr, "SDL_Init failed: %s\n",
+                                                            SDL_GetError());
+                                                    return 1;
+                                                }
+                                                window = SDL_CreateWindow(
+                                                    "Wolf3D Win64",
+                                                    SDL_WINDOWPOS_CENTERED,
+                                                    SDL_WINDOWPOS_CENTERED,
+                                                    SCREENWIDTH * scale,
+                                                    SCREENHEIGHT * scale,
+                                                    SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+                                                if (!window) {
+                                                    return 1;
+                                                }
+                                                renderer = SDL_CreateRenderer(
+                                                    window, -1,
+                                                    SDL_RENDERER_ACCELERATED |
+                                                        SDL_RENDERER_PRESENTVSYNC);
+                                                if (!renderer) {
+                                                    renderer = SDL_CreateRenderer(window, -1, 0);
+                                                }
+                                                if (!renderer) {
+                                                    return 1;
+                                                }
+                                                SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+                                                SDL_RenderSetLogicalSize(renderer, SCREENWIDTH,
+                                                                         SCREENHEIGHT);
+                                                texture = SDL_CreateTexture(
+                                                    renderer, SDL_PIXELFORMAT_ARGB8888,
+                                                    SDL_TEXTUREACCESS_STREAMING, SCREENWIDTH,
+                                                    SCREENHEIGHT);
+                                                if (!texture) {
+                                                    return 1;
+                                                }
+                                                pixels =
+                                                    (Uint32 *)malloc(SCREENPIXELS * sizeof(Uint32));
+                                                if (!pixels) {
+                                                    return 1;
+                                                }
+                                                draw_menu(cursor);
+                                            } else if (cursor == 1) {
+                                                VL_Bar(40, 150, 240, 20, 0);
+                                                VH_DrawString(70, 154, "OPTIONS STUB", 14);
+                                            } else {
+                                                state = UI_QUIT;
+                                                running = 0;
+                                            }
+                                        }
                 }
             }
         }
