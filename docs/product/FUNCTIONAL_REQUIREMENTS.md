@@ -20,6 +20,8 @@ IDs are referenced from GitHub user stories. Status is aspirational until implem
 | FR-DATA-003 | If required files are missing, app exits non-zero and lists missing names. |
 | FR-DATA-004 | Config and saves write under `%APPDATA%\Wolf3DWin64\` (name finalised in implementation). |
 | FR-DATA-005 | Repository and release artifacts never include commercial game data binaries. |
+| FR-DATA-006 | Product docs list the required user-supplied data files and when in the roadmap they must be available (see `docs/product/GAME_DATA.md`). |
+| FR-DATA-007 | Local optional `data/` folder (if used) remains gitignored; setup never instructs committing `.WL*` / `VSWAP` assets. |
 
 ## Video
 

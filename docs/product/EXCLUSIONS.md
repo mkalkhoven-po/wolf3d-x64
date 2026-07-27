@@ -32,8 +32,11 @@ These are **out of scope** for the MVP and must not appear as acceptance criteri
 ## Legal / content
 
 - [ ] Committing or redistributing commercial `VSWAP` / `VGAGRAPH` / map / audio data
+- [ ] “Bundle the full game” installers or CI jobs that download pirated data
 - [ ] Claiming id trademark endorsement
 - [ ] Mixing incompatible third-party GPL code into the tree without a documented license decision
+
+User-owned data is **in scope as a setup step** at E3 — see [GAME_DATA.md](GAME_DATA.md). That step is about *locating* files, not shipping them.
 
 ## Process
 

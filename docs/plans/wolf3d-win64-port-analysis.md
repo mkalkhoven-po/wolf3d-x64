@@ -12,7 +12,7 @@
 - Window/input/audio: **SDL2** (mature Wolf ports use it) or SDL3
 - Optional: OpenGL/D3D11 only for scaled presentation (integer scale / CRT shader) — renderer itself stays software
 - Build: CMake + Ninja/MSVC
-- Assets: original commercial/shareware data files8 user-supplied (not redistributed)
+- Assets: original commercial/shareware data files, **user-supplied** (not redistributed); explicit gate documented in `docs/product/GAME_DATA.md` (E3)
 - Reference ports for study only (not to copy blindly): Wolf4SDL, ECWolf, Chocolate-Wolfenstein, lzwolf
 
 ---
@@ -280,13 +280,14 @@ Plan below is written for **Path A** (user asked about *this* code) but every ph
 
 ### Phase 0 — Prep & inventory (0.5–1 day)
 - [ ] Confirm legal rate: personal educational build OK; shipping constraints open.
-- [ ] Acquire test data: shareware WL1 minimum; full WL6 if targeting GOODTIMES.
+- [ ] **Plan step (human):** Acquire test data you own — shareware WL1 minimum; full WL6 if targeting GOODTIMES. Document path privately; **do not commit**.
+- [ ] Read / fill checklist in production docs: `docs/product/GAME_DATA.md`.
 - [ ] Snapshot tree; add git if missing; never commit game binaries.
 - [ ] Catalogue every `.ASM` export and every ISR/hardware call (table → backend stub).
 - [ ] Extract binary assets from OMF (`SIGNON`, `GAMEPAL`) to raw bins for inspection tools.
 - [ ] Play baseline in DOSBox with original binary for behavioral reference (timing, sounds, door speed).
 
-**Exit:** Asset pack on disk + Excel/markdown inventory of external dependencies.
+**Exit:** Owned asset pack on disk (outside git) + inventory of external dependencies. GAME_DATA checklist started.
 
 ### Phase 1 — Skeleton Win64 app (1–2 days)
 - [ ] CMake project producing `wolf3d.exe` x64 subsystem console+windows.
@@ -312,14 +313,19 @@ Plan below is written for **Path A** (user asked about *this* code) but every ph
 
 **Exit:** Links pure C, no ASM in build.
 
-### Phase 3 — File IO + asset load (3–6 days)
+### Phase 3 — User assets gate + file IO + asset load (3–6 days)
+> **Roadmap gate:** This phase is when the player/developer officially “adds all the assets” via a local folder. Implementation only **loads** them; git never receives them.
+
+- [ ] Confirm `GAME_DATA.md` file list vs actual shareware folder on disk.
+- [ ] `--data` / `WOLF3D_DATA` discovery; document examples in README.
 - [ ] Extension detection (WL1/WL6…).
 - [ ] Load MAPHEAD/GAMEMAPS; decompress Carmack/RLEW; dump map plane ASCII for verification.
 - [ ] Load VSWAP header; print chunk counts vs known good.
 - [ ] Load one pic chunk; dump PNG via offline tool for visual verify.
 - [ ] Palette load + show solid palette bars in window.
+- [ ] Missing-file path lists each required name (FR-DATA-003).
 
-**Exit:** Known map 0 walls match remainder reference dump.
+**Exit:** Known map 0 walls match remainder reference dump; assets gate checklist checked off.
 
 ### Phase 4 — Video + 2D UI path (4–7 days)
 - [ ] Chunky framebuffer present @60–70 Hz.
