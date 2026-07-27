@@ -2,15 +2,20 @@
 
 #include <string.h>
 
-static byte g_palette[768];
+byte *framebuffer;
+byte g_palette[768];
 
 void VL_Startup(void)
 {
-    memset(g_palette, 0, sizeof(g_palette));
+    static byte fb[SCREENPIXELS];
+    framebuffer = fb;
+    memset(framebuffer, 0, SCREENPIXELS);
+    memcpy(g_palette, gamepal, sizeof(g_palette));
 }
 
 void VL_Shutdown(void)
 {
+    framebuffer = NULL;
 }
 
 void VL_SetPalette(const byte *palette)
@@ -52,5 +57,99 @@ void VL_WaitVBL(int vbls)
 
 void VL_ClearScreen(int color)
 {
-    (void)color;
+    if (!framebuffer) {
+        return;
+    }
+    memset(framebuffer, (byte)color, SCREENPIXELS);
+}
+
+void VL_Bar(int x, int y, int width, int height, int color)
+{
+    int yy, xx;
+    if (!framebuffer || width <= 0 || height <= 0) {
+        return;
+    }
+    if (x < 0) {
+        width += x;
+        x = 0;
+    }
+    if (y < 0) {
+        height += y;
+        y = 0;
+    }
+    if (x + width > SCREENWIDTH) {
+        width = SCREENWIDTH - x;
+    }
+    if (y + height > SCREENHEIGHT) {
+        height = SCREENHEIGHT - y;
+    }
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+    for (yy = 0; yy < height; ++yy) {
+        byte *row = framebuffer + (y + yy) * SCREENWIDTH + x;
+        for (xx = 0; xx < width; ++xx) {
+            row[xx] = (byte)color;
+        }
+    }
+}
+
+void VL_Plot(int x, int y, int color)
+{
+    if (!framebuffer) {
+        return;
+    }
+    if ((unsigned)x >= SCREENWIDTH || (unsigned)y >= SCREENHEIGHT) {
+        return;
+    }
+    framebuffer[y * SCREENWIDTH + x] = (byte)color;
+}
+
+/*
+ * Pictures are stored post-munge as VGA planar (4 planes of width/4).
+ * Convert on the fly into chunky pixels on the framebuffer.
+ */
+void VL_MemToScreen(const byte *source, int width, int height, int x, int y)
+{
+    int plane, yy, xx;
+    int pwidth;
+    if (!framebuffer || !source || width <= 0 || height <= 0) {
+        return;
+    }
+    if (width & 3) {
+        /* Not plane-aligned — treat as already-chunky. */
+        for (yy = 0; yy < height; ++yy) {
+            int dy = y + yy;
+            if ((unsigned)dy >= SCREENHEIGHT) {
+                continue;
+            }
+            for (xx = 0; xx < width; ++xx) {
+                int dx = x + xx;
+                if ((unsigned)dx >= SCREENWIDTH) {
+                    continue;
+                }
+                framebuffer[dy * SCREENWIDTH + dx] = source[yy * width + xx];
+            }
+        }
+        return;
+    }
+
+    pwidth = width / 4;
+    for (plane = 0; plane < 4; ++plane) {
+        const byte *psrc = source + plane * pwidth * height;
+        for (yy = 0; yy < height; ++yy) {
+            int dy = y + yy;
+            if ((unsigned)dy >= SCREENHEIGHT) {
+                psrc += pwidth;
+                continue;
+            }
+            for (xx = 0; xx < pwidth; ++xx) {
+                int dx = x + xx * 4 + plane;
+                if ((unsigned)dx < SCREENWIDTH) {
+                    framebuffer[dy * SCREENWIDTH + dx] = psrc[xx];
+                }
+            }
+            psrc += pwidth;
+        }
+    }
 }

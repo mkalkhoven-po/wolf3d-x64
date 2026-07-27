@@ -20,6 +20,16 @@ static FILE *maphandle;
 static int32_t headeroffsets[MAX_MAP_OFFSETS];
 static wolf_data_dir_t g_map_dir;
 
+/* Graphics (VGAGRAPH) */
+pictabletype *pictable;
+byte *grsegs[NUMCHUNKS];
+static FILE *grhandle;
+static int32_t grstarts[NUMCHUNKS + 1];
+typedef struct {
+    uint16_t bit0, bit1;
+} huffnode;
+static huffnode grhuffman[256];
+
 /* ---- little-endian helpers ---- */
 
 static uint16_t rd_u16(const byte *p)
@@ -124,10 +134,22 @@ void CA_Startup(void)
 
 void CA_Shutdown(void)
 {
+    int i;
     CA_FreeMaps();
     if (maphandle) {
         fclose(maphandle);
         maphandle = NULL;
+    }
+    if (grhandle) {
+        fclose(grhandle);
+        grhandle = NULL;
+    }
+    for (i = 0; i < NUMCHUNKS; ++i) {
+        CA_UnCacheGrChunk(i);
+    }
+    if (pictable) {
+        free(pictable);
+        pictable = NULL;
     }
 }
 
@@ -391,17 +413,285 @@ void CA_PrintMapSmoke(int mapnum)
 
 void CA_CacheScreen(int chunk)
 {
-    (void)chunk;
+    /* Full-screen chunky when expanded size is 320*200. */
+    CA_CacheGrChunk(chunk);
+    if (grsegs[chunk]) {
+        /* CA_CacheScreen in original expanded with screenhack — we use DrawPic path. */
+    }
+}
+
+/*
+ * Pure-C Huffman expander for VGA graph chunks.
+ * Nodes 0..255 are leaves (=byte), 256..510 are internal nodes index+256.
+ * Head is node 254.
+ */
+static void CAL_HuffExpand(const byte *source, byte *dest, long length,
+                           const huffnode *hufftable)
+{
+    const huffnode *headptr = &hufftable[254];
+    const huffnode *node = headptr;
+    const byte *src = source;
+    byte *out = dest;
+    byte *end = dest + length;
+    unsigned mask = 1;
+    byte b = *src++;
+
+    while (out < end) {
+        uint16_t next = (b & mask) ? node->bit1 : node->bit0;
+        mask <<= 1;
+        if (mask == 256) {
+            b = *src++;
+            mask = 1;
+        }
+        if (next < 256) {
+            *out++ = (byte)next;
+            node = headptr;
+        } else {
+            node = &hufftable[next - 256];
+        }
+    }
+}
+
+static int32_t GRFILEPOS(int chunk)
+{
+    if (chunk < 0 || chunk > NUMCHUNKS) {
+        return -1;
+    }
+    return grstarts[chunk];
+}
+
+static void VL_UnmungeToChunky(const byte *planar, byte *chunky, int width, int height)
+{
+    int plane, y, x;
+    int pwidth = width / 4;
+    for (y = 0; y < height; ++y) {
+        for (x = 0; x < width; ++x) {
+            plane = x & 3;
+            chunky[y * width + x] =
+                planar[plane * pwidth * height + y * pwidth + (x >> 2)];
+        }
+    }
+}
+
+boolean CA_OpenGraphFiles(const wolf_data_dir_t *dir)
+{
+    char path[WOLF_PATH_MAX];
+    FILE *f;
+    byte headbuf[(NUMCHUNKS + 1) * 3];
+    int i;
+    size_t n;
+    byte *compressed = NULL;
+    long compr_len;
+    long expanded;
+
+    if (grhandle) {
+        fclose(grhandle);
+        grhandle = NULL;
+    }
+    for (i = 0; i < NUMCHUNKS; ++i) {
+        CA_UnCacheGrChunk(i);
+    }
+    if (pictable) {
+        free(pictable);
+        pictable = NULL;
+    }
+
+    /* Huffman dictionary — 255 nodes * 4 bytes, file is 1024 */
+    Wolf_MakeDataPath(dir, "VGADICT", path, sizeof(path));
+    f = fopen(path, "rb");
+    if (!f) {
+        fprintf(stderr, "Cannot open %s\n", path);
+        return false;
+    }
+    memset(grhuffman, 0, sizeof(grhuffman));
+    if (fread(grhuffman, 1, 255 * sizeof(huffnode), f) != 255 * sizeof(huffnode)) {
+        fclose(f);
+        return false;
+    }
+    fclose(f);
+
+    /* 3-byte offsets */
+    Wolf_MakeDataPath(dir, "VGAHEAD", path, sizeof(path));
+    f = fopen(path, "rb");
+    if (!f) {
+        fprintf(stderr, "Cannot open %s\n", path);
+        return false;
+    }
+    n = fread(headbuf, 1, sizeof(headbuf), f);
+    fclose(f);
+    if (n < (size_t)(NUMCHUNKS + 1) * 3) {
+        fprintf(stderr, "VGAHEAD too small (%zu)\n", n);
+        return false;
+    }
+    for (i = 0; i <= NUMCHUNKS; ++i) {
+        const byte *p = headbuf + i * 3;
+        int32_t v = (int32_t)(p[0] | (p[1] << 8) | (p[2] << 16));
+        if (v == 0xffffff) {
+            v = -1;
+        }
+        grstarts[i] = v;
+    }
+
+    Wolf_MakeDataPath(dir, "VGAGRAPH", path, sizeof(path));
+    grhandle = fopen(path, "rb");
+    if (!grhandle) {
+        fprintf(stderr, "Cannot open %s\n", path);
+        return false;
+    }
+
+    /* STRUCTPIC (chunk 0) → pictable */
+    {
+        int32_t pos = GRFILEPOS(STRUCTPIC);
+        int next = STRUCTPIC + 1;
+        while (next <= NUMCHUNKS && GRFILEPOS(next) == -1) {
+            next++;
+        }
+        if (pos < 0 || next > NUMCHUNKS) {
+            fprintf(stderr, "Bad STRUCTPIC positions\n");
+            return false;
+        }
+        compr_len = GRFILEPOS(next) - pos;
+        if (compr_len <= 0 || compr_len > 1024 * 1024) {
+            return false;
+        }
+        if (fseek(grhandle, pos, SEEK_SET) != 0) {
+            return false;
+        }
+        compressed = (byte *)malloc((size_t)compr_len);
+        if (!compressed ||
+            fread(compressed, 1, (size_t)compr_len, grhandle) != (size_t)compr_len) {
+            free(compressed);
+            return false;
+        }
+        expanded = (long)(compressed[0] | (compressed[1] << 8) |
+                          (compressed[2] << 16) | (compressed[3] << 24));
+        if (expanded != (long)(NUMPICS * (int)sizeof(pictabletype))) {
+            /* still try */
+            fprintf(stderr, "pictable expanded size %ld (expected %d)\n",
+                    expanded, (int)(NUMPICS * sizeof(pictabletype)));
+        }
+        if (expanded <= 0 || expanded > 64 * 1024) {
+            free(compressed);
+            return false;
+        }
+        pictable = (pictabletype *)malloc((size_t)expanded);
+        if (!pictable) {
+            free(compressed);
+            return false;
+        }
+        CAL_HuffExpand(compressed + 4, (byte *)pictable, expanded, grhuffman);
+        free(compressed);
+        /* endian fix pictable entries */
+        for (i = 0; i < NUMPICS; ++i) {
+            byte *raw = (byte *)&pictable[i];
+            int16_t w = (int16_t)(raw[0] | (raw[1] << 8));
+            int16_t h = (int16_t)(raw[2] | (raw[3] << 8));
+            pictable[i].width = w;
+            pictable[i].height = h;
+        }
+    }
+
+    printf("VGAGRAPH open: pics=%d (TITLEPIC=%d size %dx%d)\n",
+           NUMPICS, TITLEPIC,
+           pictable[TITLEPIC - STARTPICS].width,
+           pictable[TITLEPIC - STARTPICS].height);
+    return true;
 }
 
 void CA_CacheGrChunk(int chunk)
 {
-    (void)chunk;
+    int32_t pos;
+    int next;
+    long compressed;
+    byte *source = NULL;
+    long expanded;
+    byte *destination = NULL;
+    byte *source_data;
+
+    if (chunk < 0 || chunk >= NUMCHUNKS) {
+        return;
+    }
+    if (grsegs[chunk]) {
+        return;
+    }
+    if (!grhandle || !pictable) {
+        return;
+    }
+
+    pos = GRFILEPOS(chunk);
+    if (pos < 0) {
+        return; /* sparse */
+    }
+    next = chunk + 1;
+    while (next <= NUMCHUNKS && GRFILEPOS(next) == -1) {
+        next++;
+    }
+    if (next > NUMCHUNKS) {
+        return;
+    }
+    compressed = GRFILEPOS(next) - pos;
+    if (compressed <= 0) {
+        return;
+    }
+    if (fseek(grhandle, pos, SEEK_SET) != 0) {
+        return;
+    }
+    source = (byte *)malloc((size_t)compressed);
+    if (!source || fread(source, 1, (size_t)compressed, grhandle) != (size_t)compressed) {
+        free(source);
+        return;
+    }
+
+    source_data = source;
+    if (chunk >= STARTTILE8 && chunk < STARTEXTERNS) {
+        /* not needed for E4 menus */
+        free(source);
+        return;
+    }
+
+    expanded = (long)(source[0] | (source[1] << 8) | (source[2] << 16) |
+                      (source[3] << 24));
+    source_data = source + 4;
+    if (expanded <= 0 || expanded > 320 * 200 * 4) {
+        free(source);
+        return;
+    }
+
+    destination = (byte *)malloc((size_t)expanded);
+    if (!destination) {
+        free(source);
+        return;
+    }
+    CAL_HuffExpand(source_data, destination, expanded, grhuffman);
+    free(source);
+
+    /* Convert planar pics to chunky for easy blitting. */
+    if (chunk >= STARTPICS && chunk < STARTPICS + NUMPICS) {
+        int pic = chunk - STARTPICS;
+        int w = pictable[pic].width;
+        int h = pictable[pic].height;
+        if (w > 0 && h > 0 && (w * h) == (int)expanded && (w & 3) == 0) {
+            byte *chunky = (byte *)malloc((size_t)(w * h));
+            if (chunky) {
+                VL_UnmungeToChunky(destination, chunky, w, h);
+                free(destination);
+                destination = chunky;
+            }
+        }
+    }
+
+    grsegs[chunk] = destination;
 }
 
 void CA_UnCacheGrChunk(int chunk)
 {
-    (void)chunk;
+    if (chunk < 0 || chunk >= NUMCHUNKS) {
+        return;
+    }
+    if (grsegs[chunk]) {
+        free(grsegs[chunk]);
+        grsegs[chunk] = NULL;
+    }
 }
 
 boolean CA_LoadFile(const char *filename, memptr *ptr)

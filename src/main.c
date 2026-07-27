@@ -1,14 +1,18 @@
 /*
  * Wolf3D Win64 — application entry.
- * E3: resolve user data dir, verify pack, smoke-load maps + VSWAP.
+ * E3: data path. E4: title framebuffer + keyboard main menu.
  */
 
 #include <stdio.h>
 #include <string.h>
 
+#include "game/wl_menu_simple.h"
+#include "id/gfxv_wl6.h"
+#include "id/id_ca.h"
 #include "id/id_heads.h"
+#include "id/id_vh.h"
+#include "id/id_vl.h"
 #include "id/wl_data.h"
-#include "platform/win_sdl/platform_sdl.h"
 
 int main(int argc, char *argv[])
 {
@@ -16,7 +20,6 @@ int main(int argc, char *argv[])
     boolean smoke_only;
     int i;
 
-    /* Line-buffer stdout so logs stay ordered with stderr when redirected. */
     setvbuf(stdout, NULL, _IOLBF, 0);
 
     for (i = 1; i < argc; ++i) {
@@ -26,7 +29,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("wolf3d-win64 starting (E3 data path)...\n");
+    printf("wolf3d-win64 starting (E4 2D menus)...\n");
     fflush(stdout);
 
     if (!Wolf_ResolveDataDir(argc, argv, &data_dir)) {
@@ -48,10 +51,15 @@ int main(int argc, char *argv[])
         ID_Engine_Shutdown();
         return 5;
     }
+    if (!CA_OpenGraphFiles(&data_dir)) {
+        fprintf(stderr, "Failed to open VGAGRAPH assets\n");
+        ID_Engine_Shutdown();
+        return 8;
+    }
 
     PM_PrintSmoke();
 
-    /* Cache first available map (usually 0). */
+    /* Cache first available map (keeps E3 acceptance green). */
     {
         int map = 0;
         while (map < NUMMAPS && !mapheaderseg[map]) {
@@ -71,6 +79,45 @@ int main(int argc, char *argv[])
         CA_PrintMapSmoke(map);
     }
 
+    /* E4 graphics smoke: decompress title and verify pixels exist. */
+    {
+        int w, h;
+        int pi, nz;
+
+        CA_CacheGrChunk(TITLEPIC);
+        if (!grsegs[TITLEPIC] || !pictable) {
+            fprintf(stderr, "TITLEPIC load failed\n");
+            ID_Engine_Shutdown();
+            return 9;
+        }
+
+        w = pictable[TITLEPIC - STARTPICS].width;
+        h = pictable[TITLEPIC - STARTPICS].height;
+        printf("TITLEPIC loaded: %dx%d\n", w, h);
+        VL_ClearScreen(0);
+        VL_SetPalette(gamepal);
+        VWB_DrawPic(0, 0, TITLEPIC);
+
+        nz = 0;
+        for (pi = 0; pi < SCREENPIXELS; ++pi) {
+            if (framebuffer[pi]) {
+                nz++;
+            }
+        }
+        printf("Framebuffer non-zero pixels after title: %d\n", nz);
+        if (nz < 1000) {
+            fprintf(stderr, "Title paint looks empty\n");
+            ID_Engine_Shutdown();
+            return 10;
+        }
+
+        CA_CacheGrChunk(C_OPTIONSPIC);
+        CA_CacheGrChunk(C_MOUSELBACKPIC);
+        printf("Menu pics: options=%s mouseback=%s\n",
+               grsegs[C_OPTIONSPIC] ? "ok" : "MISSING",
+               grsegs[C_MOUSELBACKPIC] ? "ok" : "MISSING");
+    }
+
     smoke_only = Wolf_ArgSmokeOnly(argc, argv);
     if (smoke_only) {
         printf("Smoke-only mode: skipping window.\n");
@@ -80,7 +127,7 @@ int main(int argc, char *argv[])
     }
 
     {
-        const int rc = wolf_platform_run();
+        const int rc = Wolf_RunIntroMenu();
         ID_Engine_Shutdown();
         if (rc != 0) {
             fprintf(stderr, "wolf3d-win64 exited with error %d\n", rc);
