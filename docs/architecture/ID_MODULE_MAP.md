@@ -36,3 +36,11 @@
 | Palette | `src/id/gamepal.c` | 6-bit VGA GAMEPAL |
 | 2D draw | `src/id/id_vh.c` | VWB_DrawPic + fallback font |
 | Intro UI | `src/game/wl_menu_simple.c` | Title + keyboard main menu present |
+
+## E5 additions
+| Module | Path | Notes |
+|--------|------|-------|
+| Level / player | `src/game/wl_play.c` | tilemap, doors, move/collide, use |
+| Raycast | `src/game/wl_draw.c` | DDA walls + VSWAP textures |
+| Game loop | `src/game/wl_game.c` | WASD / doors / Esc |
+| VSWAP pages | `src/id/id_pm.c` | Cached `PM_GetPage` |

@@ -1,12 +1,14 @@
 /*
  * Wolf3D Win64 — application entry.
- * E3: data path. E4: title framebuffer + keyboard main menu.
+ * E5: move & walls — raycast + doors from menu New Game.
  */
 
 #include <stdio.h>
 #include <string.h>
 
+#include "game/wl_draw.h"
 #include "game/wl_menu_simple.h"
+#include "game/wl_play.h"
 #include "id/gfxv_wl6.h"
 #include "id/id_ca.h"
 #include "id/id_heads.h"
@@ -29,7 +31,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("wolf3d-win64 starting (E4 2D menus)...\n");
+    printf("wolf3d-win64 starting (E5 move & walls)...\n");
     fflush(stdout);
 
     if (!Wolf_ResolveDataDir(argc, argv, &data_dir)) {
@@ -59,30 +61,9 @@ int main(int argc, char *argv[])
 
     PM_PrintSmoke();
 
-    /* Cache first available map (keeps E3 acceptance green). */
+    /* E4 graphics smoke retained. */
     {
-        int map = 0;
-        while (map < NUMMAPS && !mapheaderseg[map]) {
-            ++map;
-        }
-        if (map >= NUMMAPS) {
-            fprintf(stderr, "No valid maps in MAPHEAD\n");
-            ID_Engine_Shutdown();
-            return 6;
-        }
-        printf("Caching map index %d...\n", map);
-        if (!CA_CacheMap(map)) {
-            fprintf(stderr, "CA_CacheMap(%d) failed\n", map);
-            ID_Engine_Shutdown();
-            return 7;
-        }
-        CA_PrintMapSmoke(map);
-    }
-
-    /* E4 graphics smoke: decompress title and verify pixels exist. */
-    {
-        int w, h;
-        int pi, nz;
+        int w, h, pi, nz;
 
         CA_CacheGrChunk(TITLEPIC);
         if (!grsegs[TITLEPIC] || !pictable) {
@@ -90,14 +71,12 @@ int main(int argc, char *argv[])
             ID_Engine_Shutdown();
             return 9;
         }
-
         w = pictable[TITLEPIC - STARTPICS].width;
         h = pictable[TITLEPIC - STARTPICS].height;
         printf("TITLEPIC loaded: %dx%d\n", w, h);
         VL_ClearScreen(0);
         VL_SetPalette(gamepal);
         VWB_DrawPic(0, 0, TITLEPIC);
-
         nz = 0;
         for (pi = 0; pi < SCREENPIXELS; ++pi) {
             if (framebuffer[pi]) {
@@ -110,12 +89,29 @@ int main(int argc, char *argv[])
             ID_Engine_Shutdown();
             return 10;
         }
+    }
 
-        CA_CacheGrChunk(C_OPTIONSPIC);
-        CA_CacheGrChunk(C_MOUSELBACKPIC);
-        printf("Menu pics: options=%s mouseback=%s\n",
-               grsegs[C_OPTIONSPIC] ? "ok" : "MISSING",
-               grsegs[C_MOUSELBACKPIC] ? "ok" : "MISSING");
+    /* E5: setup E1M1 (map 0), raycast smoke. */
+    if (!Wolf_SetupLevel(0)) {
+        fprintf(stderr, "Level setup failed\n");
+        ID_Engine_Shutdown();
+        return 11;
+    }
+    if (!Wolf_RaycastSmokeVerify()) {
+        fprintf(stderr, "Raycast smoke verify failed\n");
+        ID_Engine_Shutdown();
+        return 12;
+    }
+    {
+        /* Open first door if any, re-draw — proves door path. */
+        if (g_level.door_count > 0) {
+            g_level.doors[0].open = 1.0f;
+            printf("Smoke: forced door 0 open at %d,%d\n", g_level.doors[0].tilex,
+                   g_level.doors[0].tiley);
+            (void)Wolf_RaycastSmokeVerify();
+        } else {
+            printf("Smoke: no doors on map 0\n");
+        }
     }
 
     smoke_only = Wolf_ArgSmokeOnly(argc, argv);
