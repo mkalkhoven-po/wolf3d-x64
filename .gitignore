@@ -36,7 +36,8 @@ CTestTestfile.cmake
 _deps/
 
 # Game data (user-supplied — never commit commercial or shareware binaries)
-/data/
+/data/*
+!/data/README.md
 *.WL1
 *.WL6
 *.SOD

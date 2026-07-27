@@ -33,3 +33,4 @@ Remaster rendering, multiplayer, looking up/down, shipping commercial assets, ke
 | MVP SKU | WL1 shareware |
 | Saves | New versioned format in AppData |
 | ASM | None in final tree |
+| Game data | User-supplied only; explicit roadmap gate at E3 — see [GAME_DATA.md](GAME_DATA.md) |

@@ -37,6 +37,7 @@ If a link shows **Page not found**, open GitHub in the browser, confirm you are 
 - [Vision](docs/product/VISION.md)
 - [Exclusions](docs/product/EXCLUSIONS.md)
 - [Functional requirements (MVP)](docs/product/FUNCTIONAL_REQUIREMENTS.md)
+- [**User-supplied game assets (plan step / E3 gate)**](docs/product/GAME_DATA.md)
 - [ADR-001 Platform backend](docs/adr/001-platform-backend.md)
 - [Port analysis plan](docs/plans/wolf3d-win64-port-analysis.md)
 - [Epic index](docs/epics/README.md)
@@ -44,7 +45,7 @@ If a link shows **Page not found**, open GitHub in the browser, confirm you are 
 ## Legal / data
 
 - Original game **data** (VSWAP, VGAGRAPH, maps, audio) is **not** in this repo.
-- You must supply legally owned shareware or commercial data at runtime.
+- When you are ready for menus / 3D (after E2), follow the roadmap step **[User-supplied game assets](docs/product/GAME_DATA.md)** (Epic E3): gather legally owned WL1 files and point `WOLF3D_DATA` / `--data` at them.
 - Original source is provided by id under their Limited Use terms (see `reference/original/README/`). Educational porting only unless you obtain appropriate rights.
 - Do **not** open a PR that adds `.WL6` / `.WL1` binaries.
 
@@ -81,7 +82,8 @@ See [ADR-001](docs/adr/001-platform-backend.md).
 ## Roadmap pointer
 
 Milestones **M0–M8** track epics **E0–E8**.  
-**M0 is done.** Next: **[M1 Runnable shell](https://github.com/mkalkhoven-po/wolf3d-win64/milestone/2)** — epic [#4](https://github.com/mkalkhoven-po/wolf3d-win64/issues/4), stories [#5](https://github.com/mkalkhoven-po/wolf3d-win64/issues/5) and [#6](https://github.com/mkalkhoven-po/wolf3d-win64/issues/6).
+**M0 is done.** Next: **[M1 Runnable shell](https://github.com/mkalkhoven-po/wolf3d-win64/milestone/2)** — epic [#4](https://github.com/mkalkhoven-po/wolf3d-win64/issues/4), stories [#5](https://github.com/mkalkhoven-po/wolf3d-win64/issues/5) and [#6](https://github.com/mkalkhoven-po/wolf3d-win64/issues/6).  
+**Later gate:** before menus/3D, complete **[user-supplied assets](docs/product/GAME_DATA.md)** at **E3 / M3**.
 
 ## Credits
 
