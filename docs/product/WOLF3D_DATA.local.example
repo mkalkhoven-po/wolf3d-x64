@@ -1,0 +1,15 @@
+# Local game data path (example only)
+
+Copy to `WOLF3D_DATA.local` (gitignored) or set the env var in your shell.
+
+```bat
+set WOLF3D_DATA=D:\wolf3d-master\Wolf3dgame
+```
+
+PowerShell:
+
+```powershell
+$env:WOLF3D_DATA = 'D:\wolf3d-master\Wolf3dgame'
+```
+
+Never commit real path files if they contain extraneous secrets; this folder name is not secret, but habits matter.
