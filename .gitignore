@@ -1,0 +1,92 @@
+# Build
+/build/
+/out/
+/dist/
+/cmake-build-*/
+*.obj
+*.o
+*.lib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.idb
+*.ipdb
+*.iobj
+*.suo
+*.user
+*.ncb
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# Game data (user-supplied — never commit commercial or shareware binaries)
+/data/
+*.WL1
+*.WL6
+*.SOD
+*.SDM
+*.WL3
+VSWAP.*
+VGAGRAPH.*
+VGAHEAD.*
+VGADICT.*
+GAMEMAPS.*
+MAPHEAD.*
+AUDIOHED.*
+AUDIOT.*
+AUDIO.*
+# Game config/saves only at repo root or under data/ (do not use bare CONFIG.* — it matches GitHub config.yml on Windows)
+/CONFIG.*
+/data/CONFIG.*
+/SAVEGAM*
+/data/SAVEGAM*
+*.tmp
+
+# DeIce / original multi-disk installer blobs (source already under reference/)
+/DEICE.EXE
+/WOLFSRC.1
+/WOLFSRC.DAT
+/INSTALL.BAT
+/WOLFSRC/
+
+# Hermes local
+.hermes/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Python venv junk if any tools added
+.venv/
+__pycache__/
+
+# Extracted / debug dumps
+*.png
+!docs/**/*.png
+/debug_dumps/
+
+# Reference original build leftovers
+reference/original/OBJ/
+reference/original/*.OBJ
+reference/original/SV.EXE
+reference/original/*.PRJ
+reference/original/*.IDE
+reference/original/*.EXE
