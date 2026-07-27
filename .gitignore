@@ -101,3 +101,6 @@ reference/original/SV.EXE
 reference/original/*.PRJ
 reference/original/*.IDE
 reference/original/*.EXE
+
+/tmp_empty_data/
+/tmp_partial/
