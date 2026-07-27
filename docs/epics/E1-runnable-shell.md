@@ -15,6 +15,6 @@ Produce a Win11 x64 process with an SDL window and main loop (no game).
 - No asset loading, audio, input gameplay, or renderer content (clear colour only)
 
 ## Acceptance
-- [ ] CMake build succeeds with MSVC or Clang x64
-- [ ] Window opens; closes via chrome X without hang
-- [ ] README documents bootstrap build steps
+- [x] CMake build succeeds with MSVC or Clang x64 (verified MinGW-w64 x86_64)
+- [x] Window opens; closes via chrome X without hang (also Esc)
+- [x] README documents bootstrap build steps
