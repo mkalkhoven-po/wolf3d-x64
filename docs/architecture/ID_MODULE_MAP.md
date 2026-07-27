@@ -19,3 +19,10 @@
 - No `dos.h`, `far` pointers, or ASM objects in the CMake target.
 - `far` / `near` / `_seg` are empty macros in `wl_types.h` for transitional includes only — prefer plain pointers in new code.
 - Real window present remains `src/platform/win_sdl/` until VL/VH own a chunky buffer (E4).
+
+## E3 additions
+| Module | Path | Notes |
+|--------|------|-------|
+| Data discovery | `src/id/wl_data.c` | `--data`, `WOLF3D_DATA`, required files |
+| Maps | `src/id/id_ca.c` | MAPHEAD/GAMEMAPS, Carmack+RLEW |
+| VSWAP | `src/id/id_pm.c` | Directory smoke (full page cache later) |

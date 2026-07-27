@@ -11,7 +11,7 @@ void ID_Engine_Startup(void)
     VH_Startup();
     IN_Startup();
     SD_Startup();
-    fprintf(stderr, "ID_Engine_Startup: stubs ready (E2)\n");
+    fprintf(stderr, "ID_Engine_Startup: ready (E3 data path)\n");
 }
 
 void ID_Engine_Shutdown(void)

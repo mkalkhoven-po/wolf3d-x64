@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(wolf3d-win64 VERSION 0.2.0 LANGUAGES C)
+project(wolf3d-win64 VERSION 0.3.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -38,6 +38,7 @@ set(WOLF_ID_SOURCES
   src/id/id_vh.c
   src/id/id_in.c
   src/id/id_sd.c
+  src/id/wl_data.c
 )
 
 add_executable(wolf3d
@@ -52,7 +53,6 @@ target_include_directories(wolf3d PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
 )
 
-# Console-subsystem bring-up: keep our own main(); skip WinMain/SDL2main.
 target_compile_definitions(wolf3d PRIVATE SDL_MAIN_HANDLED)
 target_link_libraries(wolf3d PRIVATE SDL2::SDL2)
 
