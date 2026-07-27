@@ -2,6 +2,7 @@
 
 #include "wl_data.h"
 #include "wl_types.h"
+#include "gfxv_wl6.h"
 
 #define NUMMAPS 60
 #define MAPPLANES 2
@@ -22,19 +23,22 @@ extern maptype *mapheaderseg[NUMMAPS];
 extern int mapon;
 extern uint16_t rlew_tag;
 
+extern pictabletype *pictable;
+extern byte *grsegs[NUMCHUNKS];
+
 void CA_Startup(void);
 void CA_Shutdown(void);
 
-/* Open MAPHEAD/GAMEMAPS for dir; load headers. */
 boolean CA_OpenMapFiles(const wolf_data_dir_t *dir);
-
-/* Decompress map planes into mapsegs (allocates). */
+boolean CA_OpenGraphFiles(const wolf_data_dir_t *dir);
 boolean CA_CacheMap(int mapnum);
-
 void CA_FreeMaps(void);
-
-/* Return count of maps with valid offsets. */
 int CA_CountValidMaps(void);
-
-/* Dump simple wall stats for map plane 0 (walls). */
 void CA_PrintMapSmoke(int mapnum);
+
+void CA_CacheGrChunk(int chunk);
+void CA_UnCacheGrChunk(int chunk);
+void CA_CacheScreen(int chunk);
+boolean CA_LoadFile(const char *filename, memptr *ptr);
+
+/* Endian-safe two-byte file loads already elsewhere. */

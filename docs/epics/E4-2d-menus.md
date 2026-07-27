@@ -18,6 +18,14 @@ Chunky framebuffer presentation with palette; show title and navigate main menu.
 - Music (optional stub)
 
 ## Acceptance
-- [ ] Title visible with expected palette character
-- [ ] Menu keyboard navigate + quit works
-- [ ] Focus loss does not crash
+- [x] 320×200×8 framebuffer + `gamepal` present path (SDL texture)
+- [x] Title visible from VGAGRAPH `TITLEPIC` with palette
+- [x] Menu keyboard navigate (↑/↓/Enter) + quit (Esc / Quit item)
+- [x] Focus loss does not crash (SDL event loop)
+- [x] `--smoke-only` loads title/menu chunks without window
+
+## Implementation notes
+- `src/id/id_vl.c` — RAM framebuffer + bar/plot/blit helpers
+- `src/id/id_ca.c` — VGADICT Huffman + VGAHEAD/VGAGRAPH chunk load; planar→chunky unmunge
+- `src/id/gamepal.c` — VGA 6-bit palette extracted from `GAMEPAL.OBJ`
+- `src/game/wl_menu_simple.c` — title → main menu loop (New Game still stub until E5)

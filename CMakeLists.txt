@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(wolf3d-win64 VERSION 0.3.0 LANGUAGES C)
+project(wolf3d-win64 VERSION 0.4.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -39,17 +39,24 @@ set(WOLF_ID_SOURCES
   src/id/id_in.c
   src/id/id_sd.c
   src/id/wl_data.c
+  src/id/gamepal.c
+)
+
+set(WOLF_GAME_SOURCES
+  src/game/wl_menu_simple.c
 )
 
 add_executable(wolf3d
   src/main.c
   src/platform/win_sdl/platform_sdl.c
   ${WOLF_ID_SOURCES}
+  ${WOLF_GAME_SOURCES}
 )
 
 target_include_directories(wolf3d PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src/id
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/game
   ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
 )
 

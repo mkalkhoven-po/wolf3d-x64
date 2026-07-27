@@ -26,3 +26,13 @@
 | Data discovery | `src/id/wl_data.c` | `--data`, `WOLF3D_DATA`, required files |
 | Maps | `src/id/id_ca.c` | MAPHEAD/GAMEMAPS, Carmack+RLEW |
 | VSWAP | `src/id/id_pm.c` | Directory smoke (full page cache later) |
+
+## E4 additions
+| Module | Path | Notes |
+|--------|------|-------|
+| VGA graph IDs | `src/id/gfxv_wl6.h` | TITLEPIC / menu chunk constants |
+| Huffman + VGAGRAPH | `src/id/id_ca.c` | `CA_OpenGraphFiles`, planar→chunky pics |
+| Framebuffer | `src/id/id_vl.c` | 320×200×8 + game palette |
+| Palette | `src/id/gamepal.c` | 6-bit VGA GAMEPAL |
+| 2D draw | `src/id/id_vh.c` | VWB_DrawPic + fallback font |
+| Intro UI | `src/game/wl_menu_simple.c` | Title + keyboard main menu present |
