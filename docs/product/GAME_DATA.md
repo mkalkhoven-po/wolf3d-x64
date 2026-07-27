@@ -16,53 +16,63 @@ M0 docs → M1 window → M2 stubs
         → M4 menus → M5 walk → M6 combat → …
 ```
 
-## MVP default: shareware WL1
+## MVP data packs
 
-Minimum useful set (names vary slightly by release; extensions are typically `.WL1`):
+**Default docs use shareware `.WL1` names.** A full registered **`.WL6`** install is equally valid (and preferred when you own it) — same file stems, `.WL6` extension.
 
 | File / pattern | Role |
 |----------------|------|
-| `VSWAP.WL1` | Walls, sprites, digitized sounds (page file) |
-| `VGAGRAPH.WL1` | UI/pics graphics bulk |
-| `VGAHEAD.WL1` | Graphics chunk offsets |
-| `VGADICT.WL1` | Huffman dictionary for graphics |
-| `GAMEMAPS.WL1` | Map planes (compressed) |
-| `MAPHEAD.WL1` | Map header / offsets |
-| `AUDIOHED.WL1` | Audio chunk offsets |
-| `AUDIOT.WL1` | Audio bulk (or `AUDIO.WL1` on some layouts) |
+| `VSWAP.WL1` or `VSWAP.WL6` | Walls, sprites, digitized sounds (page file) |
+| `VGAGRAPH.WL*` | UI/pics graphics bulk |
+| `VGAHEAD.WL*` | Graphics chunk offsets |
+| `VGADICT.WL*` | Huffman dictionary for graphics |
+| `GAMEMAPS.WL*` | Map planes (compressed) |
+| `MAPHEAD.WL*` | Map header / offsets |
+| `AUDIOHED.WL*` | Audio chunk offsets |
+| `AUDIOT.WL*` | Audio bulk (or `AUDIO.WL*` on some layouts) |
 
 Optional later:
 
 | File | Role |
 |------|------|
 | Demos (`DEMO0`… as chunks or extern files depending on build flags) | Attract mode |
-| `CONFIG.*` | Original DOS config (we prefer AppData modern config) |
+| `CONFIG.WL*` | Original DOS config (we prefer AppData modern config) |
 
-Full commercial **WL6** and Spear **SOD/SDM** are **post-MVP SKU expansion** (same step shape, different extension / headers).
+Spear of Destiny **`.SOD` / `.SDM`** is a separate SKU (often in a sibling folder) — supported as sequence expansion, not the first load-path milestone.
 
 ## Where to put files on disk
 
-Recommended local layout **outside git** (or gitignored):
+Recommended: a folder you own, either outside the repo or a **gitignored** mount inside it.
 
 ```
-D:\games\wolfenstein3d\   ← example; any folder you own
-  VSWAP.WL1
-  VGAGRAPH.WL1
+D:\games\wolfenstein3d\     ← any path
+  VSWAP.WL6
+  VGAGRAPH.WL6
   ...
 ```
 
-Repo already ignores `/data/` and `*.WL1` / `VSWAP.*` etc. You may use:
+In this repo, convenient mounts (already gitignored):
 
 ```
-repo/data/   ← optional convenience mount; never commit contents
+Wolf3dgame/   ← full install drop (entire directory ignored)
+data/         ← optional; only data/README.md is tracked
 ```
+
+Example for a local machine that places assets at `Wolf3dgame/`:
+
+```bat
+set WOLF3D_DATA=D:\wolf3d-master\Wolf3dgame
+build\wolf3d.exe --data "%WOLF3D_DATA%"
+```
+
+Do not commit path-specific files: use gitignored `.env.local` / `WOLF3D_DATA.local` if you want a sticky reminder.
 
 ## How the app will find them (E3+)
 
 Planned discovery order (implement in E3 stories #11–#12):
 
-1. CLI: `wolf3d.exe --data "D:\games\wolfenstein3d"`
-2. Env: `WOLF3D_DATA=D:\games\wolfenstein3d`
+1. CLI: `wolf3d.exe --data "D:\path\to\folder"`
+2. Env: `WOLF3D_DATA=D:\path\to\folder`
 3. Optional later: last-used path in AppData config (E8)
 
 On failure: non-zero exit + **list every missing required name** (`FR-DATA-003`).
@@ -71,11 +81,11 @@ On failure: non-zero exit + **list every missing required name** (`FR-DATA-003`)
 
 Complete before starting E4 work:
 
-- [ ] I have a legal WL1 (or target SKU) install
-- [ ] Folder contains the required files from the table above
-- [ ] Path documented for my machine (password manager, note, or `.env` local only — not committed)
-- [ ] Running E3 smoke with `--data` / `WOLF3D_DATA` succeeds on CI machine or Xbox? *→ on this Windows machine*
-- [ ] Confirmed `git status` never stages `.WL1` / `VSWAP` / etc.
+- [x] Legal WL1 or WL6 (or target SKU) install available on this machine
+- [x] Folder contains the required files from the table above (WL6 set verified under `Wolf3dgame/`)
+- [x] Path noted for this workspace (`Wolf3dgame/` mount or `WOLF3D_DATA`) — not committed as secrets that leak elsewhere
+- [ ] Running E3 smoke with `--data` / `WOLF3D_DATA` succeeds (blocked until E3 loader lands)
+- [x] Confirmed `git status` never stages `.WL6` / `VSWAP` / the `Wolf3dgame/` tree
 
 ## Developer verification without shipping data
 

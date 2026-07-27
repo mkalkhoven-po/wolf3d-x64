@@ -35,9 +35,13 @@ compile_commands.json
 CTestTestfile.cmake
 _deps/
 
-# Game data (user-supplied — never commit commercial or shareware binaries)
+# Optional local data mounts (never commit contents)
 /data/*
 !/data/README.md
+/Wolf3dgame/
+/wolf3dgame/
+
+# Extensions / classic id pack names
 *.WL1
 *.WL6
 *.SOD
@@ -58,6 +62,12 @@ AUDIO.*
 /SAVEGAM*
 /data/SAVEGAM*
 *.tmp
+
+# Local path hints (machine-specific; do not commit secrets)
+.env
+.env.local
+WOLF3D_DATA.local
+
 
 # DeIce / original multi-disk installer blobs (source already under reference/)
 /DEICE.EXE
