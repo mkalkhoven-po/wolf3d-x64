@@ -166,6 +166,7 @@ REQUIRED_MARKERS=(
   "save/load OK"
   "Present smoke:"
   "logical=320x200"
+  "windowed_client="
 )
 
 MISSING=0

@@ -241,10 +241,11 @@ void Wolf_DrawWorld(void)
             int d = y * 256 - view_h * 128 + line_h * 128;
             int tex_y = ((d * TEX_SIZE) / line_h) / 256;
             byte c = sample_wall((int)wall_tile, tex_x, tex_y, side);
-            if (side == 1) {
-                c = (byte)((c >> 1) + (c >> 2));
-            }
-            framebuffer[y * SCREENWIDTH + x] = c;
+                        /* Mild NS darkening without the old bit-mangle purple mess. */
+                        if (side == 1 && c > 4) {
+                            c = (byte)(c - 4);
+                        }
+                        framebuffer[y * SCREENWIDTH + x] = c;
         }
     }
 

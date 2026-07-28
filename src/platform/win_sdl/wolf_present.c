@@ -17,7 +17,6 @@ void Wolf_EnableDpiAwareness(void)
 #ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
 #define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((DPI_AWARENESS_CONTEXT) - 4)
 #endif
-    /* Prefer Per-Monitor V2 when available (Win10 1703+ / Win11). */
     HMODULE user32 = LoadLibraryA("user32.dll");
     if (user32) {
         typedef BOOL(WINAPI *SetDpiCtxFn)(DPI_AWARENESS_CONTEXT);
@@ -37,8 +36,7 @@ void Wolf_EnableDpiAwareness(void)
             SetDpiAwarenessFn set_aw =
                 (SetDpiAwarenessFn)GetProcAddress(shcore, "SetProcessDpiAwareness");
             if (set_aw) {
-                /* PROCESS_PER_MONITOR_DPI_AWARE = 2 */
-                set_aw(2);
+                set_aw(2); /* PROCESS_PER_MONITOR_DPI_AWARE */
                 FreeLibrary(shcore);
                 return;
             }
@@ -49,13 +47,47 @@ void Wolf_EnableDpiAwareness(void)
 #endif
 }
 
-static void apply_integer_logical(wolf_present_t *pr)
+/*
+ * Original VGA Wolf used ~20% taller pixels. We keep an internal 320×200
+ * framebuffer but present it into a 4:3 destination (320×240 base).
+ */
+static void present_dst_rect(const wolf_present_t *pr, SDL_Rect *dst)
+{
+    int ww = 0, wh = 0;
+    int out_w, out_h, scale;
+    if (!pr || !pr->window || !dst) {
+        return;
+    }
+    SDL_GetWindowSize(pr->window, &ww, &wh);
+    if (ww < 1) {
+        ww = 1;
+    }
+    if (wh < 1) {
+        wh = 1;
+    }
+    {
+        int sx = ww / 320;
+        int sy = wh / 240;
+        scale = sx < sy ? sx : sy;
+        if (scale < 1) {
+            scale = 1;
+        }
+    }
+    out_w = 320 * scale;
+    out_h = 240 * scale;
+    dst->w = out_w;
+    dst->h = out_h;
+    dst->x = (ww - out_w) / 2;
+    dst->y = (wh - out_h) / 2;
+}
+
+static void apply_present_hints(wolf_present_t *pr)
 {
     if (!pr || !pr->renderer) {
         return;
     }
-    SDL_RenderSetLogicalSize(pr->renderer, pr->logical_w, pr->logical_h);
-    SDL_RenderSetIntegerScale(pr->renderer, SDL_TRUE);
+    SDL_RenderSetLogicalSize(pr->renderer, 0, 0);
+    SDL_RenderSetIntegerScale(pr->renderer, SDL_FALSE);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
 }
 
@@ -80,8 +112,9 @@ boolean Wolf_PresentCreate(wolf_present_t *pr, const char *title, int scale,
         }
     }
 
-    w = pr->logical_w * pr->scale;
-    h = pr->logical_h * pr->scale;
+    /* Client size is 4:3 (320×240 path), not square-pixel 320×200. */
+    w = 320 * pr->scale;
+    h = 240 * pr->scale;
 
     pr->window = SDL_CreateWindow(
         title ? title : "Wolf3D Win64",
@@ -108,7 +141,7 @@ boolean Wolf_PresentCreate(wolf_present_t *pr, const char *title, int scale,
         return false;
     }
 
-    apply_integer_logical(pr);
+    apply_present_hints(pr);
 
     pr->texture = SDL_CreateTexture(pr->renderer, SDL_PIXELFORMAT_ARGB8888,
                                     SDL_TEXTUREACCESS_STREAMING, pr->logical_w,
@@ -154,6 +187,8 @@ void Wolf_PresentDestroy(wolf_present_t *pr)
 void Wolf_PresentFrame(wolf_present_t *pr)
 {
     int i, n;
+    SDL_Rect dst;
+
     if (!pr || !pr->renderer || !pr->texture || !pr->pixels || !framebuffer) {
         return;
     }
@@ -169,13 +204,13 @@ void Wolf_PresentFrame(wolf_present_t *pr)
     SDL_UpdateTexture(pr->texture, NULL, pr->pixels, pr->logical_w * 4);
     SDL_SetRenderDrawColor(pr->renderer, 0, 0, 0, 255);
     SDL_RenderClear(pr->renderer);
-    SDL_RenderCopy(pr->renderer, pr->texture, NULL, NULL);
+    present_dst_rect(pr, &dst);
+    SDL_RenderCopy(pr->renderer, pr->texture, NULL, &dst);
     SDL_RenderPresent(pr->renderer);
 }
 
 boolean Wolf_PresentToggleFullscreen(wolf_present_t *pr)
 {
-    int flags;
     if (!pr || !pr->window) {
         return false;
     }
@@ -184,8 +219,7 @@ boolean Wolf_PresentToggleFullscreen(wolf_present_t *pr)
             return false;
         }
         pr->fullscreen = 0;
-        SDL_SetWindowSize(pr->window, pr->logical_w * pr->scale,
-                          pr->logical_h * pr->scale);
+        SDL_SetWindowSize(pr->window, 320 * pr->scale, 240 * pr->scale);
         SDL_SetWindowPosition(pr->window, SDL_WINDOWPOS_CENTERED,
                               SDL_WINDOWPOS_CENTERED);
     } else {
@@ -195,9 +229,7 @@ boolean Wolf_PresentToggleFullscreen(wolf_present_t *pr)
         }
         pr->fullscreen = 1;
     }
-    flags = SDL_GetWindowFlags(pr->window);
-    (void)flags;
-    apply_integer_logical(pr);
+    apply_present_hints(pr);
     return true;
 }
 
@@ -214,16 +246,15 @@ boolean Wolf_PresentSetScale(wolf_present_t *pr, int scale)
     }
     pr->scale = scale;
     if (!pr->fullscreen) {
-        SDL_SetWindowSize(pr->window, pr->logical_w * pr->scale,
-                          pr->logical_h * pr->scale);
+        SDL_SetWindowSize(pr->window, 320 * pr->scale, 240 * pr->scale);
         SDL_SetWindowPosition(pr->window, SDL_WINDOWPOS_CENTERED,
                               SDL_WINDOWPOS_CENTERED);
     }
-    apply_integer_logical(pr);
+    apply_present_hints(pr);
     return true;
 }
 
 void Wolf_PresentHandleResize(wolf_present_t *pr)
 {
-    apply_integer_logical(pr);
+    apply_present_hints(pr);
 }

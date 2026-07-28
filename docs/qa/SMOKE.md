@@ -85,6 +85,7 @@ Asserted by `scripts/smoke_wl6.sh` (must all appear in combined stdout/stderr):
 | `save/load OK` |
 | `Present smoke:` |
 | `logical=320x200` |
+| `windowed_client=` |
 
 When changing engine print strings, update **both** the game and this list / script in the same PR.
 

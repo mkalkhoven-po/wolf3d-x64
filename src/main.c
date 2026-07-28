@@ -126,8 +126,9 @@ static int run_smoke_suite(void)
         Wolf_PresentDestroy(&pr);
         return 19;
     }
-    printf("Present smoke: scale=%d logical=%dx%d fullscreen=%d\n", pr.scale,
-           pr.logical_w, pr.logical_h, pr.fullscreen);
+    printf("Present smoke: scale=%d logical=%dx%d fullscreen=%d windowed_client=%dx%d\n",
+                   pr.scale, pr.logical_w, pr.logical_h, pr.fullscreen, 320 * pr.scale,
+                   240 * pr.scale);
     (void)Wolf_PresentSetScale(&pr, pr.scale >= 8 ? 2 : pr.scale + 1);
     printf("Present smoke: scale after bump=%d\n", pr.scale);
     Wolf_PresentDestroy(&pr);

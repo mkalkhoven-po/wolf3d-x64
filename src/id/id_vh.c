@@ -176,21 +176,87 @@ void VH_DrawString(int x, int y, const char *text, int color)
             glyph[4] = 0xC6; glyph[5] = 0xC6; glyph[6] = 0xFC;
             break;
         case 'K':
-            glyph[1] = 0xCE; glyph[2] = 0xDC; glyph[3] = 0xF8;
-            glyph[4] = 0xF8; glyph[5] = 0xDC; glyph[6] = 0xCE;
-            break;
-        case '!':
-            glyph[1] = 0x18; glyph[2] = 0x18; glyph[3] = 0x18;
-            glyph[4] = 0x18; glyph[5] = 0x00; glyph[6] = 0x18;
-            break;
-        case '.':
-            glyph[5] = 0x18; glyph[6] = 0x18;
-            break;
-        default:
-            glyph[1] = 0x7C; glyph[2] = 0xC6; glyph[3] = 0xC6;
-            glyph[4] = 0xC6; glyph[5] = 0xC6; glyph[6] = 0x7C;
-            break;
-        }
+                    glyph[1] = 0xCE; glyph[2] = 0xDC; glyph[3] = 0xF8;
+                    glyph[4] = 0xF8; glyph[5] = 0xDC; glyph[6] = 0xCE;
+                    break;
+                case 'X':
+                    glyph[1] = 0xC6; glyph[2] = 0x6C; glyph[3] = 0x38;
+                    glyph[4] = 0x38; glyph[5] = 0x6C; glyph[6] = 0xC6;
+                    break;
+                case 'Z':
+                    glyph[1] = 0xFE; glyph[2] = 0x0C; glyph[3] = 0x18;
+                    glyph[4] = 0x30; glyph[5] = 0x60; glyph[6] = 0xFE;
+                    break;
+                case 'J':
+                    glyph[1] = 0x1E; glyph[2] = 0x0C; glyph[3] = 0x0C;
+                    glyph[4] = 0x0C; glyph[5] = 0xCC; glyph[6] = 0x78;
+                    break;
+                case '0':
+                    glyph[1] = 0x7C; glyph[2] = 0xC6; glyph[3] = 0xCE;
+                    glyph[4] = 0xD6; glyph[5] = 0xE6; glyph[6] = 0x7C;
+                    break;
+                case '1':
+                    glyph[1] = 0x18; glyph[2] = 0x38; glyph[3] = 0x18;
+                    glyph[4] = 0x18; glyph[5] = 0x18; glyph[6] = 0x7E;
+                    break;
+                case '2':
+                    glyph[1] = 0x7C; glyph[2] = 0xC6; glyph[3] = 0x0C;
+                    glyph[4] = 0x38; glyph[5] = 0x60; glyph[6] = 0xFE;
+                    break;
+                case '3':
+                    glyph[1] = 0x7C; glyph[2] = 0xC6; glyph[3] = 0x1C;
+                    glyph[4] = 0x06; glyph[5] = 0xC6; glyph[6] = 0x7C;
+                    break;
+                case '4':
+                    glyph[1] = 0x0C; glyph[2] = 0x1C; glyph[3] = 0x3C;
+                    glyph[4] = 0x6C; glyph[5] = 0xFE; glyph[6] = 0x0C;
+                    break;
+                case '5':
+                    glyph[1] = 0xFE; glyph[2] = 0xC0; glyph[3] = 0xFC;
+                    glyph[4] = 0x06; glyph[5] = 0xC6; glyph[6] = 0x7C;
+                    break;
+                case '6':
+                    glyph[1] = 0x3C; glyph[2] = 0x60; glyph[3] = 0xFC;
+                    glyph[4] = 0xC6; glyph[5] = 0xC6; glyph[6] = 0x7C;
+                    break;
+                case '7':
+                    glyph[1] = 0xFE; glyph[2] = 0xC6; glyph[3] = 0x0C;
+                    glyph[4] = 0x18; glyph[5] = 0x30; glyph[6] = 0x30;
+                    break;
+                case '8':
+                    glyph[1] = 0x7C; glyph[2] = 0xC6; glyph[3] = 0x7C;
+                    glyph[4] = 0xC6; glyph[5] = 0xC6; glyph[6] = 0x7C;
+                    break;
+                case '9':
+                    glyph[1] = 0x7C; glyph[2] = 0xC6; glyph[3] = 0xC6;
+                    glyph[4] = 0x7E; glyph[5] = 0x0C; glyph[6] = 0x78;
+                    break;
+                case '-':
+                    glyph[3] = 0x7E; glyph[4] = 0x7E;
+                    break;
+                case '+':
+                    glyph[2] = 0x18; glyph[3] = 0x7E; glyph[4] = 0x18;
+                    break;
+                case '/':
+                    glyph[1] = 0x06; glyph[2] = 0x0C; glyph[3] = 0x18;
+                    glyph[4] = 0x30; glyph[5] = 0x60; glyph[6] = 0xC0;
+                    break;
+                case ':':
+                    glyph[2] = 0x18; glyph[5] = 0x18;
+                    break;
+                case '!':
+                    glyph[1] = 0x18; glyph[2] = 0x18; glyph[3] = 0x18;
+                    glyph[4] = 0x18; glyph[5] = 0x00; glyph[6] = 0x18;
+                    break;
+                case '.':
+                    glyph[5] = 0x18; glyph[6] = 0x18;
+                    break;
+                default:
+                    /* Unknown glyph: small box, not a fake zero/"O". */
+                    glyph[1] = 0x7E; glyph[2] = 0x42; glyph[3] = 0x42;
+                    glyph[4] = 0x42; glyph[5] = 0x42; glyph[6] = 0x7E;
+                    break;
+                }
 
         for (row = 0; row < 8; ++row) {
             for (col = 0; col < 8; ++col) {
