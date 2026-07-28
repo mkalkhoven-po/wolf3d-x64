@@ -25,6 +25,7 @@ boolean Wolf_SolidAt(float x, float y)
     int tx = (int)floorf(x);
     int ty = (int)floorf(y);
     int did;
+    byte tile;
 
     if ((unsigned)tx >= MAPSIZE || (unsigned)ty >= MAPSIZE) {
         return true;
@@ -35,12 +36,24 @@ boolean Wolf_SolidAt(float x, float y)
         return g_level.doors[did].open < 0.85f;
     }
 
-    return g_level.tilemap[tx][ty] != 0;
+    tile = g_level.tilemap[tx][ty];
+    /* Elevator tiles are walkable markers but CAM still wall-code 21 as solid;
+     * treat elevator as solid visually but walkable from open side. Allow walk. */
+    if (tile == ELEVATORTILE) {
+        return false;
+    }
+    return tile != 0;
 }
 
 static boolean blocked_player(float x, float y)
 {
     const float r = 0.18f;
+    return Wolf_SolidAt(x - r, y - r) || Wolf_SolidAt(x + r, y - r) ||
+           Wolf_SolidAt(x - r, y + r) || Wolf_SolidAt(x + r, y + r);
+}
+
+static boolean blocked_actor(float x, float y, float r)
+{
     return Wolf_SolidAt(x - r, y - r) || Wolf_SolidAt(x + r, y - r) ||
            Wolf_SolidAt(x - r, y + r) || Wolf_SolidAt(x + r, y + r);
 }
@@ -61,12 +74,162 @@ static void spawn_door(int x, int y, int vertical, int lock)
     g_level.door_id[x][y] = id;
 }
 
+static void spawn_enemy(enemy_kind_t kind, int x, int y, int dir)
+{
+    enemy_t *e;
+    if (g_level.enemy_count >= MAX_ENEMIES) {
+        return;
+    }
+    e = &g_level.enemies[g_level.enemy_count++];
+    memset(e, 0, sizeof(*e));
+    e->active = true;
+    e->kind = kind;
+    e->state = ST_STAND;
+    e->x = (float)x + 0.5f;
+    e->y = (float)y + 0.5f;
+    e->angle = (float)dir * (float)(M_PI * 0.5); /* 0..3 → cardinal */
+    e->think_t = 0.0f;
+    e->attack_cd = 0.5f;
+    switch (kind) {
+    case EN_DOG:
+        e->health = 1;
+        e->speed = 2.4f;
+        e->score_value = 200;
+        break;
+    case EN_OFFICER:
+        e->health = 50;
+        e->speed = 1.6f;
+        e->score_value = 400;
+        break;
+    case EN_SS:
+        e->health = 100;
+        e->speed = 1.4f;
+        e->score_value = 500;
+        break;
+    case EN_BOSS:
+        e->health = 500;
+        e->speed = 1.0f;
+        e->score_value = 5000;
+        break;
+    case EN_GUARD:
+    default:
+        e->health = 25;
+        e->speed = 1.2f;
+        e->score_value = 100;
+        break;
+    }
+    g_level.enemies_alive++;
+}
+
+static void spawn_pickup(pickup_kind_t kind, int x, int y, int amount)
+{
+    pickup_t *p;
+    if (kind == PK_NONE || g_level.pickup_count >= MAX_PICKUPS) {
+        return;
+    }
+    p = &g_level.pickups[g_level.pickup_count++];
+    p->active = true;
+    p->kind = kind;
+    p->x = (float)x + 0.5f;
+    p->y = (float)y + 0.5f;
+    p->amount = amount;
+}
+
+/* Map static type index (tile-23) → simplified pickup. */
+static void spawn_static_from_type(int x, int y, int type)
+{
+    /* Indices from WL_ACT1 statinfo for WL6. */
+    switch (type) {
+    case 6: /* bad food */
+        spawn_pickup(PK_FOOD, x, y, 4);
+        break;
+    case 20: /* key1 */
+        spawn_pickup(PK_KEY1, x, y, 1);
+        break;
+    case 21: /* key2 */
+        spawn_pickup(PK_KEY2, x, y, 1);
+        break;
+    case 24: /* good food */
+        spawn_pickup(PK_FOOD, x, y, 10);
+        break;
+    case 25: /* first aid */
+        spawn_pickup(PK_MEDKIT, x, y, 25);
+        break;
+    case 26: /* clip */
+        spawn_pickup(PK_AMMO, x, y, 8);
+        break;
+    case 27: /* machine gun */
+        spawn_pickup(PK_MGUN, x, y, 6);
+        break;
+    case 28: /* chaingun */
+        spawn_pickup(PK_CGUN, x, y, 6);
+        break;
+    case 29: /* cross */
+    case 30: /* chalice */
+    case 31: /* bible */
+    case 32: /* crown */
+        spawn_pickup(PK_TREASURE, x, y, 100 * (type - 28));
+        break;
+    case 33: /* one up */
+        spawn_pickup(PK_1UP, x, y, 1);
+        break;
+    default:
+        break;
+    }
+}
+
+void Wolf_ResetPlayerStats(void)
+{
+    player_t *p = &g_level.player;
+    p->health = 100;
+    p->lives = 3;
+    p->ammo = 8;
+    p->score = 0;
+    p->keys = 0;
+    p->weapon = 1; /* pistol */
+    p->best_weapon = 1;
+    p->attack_cd = 0.0f;
+    p->hurt_flash = 0.0f;
+    p->dead = false;
+}
+
+static void give_score(int pts)
+{
+    g_level.player.score += pts;
+}
+
+static void hurt_player(int dmg)
+{
+    player_t *p = &g_level.player;
+    if (p->dead) {
+        return;
+    }
+    p->health -= dmg;
+    p->hurt_flash = 0.25f;
+    if (p->health <= 0) {
+        p->health = 0;
+        p->dead = true;
+        p->lives -= 1;
+        printf("Player died. Lives left=%d score=%d\n", p->lives, p->score);
+    }
+}
+
 boolean Wolf_SetupLevel(int mapnum)
 {
     int x, y;
     uint16_t *plane0;
     uint16_t *plane1;
     int spawned = 0;
+    player_t saved_player;
+    int episode_map;
+    boolean keep_stats = g_level.active && mapnum != 0;
+
+    if (keep_stats) {
+        saved_player = g_level.player;
+        episode_map = g_level.episode_map;
+    } else {
+        episode_map = mapnum;
+    }
 
     memset(&g_level, 0, sizeof(g_level));
     for (x = 0; x < MAPSIZE; ++x) {
@@ -110,17 +273,33 @@ boolean Wolf_SetupLevel(int mapnum)
         }
     }
 
+    if (keep_stats) {
+        g_level.player = saved_player;
+        g_level.player.dead = false;
+        if (g_level.player.health <= 0) {
+            g_level.player.health = 100;
+        }
+        g_level.player.attack_cd = 0.0f;
+        g_level.player.hurt_flash = 0.0f;
+    } else {
+        Wolf_ResetPlayerStats();
+    }
+
     g_level.player.x = 32.5f;
     g_level.player.y = 32.5f;
     g_level.player.angle = 0.0f;
 
+    /* Scan object plane */
     for (y = 0; y < MAPSIZE; ++y) {
         for (x = 0; x < MAPSIZE; ++x) {
             uint16_t tile = plane1[y * MAPSIZE + x];
+            if (!tile) {
+                continue;
+            }
+
             if (tile >= 19 && tile <= 22) {
                 g_level.player.x = (float)x + 0.5f;
                 g_level.player.y = (float)y + 0.5f;
-                /* plane codes: 19 N, 20 E, 21 S, 22 W */
                 switch (tile) {
                 case 19:
                     g_level.player.angle = (float)(M_PI * 0.5);
@@ -136,6 +315,34 @@ boolean Wolf_SetupLevel(int mapnum)
                     break;
                 }
                 spawned = 1;
+                continue;
+            }
+
+            if (tile >= 23 && tile <= 74) {
+                spawn_static_from_type(x, y, (int)tile - 23);
+                continue;
+            }
+
+            /* Easy-difficulty standing/patrolling actors only (base tiles) */
+            if (tile >= 108 && tile <= 111) {
+                spawn_enemy(EN_GUARD, x, y, (int)tile - 108);
+            } else if (tile >= 112 && tile <= 115) {
+                spawn_enemy(EN_GUARD, x, y, (int)tile - 112);
+            } else if (tile >= 116 && tile <= 119) {
+                spawn_enemy(EN_OFFICER, x, y, (int)tile - 116);
+            } else if (tile >= 120 && tile <= 123) {
+                spawn_enemy(EN_OFFICER, x, y, (int)tile - 120);
+            } else if (tile >= 126 && tile <= 129) {
+                spawn_enemy(EN_SS, x, y, (int)tile - 126);
+            } else if (tile >= 130 && tile <= 133) {
+                spawn_enemy(EN_SS, x, y, (int)tile - 130);
+            } else if (tile >= 134 && tile <= 137) {
+                spawn_enemy(EN_DOG, x, y, (int)tile - 134);
+            } else if (tile >= 138 && tile <= 141) {
+                spawn_enemy(EN_DOG, x, y, (int)tile - 138);
+            } else if (tile == 214 || tile == 197 || tile == 215 || tile == 179 ||
+                       tile == 196 || tile == 160 || tile == 178) {
+                spawn_enemy(EN_BOSS, x, y, 0);
             }
         }
     }
@@ -154,10 +361,14 @@ boolean Wolf_SetupLevel(int mapnum)
     }
 
     g_level.mapnum = mapnum;
+    g_level.episode_map = episode_map;
     g_level.active = true;
-    printf("Level %d ready: doors=%d player=(%.1f,%.1f) ang=%.2f\n", mapnum,
-           g_level.door_count, g_level.player.x, g_level.player.y,
-           g_level.player.angle);
+    g_level.level_complete = false;
+    g_level.elevator_ready = false;
+
+    printf("Level %d ready: doors=%d enemies=%d pickups=%d player=(%.1f,%.1f)\n",
+           mapnum, g_level.door_count, g_level.enemies_alive, g_level.pickup_count,
+           g_level.player.x, g_level.player.y);
     return true;
 }
 
@@ -169,23 +380,181 @@ byte Wolf_WallTile(int tx, int ty)
     return g_level.tilemap[tx][ty];
 }
 
+static boolean ray_hits_enemy(float ox, float oy, float dx, float dy, float max_dist,
+                              int *out_enemy, float *out_dist)
+{
+    int i;
+    float best = max_dist;
+    int best_i = -1;
+    for (i = 0; i < g_level.enemy_count; ++i) {
+        enemy_t *e = &g_level.enemies[i];
+        float ex, ey, proj, perp, dist;
+        if (!e->active || e->state == ST_DEAD) {
+            continue;
+        }
+        ex = e->x - ox;
+        ey = e->y - oy;
+        proj = ex * dx + ey * dy;
+        if (proj < 0.1f || proj > max_dist) {
+            continue;
+        }
+        perp = fabsf(ex * dy - ey * dx);
+        if (perp < 0.35f) {
+            dist = proj;
+            if (dist < best) {
+                best = dist;
+                best_i = i;
+            }
+        }
+    }
+    if (best_i >= 0) {
+        /* Also ensure wall doesn't block: step along ray */
+        float t;
+        for (t = 0.1f; t < best; t += 0.1f) {
+            if (Wolf_SolidAt(ox + dx * t, oy + dy * t)) {
+                return false;
+            }
+        }
+        if (out_enemy) {
+            *out_enemy = best_i;
+        }
+        if (out_dist) {
+            *out_dist = best;
+        }
+        return true;
+    }
+    return false;
+}
+
+void Wolf_TryShoot(void)
+{
+    player_t *p = &g_level.player;
+    float c, s;
+    int ei;
+    float dist;
+    int dmg;
+
+    if (!g_level.active || p->dead || p->attack_cd > 0.0f) {
+        return;
+    }
+
+    if (p->weapon == 0) {
+        /* knife */
+        p->attack_cd = 0.35f;
+        dmg = 8;
+        c = cosf(p->angle);
+        s = sinf(p->angle);
+        if (ray_hits_enemy(p->x, p->y, c, -s, 0.9f, &ei, &dist)) {
+            enemy_t *e = &g_level.enemies[ei];
+            e->health -= dmg;
+            if (e->health <= 0) {
+                e->state = ST_DEAD;
+                e->active = false;
+                g_level.enemies_alive--;
+                g_level.kill_count++;
+                give_score(e->score_value);
+                printf("Killed enemy (knife). Alive=%d score=%d\n",
+                       g_level.enemies_alive, p->score);
+            } else {
+                e->state = ST_CHASE;
+            }
+        }
+        return;
+    }
+
+    if (p->ammo <= 0) {
+        p->weapon = 0;
+        p->attack_cd = 0.2f;
+        return;
+    }
+
+    p->ammo--;
+    switch (p->weapon) {
+    case 2:
+        p->attack_cd = 0.12f;
+        dmg = 12;
+        break;
+    case 3:
+        p->attack_cd = 0.07f;
+        dmg = 10;
+        break;
+    default:
+        p->attack_cd = 0.28f;
+        dmg = 16;
+        break;
+    }
+
+    c = cosf(p->angle);
+    s = sinf(p->angle);
+    if (ray_hits_enemy(p->x, p->y, c, -s, 16.0f, &ei, &dist)) {
+        enemy_t *e = &g_level.enemies[ei];
+        /* Distance falloff */
+        if (dist > 8.0f) {
+            dmg = dmg / 2;
+        }
+        e->health -= dmg;
+        e->state = ST_CHASE;
+        if (e->health <= 0) {
+            e->state = ST_DEAD;
+            e->active = false;
+            g_level.enemies_alive--;
+            g_level.kill_count++;
+            give_score(e->score_value);
+            /* Drop a tiny ammo chance */
+            if (g_level.pickup_count < MAX_PICKUPS) {
+                spawn_pickup(PK_AMMO, (int)e->x, (int)e->y, 4);
+            }
+            printf("Killed enemy. Alive=%d score=%d ammo=%d\n", g_level.enemies_alive,
+                   p->score, p->ammo);
+        }
+    }
+}
+
 void Wolf_TryUse(void)
 {
-    float c = cosf(g_level.player.angle);
-    float s = sinf(g_level.player.angle);
+    player_t *p = &g_level.player;
+    float c = cosf(p->angle);
+    float s = sinf(p->angle);
     int did = -1;
     int i;
+    int checkx, checky;
+
+    if (p->dead) {
+        return;
+    }
 
     for (i = 1; i <= 3 && did < 0; ++i) {
-        float ux = g_level.player.x + c * (0.4f * (float)i);
-        float uy = g_level.player.y - s * (0.4f * (float)i);
-        int tx = (int)floorf(ux);
-        int ty = (int)floorf(uy);
-        did = door_at(tx, ty);
+        float ux = p->x + c * (0.4f * (float)i);
+        float uy = p->y - s * (0.4f * (float)i);
+        checkx = (int)floorf(ux);
+        checky = (int)floorf(uy);
+        did = door_at(checkx, checky);
+
+        if (did < 0 && (unsigned)checkx < MAPSIZE && (unsigned)checky < MAPSIZE) {
+            if (g_level.tilemap[checkx][checky] == ELEVATORTILE) {
+                g_level.level_complete = true;
+                g_level.elevator_ready = true;
+                printf("Elevator activated at %d,%d → next map\n", checkx, checky);
+                return;
+            }
+        }
     }
 
     if (did >= 0) {
         door_t *d = &g_level.doors[did];
+        if (d->lock > 0) {
+            int need = d->lock - 1; /* lock 1 needs key bit0 */
+            if (need < 0) {
+                need = 0;
+            }
+            if (need > 3) {
+                need = 3;
+            }
+            if ((p->keys & (1 << need)) == 0) {
+                printf("Door %d locked (need key %d)\n", did, need + 1);
+                return;
+            }
+        }
         if (d->open < 0.5f) {
             d->opening = 1;
             printf("Door %d opening at %d,%d\n", did, d->tilex, d->tiley);
@@ -196,11 +565,151 @@ void Wolf_TryUse(void)
     }
 }
 
-/*
- * keys layout from game loop (ascii-ish flags):
- * 0 forward, 1 back, 2 turn left, 3 turn right, 4 strafe left, 5 strafe right
- */
-void Wolf_UpdateLevel(float dt, const boolean keys[8])
+static void update_pickups(void)
+{
+    int i;
+    player_t *pl = &g_level.player;
+    for (i = 0; i < g_level.pickup_count; ++i) {
+        pickup_t *pk = &g_level.pickups[i];
+        float dx, dy;
+        if (!pk->active) {
+            continue;
+        }
+        dx = pk->x - pl->x;
+        dy = pk->y - pl->y;
+        if (dx * dx + dy * dy > 0.35f * 0.35f) {
+            continue;
+        }
+        switch (pk->kind) {
+        case PK_KEY1:
+            pl->keys |= 1;
+            printf("Got gold key\n");
+            break;
+        case PK_KEY2:
+            pl->keys |= 2;
+            printf("Got silver key\n");
+            break;
+        case PK_KEY3:
+            pl->keys |= 4;
+            break;
+        case PK_KEY4:
+            pl->keys |= 8;
+            break;
+        case PK_AMMO:
+            pl->ammo += pk->amount;
+            if (pl->ammo > 99) {
+                pl->ammo = 99;
+            }
+            if (pl->weapon < 1) {
+                pl->weapon = 1;
+            }
+            break;
+        case PK_FOOD:
+            pl->health += pk->amount;
+            if (pl->health > 100) {
+                pl->health = 100;
+            }
+            break;
+        case PK_MEDKIT:
+            pl->health += pk->amount;
+            if (pl->health > 100) {
+                pl->health = 100;
+            }
+            break;
+        case PK_1UP:
+            pl->lives += 1;
+            pl->health = 100;
+            break;
+        case PK_TREASURE:
+            give_score(pk->amount);
+            break;
+        case PK_MGUN:
+            if (pl->best_weapon < 2) {
+                pl->best_weapon = 2;
+            }
+            pl->weapon = 2;
+            pl->ammo += pk->amount;
+            break;
+        case PK_CGUN:
+            if (pl->best_weapon < 3) {
+                pl->best_weapon = 3;
+            }
+            pl->weapon = 3;
+            pl->ammo += pk->amount;
+            break;
+        default:
+            break;
+        }
+        pk->active = false;
+        g_level.pickup_got++;
+    }
+}
+
+static void update_enemies(float dt)
+{
+    int i;
+    player_t *pl = &g_level.player;
+
+    for (i = 0; i < g_level.enemy_count; ++i) {
+        enemy_t *e = &g_level.enemies[i];
+        float dx, dy, dist, ang, c, s, nx, ny;
+        if (!e->active || e->state == ST_DEAD || pl->dead) {
+            continue;
+        }
+
+        dx = pl->x - e->x;
+        dy = pl->y - e->y;
+        dist = sqrtf(dx * dx + dy * dy);
+        e->think_t -= dt;
+        if (e->attack_cd > 0) {
+            e->attack_cd -= dt;
+        }
+
+        if (e->state == ST_STAND) {
+            if (dist < 8.0f) {
+                e->state = ST_CHASE;
+            }
+            continue;
+        }
+
+        if (e->state == ST_CHASE || e->state == ST_ATTACK) {
+            if (dist > 0.01f) {
+                ang = atan2f(-dy, dx); /* match player angle convention */
+                e->angle = ang;
+                c = cosf(ang);
+                s = sinf(ang);
+                if (dist > 0.85f) {
+                    nx = e->x + c * e->speed * dt;
+                    ny = e->y - s * e->speed * dt;
+                    if (!blocked_actor(nx, e->y, 0.15f)) {
+                        e->x = nx;
+                    }
+                    if (!blocked_actor(e->x, ny, 0.15f)) {
+                        e->y = ny;
+                    }
+                }
+            }
+
+            if (dist < 1.1f && e->attack_cd <= 0.0f) {
+                int dmg = 5;
+                if (e->kind == EN_DOG) {
+                    dmg = 8;
+                } else if (e->kind == EN_SS) {
+                    dmg = 12;
+                } else if (e->kind == EN_BOSS) {
+                    dmg = 20;
+                }
+                hurt_player(dmg);
+                e->attack_cd = 0.7f;
+                e->state = ST_ATTACK;
+            } else if (dist >= 1.1f) {
+                e->state = ST_CHASE;
+            }
+        }
+    }
+}
+
+void Wolf_UpdateLevel(float dt, const boolean keys[12])
 {
     player_t *p = &g_level.player;
     float move_speed = 3.2f * dt;
@@ -210,6 +719,11 @@ void Wolf_UpdateLevel(float dt, const boolean keys[8])
     int i;
 
     if (!g_level.active) {
+        return;
+    }
+
+    if (p->dead) {
+        /* Wait for respawn intent — held forward or loop handles lives */
         return;
     }
 
@@ -228,6 +742,13 @@ void Wolf_UpdateLevel(float dt, const boolean keys[8])
                 d->opening = 0;
             }
         }
+    }
+
+    if (p->attack_cd > 0) {
+        p->attack_cd -= dt;
+    }
+    if (p->hurt_flash > 0) {
+        p->hurt_flash -= dt;
     }
 
     if (keys[2]) {
@@ -259,11 +780,109 @@ void Wolf_UpdateLevel(float dt, const boolean keys[8])
         ny += c * move_speed;
     }
 
-    /* Axis-separated collision */
     if (!blocked_player(nx, p->y)) {
         p->x = nx;
     }
     if (!blocked_player(p->x, ny)) {
         p->y = ny;
     }
+
+    if (keys[6]) {
+        Wolf_TryShoot();
+    }
+
+    /* Weapon select 1-4 */
+    if (keys[7] && p->best_weapon >= 0) {
+        p->weapon = 0;
+    }
+    if (keys[8] && p->best_weapon >= 1) {
+        p->weapon = 1;
+    }
+    if (keys[9] && p->best_weapon >= 2) {
+        p->weapon = 2;
+    }
+    if (keys[10] && p->best_weapon >= 3) {
+        p->weapon = 3;
+    }
+
+    update_pickups();
+    update_enemies(dt);
+}
+
+boolean Wolf_CombatSmokeVerify(void)
+{
+    int i;
+    int guards = 0;
+    int necks = 0;
+    int clips = 0;
+
+    for (i = 0; i < g_level.enemy_count; ++i) {
+        if (g_level.enemies[i].active && g_level.enemies[i].kind == EN_GUARD) {
+            guards++;
+        }
+    }
+    for (i = 0; i < g_level.pickup_count; ++i) {
+        if (!g_level.pickups[i].active) {
+            continue;
+        }
+        if (g_level.pickups[i].kind == PK_KEY1 ||
+            g_level.pickups[i].kind == PK_KEY2) {
+            necks++;
+        }
+        if (g_level.pickups[i].kind == PK_AMMO) {
+            clips++;
+        }
+    }
+
+    printf("Combat smoke: enemies_alive=%d guards~=%d key_pickups=%d ammo_pickups=%d "
+           "HP=%d ammo=%d lives=%d\n",
+           g_level.enemies_alive, guards, necks, clips, g_level.player.health,
+           g_level.player.ammo, g_level.player.lives);
+
+    /* Simulate one shot and one pickup if present */
+        if (g_level.enemies_alive > 0) {
+            int old_score = g_level.player.score;
+            for (i = 0; i < g_level.enemy_count; ++i) {
+                if (g_level.enemies[i].active && g_level.enemies[i].state != ST_DEAD) {
+                    enemy_t *e = &g_level.enemies[i];
+                    float dx, dy;
+                    /* Teleport next to target so LOS is clear for smoke. */
+                    g_level.player.x = e->x - 0.6f;
+                    g_level.player.y = e->y;
+                    dx = e->x - g_level.player.x;
+                    dy = e->y - g_level.player.y;
+                    g_level.player.angle = atan2f(-dy, dx);
+                    g_level.player.ammo = 50;
+                    g_level.player.weapon = 1;
+                    g_level.player.attack_cd = 0;
+                    {
+                        int s;
+                        for (s = 0; s < 30 && e->active; ++s) {
+                            g_level.player.attack_cd = 0;
+                            Wolf_TryShoot();
+                        }
+                    }
+                    printf("Smoke shot enemy kind=%d dead=%d score_delta=%d\n",
+                           (int)e->kind, e->state == ST_DEAD ? 1 : 0,
+                           g_level.player.score - old_score);
+                    break;
+                }
+            }
+        }
+
+    /* Auto-grant key and open a locked door if any lock>0 */
+    {
+        int locked = 0;
+        for (i = 0; i < g_level.door_count; ++i) {
+            if (g_level.doors[i].lock > 0) {
+                locked++;
+                g_level.player.keys |= (1 << (g_level.doors[i].lock - 1));
+                g_level.doors[i].open = 1.0f;
+            }
+        }
+        printf("Combat smoke: locked_doors=%d keys_now=%d\n", locked,
+               g_level.player.keys);
+    }
+
+    return g_level.enemy_count > 0 || g_level.pickup_count > 0;
 }

@@ -44,3 +44,10 @@
 | Raycast | `src/game/wl_draw.c` | DDA walls + VSWAP textures |
 | Game loop | `src/game/wl_game.c` | WASD / doors / Esc |
 | VSWAP pages | `src/id/id_pm.c` | Cached `PM_GetPage` |
+
+## E6 additions
+| Module | Path | Notes |
+|--------|------|-------|
+| Combat state | `src/game/wl_play.c` | enemies, pickups, keys, hitscan, lives |
+| Billboards | `src/game/wl_draw.c` | enemy/pickup sprites + hurt flash |
+| Episode loop | `src/game/wl_game.c` | shoot, respawn, elevator→next map |
