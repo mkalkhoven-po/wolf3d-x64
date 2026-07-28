@@ -13,6 +13,8 @@
 #include "id/id_vl.h"
 #include "wl_draw.h"
 #include "wl_play.h"
+#include "id/id_sd.h"
+#include "id/audio_wl6.h"
 
 static void present(SDL_Renderer *renderer, SDL_Texture *texture, Uint32 *pixels)
 {
@@ -132,6 +134,7 @@ int Wolf_RunGame(void)
 
     memset(keys, 0, sizeof(keys));
     last_ticks = SDL_GetTicks();
+    SD_StartMusic(GETTHEM_MUS);
     printf("E6 combat: WASD/arrows, CTRL/LMB shoot, E door/elevator, R respawn, ESC exit\n");
 
     while (running) {

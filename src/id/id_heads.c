@@ -11,7 +11,7 @@ void ID_Engine_Startup(void)
     VH_Startup();
     IN_Startup();
     SD_Startup();
-    fprintf(stderr, "ID_Engine_Startup: ready (E6 playable combat)\n");
+    fprintf(stderr, "ID_Engine_Startup: ready (E7 audio)\n");
 }
 
 void ID_Engine_Shutdown(void)
