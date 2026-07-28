@@ -1,17 +1,34 @@
 # Epic index
 
-Epics map 1:1 to milestones **M0–M8**. Each epic issue on GitHub uses label `type:epic`. User stories use `type:story` and reference FR IDs.
+## Delivery (done M0–M8)
+
+Epics map 1:1 to milestones **M0–M8**. GitHub Project: [Wolf3D Win64 Port](https://github.com/users/mkalkhoven-po/projects/1).
 
 | Milestone | Epic | Demo exit |
 |-----------|------|-----------|
 | M0 | [E0 Repo & governance](E0-repo-governance.md) | Private repo, docs, board populated |
 | M1 | [E1 Runnable shell](E1-runnable-shell.md) | Empty Win11 window quits cleanly |
 | M2 | [E2 Platform contracts](E2-platform-contracts.md) | Headers + stubs link; no ASM |
-| M3 | [E3 Data path](E3-data-path.md) | **User assets ready** + loads WL1 map/VSWAP; clear missing-data errors |
+| M3 | [E3 Data path](E3-data-path.md) | User assets + loads map/VSWAP |
 | M4 | [E4 2D present & menus](E4-2d-menus.md) | Title + menu navigate |
-| M5 | [E5 Move & walls](E5-move-walls.md) | Walk E1M1 walls/doors |
-| M6 | [E6 Playable combat](E6-playable-combat.md) | Finish shareware episode |
-| M7 | [E7 Audio](E7-audio.md) | Digi + optional music |
-| M8 | [E8 Win11 productization](E8-win11-product.md) | AppData, fullscreen, DPI, polished quit |
+| M5 | [E5 Move & walls](E5-move-walls.md) | Walk walls/doors |
+| M6 | [E6 Playable combat](E6-playable-combat.md) | Combat / episode slice |
+| M7 | [E7 Audio](E7-audio.md) | Digi + music path |
+| M8 | [E8 Win11 productization](E8-win11-productization.md) | AppData, fullscreen, DPI |
 
-Work **in order**. Do not start E4/E5 before **E3 acceptance**, including the [user-supplied assets](../product/GAME_DATA.md) checklist.
+## QA & stabilization (Q0–Q5)
+
+Project: [Wolf3D Win64 — QA & Stabilization](https://github.com/users/mkalkhoven-po/projects/2).  
+Docs: [`docs/qa/`](../qa/README.md).
+
+| Milestone | Epic brief | Epic issue |
+|-----------|------------|------------|
+| Q0 | [QA governance](Q0-qa-governance.md) | #41 |
+| Q1 | [Smoke harness](Q1-smoke-harness.md) | #45 |
+| Q2 | [Present & data playtest](Q2-present-data-playtest.md) | #49 |
+| Q3 | [World & combat playtest](Q3-world-combat-playtest.md) | #53 |
+| Q4 | [Audio & UX playtest](Q4-audio-ux-playtest.md) | #57 |
+| Q5 | [Stabilization](Q5-stabilization.md) | #60 |
+
+Labels: `type:epic` / `type:story` / `type:bug` / `type:test` · `area:qa` · `severity:*`.  
+Bug workflow: [BUG_TRIAGE.md](../qa/BUG_TRIAGE.md).

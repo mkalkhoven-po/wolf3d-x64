@@ -23,9 +23,20 @@ build\wolf3d.exe --data "%WOLF3D_DATA%" --smoke-only
 ## Live GitHub
 
 Private repo: https://github.com/mkalkhoven-po/wolf3d-win64  
-Project board: https://github.com/users/mkalkhoven-po/projects/1  
+
+| Board | URL |
+|-------|-----|
+| **Delivery (M0–M8)** | https://github.com/users/mkalkhoven-po/projects/1 |
+| **QA & Stabilization (Q0–Q5)** | https://github.com/users/mkalkhoven-po/projects/2 |
 
 If links show **Page not found** in chat previews, paste into a browser where you are signed in as **`mkalkhoven-po`**.
+
+## QA
+
+Phase 2 after E8: automated smoke, playtest checklists, FR matrix, bug burn-down.
+
+- **[QA index](docs/qa/README.md)** · [FR matrix](docs/qa/FR_TEST_MATRIX.md) · [Smoke](docs/qa/SMOKE.md) · [Playtest](docs/qa/PLAYTEST_MANUAL.md)
+- Milestones **Q0–Q5** on the repo; epics **#41–#60** on Project #2.
 
 ## What this is
 
@@ -34,7 +45,8 @@ If links show **Page not found** in chat previews, paste into a browser where yo
 | [`reference/original/`](reference/original/) | Unmodified original DOS/Borland sources (study only) |
 | [`docs/product/`](docs/product/) | Vision, exclusions, functional requirements |
 | [`docs/player/`](docs/player/) | Player quickstart |
-| [`docs/epics/`](docs/epics/) | Epic briefs E0–E8 |
+| [`docs/qa/`](docs/qa/) | Test matrix, smoke, playtest, go/no-go |
+| [`docs/epics/`](docs/epics/) | Epic briefs E0–E8 and Q0–Q5 |
 | [`src/`](src/) | Modern port (platform + ID managers + game) |
 
 ## Docs
@@ -44,6 +56,7 @@ If links show **Page not found** in chat previews, paste into a browser where yo
 - [Functional requirements](docs/product/FUNCTIONAL_REQUIREMENTS.md)
 - [User-supplied game assets](docs/product/GAME_DATA.md)
 - [**Player quickstart**](docs/player/QUICKSTART.md)
+- [**QA index**](docs/qa/README.md)
 - [ADR-001 Platform backend](docs/adr/001-platform-backend.md)
 - [Epic index](docs/epics/README.md)
 - [ID module map](docs/architecture/ID_MODULE_MAP.md)

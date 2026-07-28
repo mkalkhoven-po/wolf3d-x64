@@ -1,6 +1,7 @@
 # Functional requirements — MVP
 
-IDs are referenced from GitHub user stories. Status is aspirational until implemented.
+IDs are referenced from GitHub user stories.  
+**Verification status** for the post-E8 phase lives in [`docs/qa/FR_TEST_MATRIX.md`](../qa/FR_TEST_MATRIX.md) (Untested / Partial / Met / Fail).
 
 ## Platform & process
 
