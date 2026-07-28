@@ -11,7 +11,7 @@ void ID_Engine_Startup(void)
     VH_Startup();
     IN_Startup();
     SD_Startup();
-    fprintf(stderr, "ID_Engine_Startup: ready (E7 audio)\n");
+    fprintf(stderr, "ID_Engine_Startup: ready (E8 Win11 productization)\n");
 }
 
 void ID_Engine_Shutdown(void)

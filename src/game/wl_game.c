@@ -1,7 +1,6 @@
 #include "wl_game.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #ifndef SDL_MAIN_HANDLED
@@ -9,37 +8,17 @@
 #endif
 #include <SDL.h>
 
+#include "id/audio_wl6.h"
+#include "id/id_sd.h"
 #include "id/id_vh.h"
-#include "id/id_vl.h"
 #include "wl_draw.h"
 #include "wl_play.h"
-#include "id/id_sd.h"
-#include "id/audio_wl6.h"
-
-static void present(SDL_Renderer *renderer, SDL_Texture *texture, Uint32 *pixels)
-{
-    int i;
-    if (!framebuffer || !pixels) {
-        return;
-    }
-    for (i = 0; i < SCREENPIXELS; ++i) {
-        byte idx = framebuffer[i];
-        byte r = VL_VGA6to8(g_palette[idx * 3 + 0]);
-        byte g = VL_VGA6to8(g_palette[idx * 3 + 1]);
-        byte b = VL_VGA6to8(g_palette[idx * 3 + 2]);
-        pixels[i] = (Uint32)(0xFF000000u | ((Uint32)r << 16) | ((Uint32)g << 8) |
-                             (Uint32)b);
-    }
-    SDL_UpdateTexture(texture, NULL, pixels, SCREENWIDTH * 4);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, texture, NULL, NULL);
-    SDL_RenderPresent(renderer);
-}
+#include "wolf_present.h"
+#include "wolf_userdata.h"
 
 static void draw_hud(void)
 {
-    char line[128];
+    char line[160];
     player_t *p = &g_level.player;
     const char *wname = "KNIFE";
     if (p->weapon == 1) {
@@ -49,11 +28,13 @@ static void draw_hud(void)
     } else if (p->weapon == 3) {
         wname = "CHAIN";
     }
-    snprintf(line, sizeof(line), "HP %d  AMMO %d  LIVES %d  SCORE %d  %s  MAP %d",
-             p->health, p->ammo, p->lives, p->score, wname, g_level.mapnum);
+    snprintf(line, sizeof(line),
+             "HP %d  AMMO %d  LIVES %d  SCORE %d  %s  MAP %d  x%d%s",
+             p->health, p->ammo, p->lives, p->score, wname, g_level.mapnum,
+             g_config.scale, g_config.fullscreen ? " FS" : "");
     VH_DrawString(2, SCREENHEIGHT - 18, line, 15);
-    VH_DrawString(2, SCREENHEIGHT - 9, "W/A/S/D MOVE  ARROWS TURN  CTRL SHOOT  E DOOR  ESC",
-                  7);
+    VH_DrawString(2, SCREENHEIGHT - 9,
+                  "WASD  CTRL SHOOT  E DOOR  F5 SAVE  F9 LOAD  F11 FS  ESC", 7);
     if (p->dead) {
         if (p->lives >= 0) {
             VH_DrawString(90, 80, "YOU DIED - PRESS R", 12);
@@ -62,28 +43,17 @@ static void draw_hud(void)
         }
     }
     if (g_level.level_complete) {
-        VH_DrawString(70, 70, "LEVEL COMPLETE!", 14);
+        VH_DrawString(70, 70, "LEVEL COMPLETE! N=NEXT", 14);
     }
 }
 
 int Wolf_RunGame(void)
 {
-    SDL_Window *window = NULL;
-    SDL_Renderer *renderer = NULL;
-    SDL_Texture *texture = NULL;
-    Uint32 *pixels = NULL;
+    wolf_present_t pr;
     int running = 1;
-    int scale = 3;
     Uint32 last_ticks;
     boolean keys[12];
     int start_map = 0;
-
-    if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
-        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
-            fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
-            return 1;
-        }
-    }
 
     Wolf_ResetPlayerStats();
     if (!Wolf_SetupLevel(start_map)) {
@@ -91,51 +61,17 @@ int Wolf_RunGame(void)
         return 1;
     }
 
-    window = SDL_CreateWindow(
-        "Wolf3D Win64 — E6 Combat",
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        SCREENWIDTH * scale,
-        SCREENHEIGHT * scale,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-    if (!window) {
-        fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-        return 1;
-    }
-
-    renderer = SDL_CreateRenderer(
-        window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer) {
-        renderer = SDL_CreateRenderer(window, -1, 0);
-    }
-    if (!renderer) {
-        SDL_DestroyWindow(window);
-        return 1;
-    }
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
-    SDL_RenderSetLogicalSize(renderer, SCREENWIDTH, SCREENHEIGHT);
-
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                                SDL_TEXTUREACCESS_STREAMING, SCREENWIDTH,
-                                SCREENHEIGHT);
-    if (!texture) {
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        return 1;
-    }
-
-    pixels = (Uint32 *)malloc(SCREENPIXELS * sizeof(Uint32));
-    if (!pixels) {
-        SDL_DestroyTexture(texture);
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
+    if (!Wolf_PresentCreate(&pr, "Wolf3D Win64", g_config.scale,
+                            g_config.fullscreen)) {
         return 1;
     }
 
     memset(keys, 0, sizeof(keys));
     last_ticks = SDL_GetTicks();
-    SD_StartMusic(GETTHEM_MUS);
-    printf("E6 combat: WASD/arrows, CTRL/LMB shoot, E door/elevator, R respawn, ESC exit\n");
+    if (g_config.music_on) {
+        SD_StartMusic(GETTHEM_MUS);
+    }
+    printf("E8: F5 save / F9 load / F11 fullscreen / +/- scale, ESC exit\n");
 
     while (running) {
         SDL_Event ev;
@@ -146,12 +82,35 @@ int Wolf_RunGame(void)
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT) {
                 running = 0;
+            } else if (ev.type == SDL_WINDOWEVENT &&
+                       (ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
+                        ev.window.event == SDL_WINDOWEVENT_RESIZED)) {
+                Wolf_PresentHandleResize(&pr);
             } else if (ev.type == SDL_KEYDOWN) {
                 SDL_Keycode k = ev.key.keysym.sym;
                 if (k == SDLK_ESCAPE) {
                     running = 0;
                 } else if (k == SDLK_e || k == SDLK_SPACE) {
                     Wolf_TryUse();
+                } else if (k == SDLK_F11) {
+                    if (Wolf_PresentToggleFullscreen(&pr)) {
+                        g_config.fullscreen = pr.fullscreen;
+                        (void)Wolf_ConfigSave();
+                    }
+                } else if (k == SDLK_EQUALS || k == SDLK_PLUS || k == SDLK_KP_PLUS) {
+                    if (Wolf_PresentSetScale(&pr, pr.scale + 1)) {
+                        g_config.scale = pr.scale;
+                        (void)Wolf_ConfigSave();
+                    }
+                } else if (k == SDLK_MINUS || k == SDLK_KP_MINUS) {
+                    if (Wolf_PresentSetScale(&pr, pr.scale - 1)) {
+                        g_config.scale = pr.scale;
+                        (void)Wolf_ConfigSave();
+                    }
+                } else if (k == SDLK_F5) {
+                    (void)Wolf_SaveGame(0);
+                } else if (k == SDLK_F9) {
+                    (void)Wolf_LoadGame(0);
                 } else if (k == SDLK_r && g_level.player.dead) {
                     if (g_level.player.lives >= 0) {
                         int map = g_level.mapnum;
@@ -172,6 +131,8 @@ int Wolf_RunGame(void)
                     if (next >= SHAREWARE_MAPS) {
                         printf("Shareware episode complete! Score=%d\n",
                                g_level.player.score);
+                        Wolf_HighScoresTryInsert(g_level.player.score, 0,
+                                                 g_level.mapnum, "BJ");
                         VH_DrawString(40, 100, "EPISODE COMPLETE - ESC", 14);
                     } else {
                         if (!Wolf_SetupLevel(next)) {
@@ -186,12 +147,11 @@ int Wolf_RunGame(void)
                 if (ev.button.button == SDL_BUTTON_LEFT) {
                     Wolf_TryShoot();
                 }
+            } else if (ev.type == SDL_MOUSEMOTION && g_config.mouse_look) {
+                /* Mouse X turns; sensitivity scale */
+                float turn = (float)ev.motion.xrel * (0.0025f * (float)g_config.mouse_sens);
+                g_level.player.angle -= turn;
             }
-        }
-
-        /* Auto-advance after elevator */
-        if (g_level.level_complete && g_level.elevator_ready) {
-            /* wait for N key — flashed on HUD */
         }
 
         state = SDL_GetKeyboardState(NULL);
@@ -217,12 +177,12 @@ int Wolf_RunGame(void)
         Wolf_UpdateLevel(dt, keys);
         Wolf_DrawWorld();
         draw_hud();
-        present(renderer, texture, pixels);
+        Wolf_PresentFrame(&pr);
     }
 
-    free(pixels);
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
+    g_config.scale = pr.scale;
+    g_config.fullscreen = pr.fullscreen;
+    (void)Wolf_ConfigSave();
+    Wolf_PresentDestroy(&pr);
     return 0;
 }

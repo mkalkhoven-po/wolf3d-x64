@@ -1,92 +1,87 @@
 # Wolf3D Win64 Port
 
-Native **Windows 11 x64** port project for the 1992 id Software *Wolfenstein 3D* engine sources.
+Native **Windows 11 x64** port of the 1992 id Software *Wolfenstein 3D* engine sources.
 
-> **Status:** Planning & governance. No playable port binary yet.  
-> **Repo visibility:** Private (you must be signed into GitHub as an account with access — guests see “Page not found”)  
-> **MVP target:** Shareware episode (`WL1`) via SDL2 software renderer
+> **Status:** Playable desktop build through **E8** (AppData config/saves, integer scale, fullscreen).  
+> **Repo visibility:** Private (sign in as an account with access — guests see “Page not found”)  
+> **MVP:** Full registered **WL6** or shareware **WL1** via SDL2 software renderer + digitized audio
 
-## Live GitHub links (named)
+## Player quickstart
 
-| Name | URL |
-|------|-----|
-| **Repository** | [mkalkhoven-po/wolf3d-win64](https://github.com/mkalkhoven-po/wolf3d-win64) |
-| **Project board — Wolf3D Win64 Port** | [users/mkalkhoven-po/projects/1](https://github.com/users/mkalkhoven-po/projects/1) |
-| **All issues** | [Issues](https://github.com/mkalkhoven-po/wolf3d-win64/issues) |
-| **Milestones M0–M8** | [Milestones](https://github.com/mkalkhoven-po/wolf3d-win64/milestones) |
-| **Epic E1 — Runnable shell** | [#4 Epic E1: Runnable shell](https://github.com/mkalkhoven-po/wolf3d-win64/issues/4) |
-| **Story — CMake x64 build** | [#5 Story: CMake x64 build produces wolf3d.exe](https://github.com/mkalkhoven-po/wolf3d-win64/issues/5) |
-| **Story — SDL window** | [#6 Story: SDL window opens and quits cleanly](https://github.com/mkalkhoven-po/wolf3d-win64/issues/6) |
-| **Closed — Epic E0** | [#1 Epic E0: Repo & governance](https://github.com/mkalkhoven-po/wolf3d-win64/issues/1) |
+See **[docs/player/QUICKSTART.md](docs/player/QUICKSTART.md)** for run instructions, AppData paths, and controls.
 
-If a link shows **Page not found**, open GitHub in the browser, confirm you are logged in as **`mkalkhoven-po`** (or an account invited to this private repo), then retry.
+```bat
+set WOLF3D_DATA=D:\path\to\your\wolfdata
+build\wolf3d.exe --data "%WOLF3D_DATA%"
+```
+
+Smoke:
+```bat
+build\wolf3d.exe --data "%WOLF3D_DATA%" --smoke-only
+```
+
+## Live GitHub
+
+Private repo: https://github.com/mkalkhoven-po/wolf3d-win64  
+Project board: https://github.com/users/mkalkhoven-po/projects/1  
+
+If links show **Page not found** in chat previews, paste into a browser where you are signed in as **`mkalkhoven-po`**.
 
 ## What this is
 
 | Path | Purpose |
 |------|---------|
-| [`reference/original/`](reference/original/) | Unmodified original source drop (Borland C++ / DOS) for study |
+| [`reference/original/`](reference/original/) | Unmodified original DOS/Borland sources (study only) |
 | [`docs/product/`](docs/product/) | Vision, exclusions, functional requirements |
-| [`docs/adr/`](docs/adr/) | Architecture Decision Records |
-| [`docs/epics/`](docs/epics/) | Epic briefs (goal, stories, FRs, exclusions, acceptance) |
-| [`src/`](src/) | *(future)* modern port code — not started |
-| [`.github/`](.github/) | Issue templates |
+| [`docs/player/`](docs/player/) | Player quickstart |
+| [`docs/epics/`](docs/epics/) | Epic briefs E0–E8 |
+| [`src/`](src/) | Modern port (platform + ID managers + game) |
 
-## Docs (in-repo)
+## Docs
 
 - [Vision](docs/product/VISION.md)
 - [Exclusions](docs/product/EXCLUSIONS.md)
-- [Functional requirements (MVP)](docs/product/FUNCTIONAL_REQUIREMENTS.md)
-- [**User-supplied game assets (plan step / E3 gate)**](docs/product/GAME_DATA.md)
+- [Functional requirements](docs/product/FUNCTIONAL_REQUIREMENTS.md)
+- [User-supplied game assets](docs/product/GAME_DATA.md)
+- [**Player quickstart**](docs/player/QUICKSTART.md)
 - [ADR-001 Platform backend](docs/adr/001-platform-backend.md)
-- [Port analysis plan](docs/plans/wolf3d-win64-port-analysis.md)
 - [Epic index](docs/epics/README.md)
-- [ID module map (original → modern)](docs/architecture/ID_MODULE_MAP.md)
+- [ID module map](docs/architecture/ID_MODULE_MAP.md)
 
 ## Legal / data
 
-- Original game **data** (VSWAP, VGAGRAPH, maps, audio) is **not** in this repo.
-- When you are ready for menus / 3D (after E2), follow the roadmap step **[User-supplied game assets](docs/product/GAME_DATA.md)** (Epic E3): gather legally owned WL1 files and point `WOLF3D_DATA` / `--data` at them.
-- Original source is provided by id under their Limited Use terms (see `reference/original/README/`). Educational porting only unless you obtain appropriate rights.
+- Original game **data** is **not** in this repo.
+- Point `--data` / `WOLF3D_DATA` at a legally owned WL1/WL6 folder (see [GAME_DATA.md](docs/product/GAME_DATA.md)).
+- Config/saves go to `%APPDATA%\Wolf3DWin64\` — not next to the exe.
 - Do **not** open a PR that adds `.WL6` / `.WL1` binaries.
 
-## Building (E1 shell)
+## Building
 
-Prerequisites (Windows 11 x64):
-
-- [CMake](https://cmake.org/) 3.20+
-- A C17 toolchain: **MinGW-w64** (WinLibs) or MSVC 2022
-- Ninja (recommended) or a multi-config VS generator
-- Network on first configure (SDL2 is fetched via CMake `FetchContent` unless you turn that off)
+Prerequisites: CMake 3.20+, C17 toolchain (MinGW-w64 or MSVC 2022), Ninja recommended. First configure fetches SDL2 unless `-DWOLF_FETCH_SDL2=OFF`.
 
 ```bat
-:: Example: MinGW + Ninja (adjust COMPILER paths to your install)
-set PATH=C:\path\to\mingw64\bin;%PATH%
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build
-build\wolf3d.exe
+cmake --build build -j
+build\wolf3d.exe --data Wolf3dgame --smoke-only
 ```
 
-```powershell
-# Visual Studio 2022 generator (x64)
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config RelWithDebInfo
-.\build\RelWithDebInfo\wolf3d.exe
-```
+Runtime dependency: **`SDL2.dll`** is copied next to `wolf3d.exe` when using the shared SDL build (`FR-PLAT-004`).
 
-What you should see: a dark-blue window titled **Wolf3D Win64 — E1 shell**. Close the window or press **Esc** for a clean exit (`SDL2.dll` is copied next to the exe when using the shared SDL build).
+### In-game desktop controls
 
-Optional CMake flag: `-DWOLF_FETCH_SDL2=OFF` if you provide SDL2 yourself (`find_package(SDL2)`).
+| Key | Action |
+|-----|--------|
+| F11 | Fullscreen toggle |
+| +/- | Integer scale |
+| F5 / F9 | Save / load slot 0 |
+| Esc | Menu back / quit |
 
-See [ADR-001](docs/adr/001-platform-backend.md).
+## Roadmap
 
-## Roadmap pointer
-
-Milestones **M0–M8** track epics **E0–E8**.  
-**M0 is done.** Next: **[M1 Runnable shell](https://github.com/mkalkhoven-po/wolf3d-win64/milestone/2)** — epic [#4](https://github.com/mkalkhoven-po/wolf3d-win64/issues/4), stories [#5](https://github.com/mkalkhoven-po/wolf3d-win64/issues/5) and [#6](https://github.com/mkalkhoven-po/wolf3d-win64/issues/6).  
-**Later gate:** before menus/3D, complete **[user-supplied assets](docs/product/GAME_DATA.md)** at **E3 / M3**.
+Milestones **M0–M8** = epics **E0–E8**.  
+**M0–M8 implemented** on `main` (shell → data → menus → raycast → combat → audio → Win11 polish).
 
 ## Credits
 
-- Original game and engine: id Software (John Carmack, John Romero, Jason Blochowiak, et al.)
-- This repository: port planning and modern implementation work
+- Original game and engine: id Software  
+- This repository: Win64 port planning and implementation

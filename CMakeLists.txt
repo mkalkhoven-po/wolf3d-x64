@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(wolf3d-win64 VERSION 0.7.0 LANGUAGES C)
+project(wolf3d-win64 VERSION 0.8.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -49,11 +49,17 @@ set(WOLF_GAME_SOURCES
   src/game/wl_game.c
 )
 
+set(WOLF_PLATFORM_SOURCES
+  src/platform/win_sdl/platform_sdl.c
+  src/platform/win_sdl/wolf_userdata.c
+  src/platform/win_sdl/wolf_present.c
+)
+
 add_executable(wolf3d
   src/main.c
-  src/platform/win_sdl/platform_sdl.c
   ${WOLF_ID_SOURCES}
   ${WOLF_GAME_SOURCES}
+  ${WOLF_PLATFORM_SOURCES}
 )
 
 target_include_directories(wolf3d PRIVATE
@@ -66,7 +72,6 @@ target_include_directories(wolf3d PRIVATE
 target_compile_definitions(wolf3d PRIVATE SDL_MAIN_HANDLED)
 target_link_libraries(wolf3d PRIVATE SDL2::SDL2)
 
-# Math lib on some toolchains (MinGW usually needs -lm)
 if(UNIX OR MINGW)
   target_link_libraries(wolf3d PRIVATE m)
 endif()
