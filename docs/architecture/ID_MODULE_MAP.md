@@ -51,3 +51,11 @@
 | Combat state | `src/game/wl_play.c` | enemies, pickups, keys, hitscan, lives |
 | Billboards | `src/game/wl_draw.c` | enemy/pickup sprites + hurt flash |
 | Episode loop | `src/game/wl_game.c` | shoot, respawn, elevator→next map |
+
+## E7 additions
+| Module | Path | Notes |
+|--------|------|-------|
+| Sound names | `src/id/audio_wl6.h` | WL6 indices |
+| SDL audio | `src/id/id_sd.c` | digi mixer + IMF music + silent fallback |
+| SFX hooks | `src/game/wl_play.c` | shoot/door/pickup/death |
+| Music hooks | menu/game loops | intro / march / getthem |

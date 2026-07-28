@@ -1,6 +1,6 @@
 /*
  * Wolf3D Win64 — application entry.
- * E6: playable combat — enemies, pickups, lives, episode flow.
+ * E7: audio — digitized SFX + IMF music via SDL.
  */
 
 #include <stdio.h>
@@ -9,9 +9,11 @@
 #include "game/wl_draw.h"
 #include "game/wl_menu_simple.h"
 #include "game/wl_play.h"
+#include "id/audio_wl6.h"
 #include "id/gfxv_wl6.h"
 #include "id/id_ca.h"
 #include "id/id_heads.h"
+#include "id/id_sd.h"
 #include "id/id_vh.h"
 #include "id/id_vl.h"
 #include "id/wl_data.h"
@@ -31,7 +33,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("wolf3d-win64 starting (E6 playable combat)...\n");
+    printf("wolf3d-win64 starting (E7 audio)...\n");
     fflush(stdout);
 
     if (!Wolf_ResolveDataDir(argc, argv, &data_dir)) {
@@ -57,6 +59,11 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Failed to open VGAGRAPH assets\n");
         ID_Engine_Shutdown();
         return 8;
+    }
+    if (!SD_SetupFromData(&data_dir)) {
+        fprintf(stderr, "Audio setup failed\n");
+        ID_Engine_Shutdown();
+        return 15;
     }
 
     PM_PrintSmoke();
@@ -107,8 +114,13 @@ int main(int argc, char *argv[])
         ID_Engine_Shutdown();
         return 13;
     }
+    if (!SD_AudioSmokeVerify()) {
+        fprintf(stderr, "Audio smoke verify failed\n");
+        ID_Engine_Shutdown();
+        return 16;
+    }
 
-    /* Multi-map progression smoke: walk elevator path logically for map count. */
+    /* Multi-map progression smoke. */
     {
         int m;
         int maps_ok = 1;
@@ -119,26 +131,20 @@ int main(int argc, char *argv[])
                 break;
             }
             printf("Episode smoke map %d: enemies=%d pickups=%d doors=%d\n", m,
-                   g_level.enemies_alive, g_level.pickup_count, g_level.door_count);
+                   g_level.enemies_alive, g_level.pickup_count,
+                   g_level.door_count);
         }
         if (!maps_ok) {
             ID_Engine_Shutdown();
             return 14;
         }
-        /* Death / lives path smoke */
+
         Wolf_SetupLevel(0);
-        g_level.player.health = 1;
-        {
-            boolean k[12];
-            memset(k, 0, sizeof(k));
-            /* Fake hurt by trying shoot empty then manual */
-        }
         g_level.player.health = 0;
         g_level.player.dead = true;
         g_level.player.lives -= 1;
         printf("Death flow smoke: dead=1 lives=%d\n", g_level.player.lives);
         if (g_level.player.lives < 0) {
-            /* ensure we still can reset */
             Wolf_ResetPlayerStats();
         } else {
             int lives = g_level.player.lives;

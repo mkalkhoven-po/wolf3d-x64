@@ -5,6 +5,8 @@
 #include <string.h>
 
 #include "id/id_ca.h"
+#include "id/id_sd.h"
+#include "id/audio_wl6.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -205,12 +207,14 @@ static void hurt_player(int dmg)
         return;
     }
     p->health -= dmg;
-    p->hurt_flash = 0.25f;
-    if (p->health <= 0) {
+        p->hurt_flash = 0.25f;
+        SD_PlaySound(TAKEDAMAGESND);
+        if (p->health <= 0) {
         p->health = 0;
-        p->dead = true;
-        p->lives -= 1;
-        printf("Player died. Lives left=%d score=%d\n", p->lives, p->score);
+                p->dead = true;
+                p->lives -= 1;
+                SD_PlaySound(PLAYERDEATHSND);
+                printf("Player died. Lives left=%d score=%d\n", p->lives, p->score);
     }
 }
 
@@ -439,10 +443,11 @@ void Wolf_TryShoot(void)
     }
 
     if (p->weapon == 0) {
-        /* knife */
-        p->attack_cd = 0.35f;
-        dmg = 8;
-        c = cosf(p->angle);
+            /* knife */
+            p->attack_cd = 0.35f;
+            dmg = 8;
+            SD_PlaySound(ATKKNIFESND);
+            c = cosf(p->angle);
         s = sinf(p->angle);
         if (ray_hits_enemy(p->x, p->y, c, -s, 0.9f, &ei, &dist)) {
             enemy_t *e = &g_level.enemies[ei];
@@ -469,20 +474,23 @@ void Wolf_TryShoot(void)
     }
 
     p->ammo--;
-    switch (p->weapon) {
-    case 2:
-        p->attack_cd = 0.12f;
-        dmg = 12;
-        break;
-    case 3:
-        p->attack_cd = 0.07f;
-        dmg = 10;
-        break;
-    default:
-        p->attack_cd = 0.28f;
-        dmg = 16;
-        break;
-    }
+        switch (p->weapon) {
+        case 2:
+            p->attack_cd = 0.12f;
+            dmg = 12;
+            SD_PlaySound(ATKMACHINEGUNSND);
+            break;
+        case 3:
+            p->attack_cd = 0.07f;
+            dmg = 10;
+            SD_PlaySound(ATKGATLINGSND);
+            break;
+        default:
+            p->attack_cd = 0.28f;
+            dmg = 16;
+            SD_PlaySound(ATKPISTOLSND);
+            break;
+        }
 
     c = cosf(p->angle);
     s = sinf(p->angle);
@@ -496,11 +504,16 @@ void Wolf_TryShoot(void)
         e->state = ST_CHASE;
         if (e->health <= 0) {
             e->state = ST_DEAD;
-            e->active = false;
-            g_level.enemies_alive--;
-            g_level.kill_count++;
-            give_score(e->score_value);
-            /* Drop a tiny ammo chance */
+                        e->active = false;
+                        g_level.enemies_alive--;
+                        g_level.kill_count++;
+                        give_score(e->score_value);
+                        if (e->kind == EN_DOG) {
+                            SD_PlaySound(DOGDEATHSND);
+                        } else {
+                            SD_PlaySound(DEATHSCREAM1SND);
+                        }
+                        /* Drop a tiny ammo chance */
             if (g_level.pickup_count < MAX_PICKUPS) {
                 spawn_pickup(PK_AMMO, (int)e->x, (int)e->y, 4);
             }
@@ -531,13 +544,14 @@ void Wolf_TryUse(void)
         did = door_at(checkx, checky);
 
         if (did < 0 && (unsigned)checkx < MAPSIZE && (unsigned)checky < MAPSIZE) {
-            if (g_level.tilemap[checkx][checky] == ELEVATORTILE) {
-                g_level.level_complete = true;
-                g_level.elevator_ready = true;
-                printf("Elevator activated at %d,%d → next map\n", checkx, checky);
-                return;
-            }
-        }
+                    if (g_level.tilemap[checkx][checky] == ELEVATORTILE) {
+                        g_level.level_complete = true;
+                        g_level.elevator_ready = true;
+                        SD_PlaySound(LEVELDONESND);
+                        printf("Elevator activated at %d,%d → next map\n", checkx, checky);
+                        return;
+                    }
+                }
     }
 
     if (did >= 0) {
@@ -551,17 +565,20 @@ void Wolf_TryUse(void)
                 need = 3;
             }
             if ((p->keys & (1 << need)) == 0) {
-                printf("Door %d locked (need key %d)\n", did, need + 1);
-                return;
-            }
-        }
-        if (d->open < 0.5f) {
-            d->opening = 1;
-            printf("Door %d opening at %d,%d\n", did, d->tilex, d->tiley);
-        } else {
-            d->opening = -1;
-            printf("Door %d closing at %d,%d\n", did, d->tilex, d->tiley);
-        }
+                            printf("Door %d locked (need key %d)\n", did, need + 1);
+                            SD_PlaySound(NOWAYSND);
+                            return;
+                        }
+                    }
+                    if (d->open < 0.5f) {
+                        d->opening = 1;
+                        SD_PlaySound(OPENDOORSND);
+                        printf("Door %d opening at %d,%d\n", did, d->tilex, d->tiley);
+                    } else {
+                        d->opening = -1;
+                        SD_PlaySound(CLOSEDOORSND);
+                        printf("Door %d closing at %d,%d\n", did, d->tilex, d->tiley);
+                    }
     }
 }
 
@@ -582,61 +599,72 @@ static void update_pickups(void)
         }
         switch (pk->kind) {
         case PK_KEY1:
-            pl->keys |= 1;
-            printf("Got gold key\n");
-            break;
-        case PK_KEY2:
-            pl->keys |= 2;
-            printf("Got silver key\n");
-            break;
-        case PK_KEY3:
-            pl->keys |= 4;
-            break;
-        case PK_KEY4:
-            pl->keys |= 8;
-            break;
-        case PK_AMMO:
-            pl->ammo += pk->amount;
-            if (pl->ammo > 99) {
-                pl->ammo = 99;
-            }
-            if (pl->weapon < 1) {
-                pl->weapon = 1;
-            }
-            break;
-        case PK_FOOD:
-            pl->health += pk->amount;
-            if (pl->health > 100) {
-                pl->health = 100;
-            }
-            break;
-        case PK_MEDKIT:
-            pl->health += pk->amount;
-            if (pl->health > 100) {
-                pl->health = 100;
-            }
-            break;
-        case PK_1UP:
-            pl->lives += 1;
-            pl->health = 100;
-            break;
-        case PK_TREASURE:
-            give_score(pk->amount);
-            break;
-        case PK_MGUN:
-            if (pl->best_weapon < 2) {
-                pl->best_weapon = 2;
-            }
-            pl->weapon = 2;
-            pl->ammo += pk->amount;
-            break;
-        case PK_CGUN:
-            if (pl->best_weapon < 3) {
-                pl->best_weapon = 3;
-            }
-            pl->weapon = 3;
-            pl->ammo += pk->amount;
-            break;
+                    pl->keys |= 1;
+                    SD_PlaySound(GETKEYSND);
+                    printf("Got gold key\n");
+                    break;
+                case PK_KEY2:
+                    pl->keys |= 2;
+                    SD_PlaySound(GETKEYSND);
+                    printf("Got silver key\n");
+                    break;
+                case PK_KEY3:
+                    pl->keys |= 4;
+                    SD_PlaySound(GETKEYSND);
+                    break;
+                case PK_KEY4:
+                    pl->keys |= 8;
+                    SD_PlaySound(GETKEYSND);
+                    break;
+                case PK_AMMO:
+                    pl->ammo += pk->amount;
+                    if (pl->ammo > 99) {
+                        pl->ammo = 99;
+                    }
+                    if (pl->weapon < 1) {
+                        pl->weapon = 1;
+                    }
+                    SD_PlaySound(GETAMMOSND);
+                    break;
+                case PK_FOOD:
+                    pl->health += pk->amount;
+                    if (pl->health > 100) {
+                        pl->health = 100;
+                    }
+                    SD_PlaySound(HEALTH1SND);
+                    break;
+                case PK_MEDKIT:
+                    pl->health += pk->amount;
+                    if (pl->health > 100) {
+                        pl->health = 100;
+                    }
+                    SD_PlaySound(HEALTH2SND);
+                    break;
+                case PK_1UP:
+                    pl->lives += 1;
+                    pl->health = 100;
+                    SD_PlaySound(BONUS1UPSND);
+                    break;
+                case PK_TREASURE:
+                    give_score(pk->amount);
+                    SD_PlaySound(BONUS1SND);
+                    break;
+                case PK_MGUN:
+                    if (pl->best_weapon < 2) {
+                        pl->best_weapon = 2;
+                    }
+                    pl->weapon = 2;
+                    pl->ammo += pk->amount;
+                    SD_PlaySound(GETMACHINESND);
+                    break;
+                case PK_CGUN:
+                    if (pl->best_weapon < 3) {
+                        pl->best_weapon = 3;
+                    }
+                    pl->weapon = 3;
+                    pl->ammo += pk->amount;
+                    SD_PlaySound(GETGATLINGSND);
+                    break;
         default:
             break;
         }

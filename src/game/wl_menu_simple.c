@@ -14,6 +14,8 @@
 #include "id/id_vl.h"
 #include "id/gfxv_wl6.h"
 #include "wl_game.h"
+#include "id/id_sd.h"
+#include "id/audio_wl6.h"
 
 typedef enum {
     UI_TITLE = 0,
@@ -145,6 +147,7 @@ int Wolf_RunIntroMenu(void)
     }
 
     draw_title();
+    SD_StartMusic(INTROCW3_MUS);
 
     while (running && state != UI_QUIT) {
         SDL_Event ev;
@@ -159,6 +162,7 @@ int Wolf_RunIntroMenu(void)
                         state = UI_MENU;
                         cursor = 0;
                         draw_menu(cursor);
+                        SD_StartMusic(WARMARCH_MUS);
                     } else if (k == SDLK_ESCAPE) {
                         state = UI_QUIT;
                         running = 0;
@@ -173,6 +177,7 @@ int Wolf_RunIntroMenu(void)
                     } else if (k == SDLK_ESCAPE) {
                         state = UI_TITLE;
                         draw_title();
+                        SD_StartMusic(INTROCW3_MUS);
                     } else if (k == SDLK_RETURN) {
                                             if (cursor == 0) {
                                                 /* Hand off to E5 game loop; tear down menu window first. */
