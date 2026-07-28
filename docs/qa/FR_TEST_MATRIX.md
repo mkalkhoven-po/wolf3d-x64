@@ -1,0 +1,98 @@
+# FR test matrix (MVP)
+
+Status values for the **QA phase** (not delivery history):
+
+| Status | Meaning |
+|--------|---------|
+| **Untested** | Not verified in Q0–Q5 work and no recent smoke/playtest note |
+| **Partial** | Implemented enough to play; short of original DOS fidelity or incomplete FR wording |
+| **Met** | Acceptable for MVP go/no-go (not necessarily museum-perfect) |
+| **Fail** | Broken relative to that Met bar |
+
+**Owner** = primary Q-milestone for verification (bugs can span).
+
+Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-check.
+
+> Seeded at Q0. Update when blocks close. Game data remains user-owned.
+
+## Platform & process
+
+| ID | Method | Smoke | Status | Owner | Notes |
+|----|--------|-------|--------|-------|-------|
+| FR-PLAT-001 | Build PE32+ x64 `wolf3d.exe` | A | Met | Q1 | MinGW/Ninja delivery path |
+| FR-PLAT-002 | Run as normal user | M | Untested | Q2 | No admin assumed |
+| FR-PLAT-003 | No DOSBox | A/M | Met | Q0 | Native Path A |
+| FR-PLAT-004 | SDL2.dll documented | M | Met | Q0/Q1 | README + player quickstart |
+
+## Data & filesystem
+
+| ID | Method | Smoke | Status | Owner | Notes |
+|----|--------|-------|--------|-------|-------|
+| FR-DATA-001 | `--data` WL1/WL6 dir | A | Met | Q1/Q2 | WL6 preferred when owned |
+| FR-DATA-002 | CLI + `WOLF3D_DATA` | A | Met | Q1/Q2 | + last_data fallback if no `--data` |
+| FR-DATA-003 | Bad path lists MISSING, exit ≠0 | A | Met | Q1/Q2 | Explicit bad `--data` must not use last_data |
+| FR-DATA-004 | Files under `%APPDATA%\Wolf3DWin64\` | A/M | Met | Q1/Q4 | config.ini, saves, highscores |
+| FR-DATA-005 | Repo free of packs | A | Met | Q0 | git ls-tree / PR checks |
+| FR-DATA-006 | GAME_DATA.md present | M | Met | Q0 | docs/product |
+| FR-DATA-007 | data/ gitignore policy | M | Met | Q0 | |
+
+## Video
+
+| ID | Method | Smoke | Status | Owner | Notes |
+|----|--------|-------|--------|-------|-------|
+| FR-VID-001 | 320×200 logical FB; HUD string for status band | A/M | Partial | Q2 | Not full original status-bar art |
+| FR-VID-002 | Title palette paint non-empty | A/M | Met | Q1/Q2 | |
+| FR-VID-003 | Integer scale 4:3 letterbox | A/M | Met | Q2 | +/- keys, present helper |
+| FR-VID-004 | Esc / window close | M | Untested | Q2 | |
+| FR-VID-005 | Alt-tab no crash | M | Untested | Q2/Q4 | |
+
+## Input
+
+| ID | Method | Smoke | Status | Owner | Notes |
+|----|--------|-------|--------|-------|-------|
+| FR-IN-001 | WASD/arrows/CTRL/E/1–4 | M | Partial | Q3 | Core set present |
+| FR-IN-002 | Mouse X turn when enabled | M | Partial | Q3/Q4 | config mouse_look |
+| FR-IN-003 | Menu keyboard | M | Untested | Q2 | |
+
+## Gameplay
+
+| ID | Method | Smoke | Status | Owner | Notes |
+|----|--------|-------|--------|-------|-------|
+| FR-GAME-001 | Title → menu | A/M | Met | Q2 | |
+| FR-GAME-002 | New Game starts | M | Untested | Q2/Q3 | |
+| FR-GAME-003 | Move + wall collide | A/M | Met | Q3 | Raycast smoke |
+| FR-GAME-004 | Doors (+ locks/keys) | A/M | Partial | Q3 | Pushwalls not full fidelity |
+| FR-GAME-005 | Pickups | A/M | Met | Q3 | |
+| FR-GAME-006 | Enemies die | A/M | Partial | Q3 | Simplified AI vs original |
+| FR-GAME-007 | Weapons hitscan/melee | A/M | Partial | Q3 | Campaign parity incomplete |
+| FR-GAME-008 | Lives / elevator / episode | A/M | Partial | Q3 | Shareware-style path |
+
+## Audio
+
+| ID | Method | Smoke | Status | Owner | Notes |
+|----|--------|-------|--------|-------|-------|
+| FR-AUD-001 | Silent fallback | A | Met | Q1/Q4 | |
+| FR-AUD-002 | Digi weapons/doors | A/M | Met | Q4 | 46 samples smoke |
+| FR-AUD-003 | IMF music menu/game | A/M | Partial | Q4 | Lightweight OPL-ish |
+
+## Persistence
+
+| ID | Method | Smoke | Status | Owner | Notes |
+|----|--------|-------|--------|-------|-------|
+| FR-SAVE-001 | F5/F9 versioned save | A/M | Met | Q4 | `saveN.w64` magic W64S |
+| FR-SAVE-002 | Config + high scores | A/M | Met | Q4 | config.ini + highscores.dat |
+
+## Non-functional
+
+| ID | Method | Smoke | Status | Owner | Notes |
+|----|--------|-------|--------|-------|-------|
+| NFR-001 | Frame dt clamp | M | Partial | Q3/Q5 | ~decoupled present |
+| NFR-002 | No JIT heap-exec | M | Met | Q0 | Software path |
+| NFR-003 | Clear English errors | A/M | Met | Q1/Q2 | missing data |
+
+## QA-only
+
+| ID | Requirement | Status | Owner |
+|----|-------------|--------|-------|
+| FR-QA-001 | Repeatable local smoke script documents PASS/FAIL | Untested | Q1 |
+| FR-QA-002 | This matrix kept current through Q5 | In progress | Q0–Q5 |
