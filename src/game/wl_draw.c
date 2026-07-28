@@ -14,7 +14,15 @@
 #endif
 
 #define TEX_SIZE 64
+/* Playview is 160px with 40px status strip (classic STATUSLINES). */
 #define VIEW_HEIGHT 160
+/*
+ * Original seales with SetupScaling(viewwidth*1.5). A pure 1/dist
+ * line height looks too squat; multiply project height toward that.
+ */
+#define WALL_HEIGHT_MUL 1.45f
+/* Slightly narrower FOV (~50°) — also makes mid-range walls feel larger. */
+#define FOV_RAD ((float)(M_PI * 50.0 / 180.0))
 
 static float zbuffer[SCREENWIDTH];
 
@@ -116,8 +124,8 @@ void Wolf_DrawWorld(void)
 {
     int x, y, i;
     player_t *p = &g_level.player;
-    const float fov = (float)(M_PI / 3.0);
-    int view_h = VIEW_HEIGHT;
+    const float fov = FOV_RAD;
+        int view_h = VIEW_HEIGHT;
 
     if (!framebuffer || !g_level.active) {
         return;
@@ -216,9 +224,9 @@ void Wolf_DrawWorld(void)
         (void)door_hit;
         zbuffer[x] = perp_wall_dist;
 
-        line_h = (int)(view_h / perp_wall_dist);
-        draw_start = -line_h / 2 + view_h / 2;
-        draw_end = line_h / 2 + view_h / 2;
+        line_h = (int)((view_h * WALL_HEIGHT_MUL) / perp_wall_dist);
+                draw_start = -line_h / 2 + view_h / 2;
+                draw_end = line_h / 2 + view_h / 2;
         if (draw_start < 0) {
             draw_start = 0;
         }

@@ -21,7 +21,9 @@
 #define MIX_RATE 22050
 #define MIX_SAMPLES 1024
 #define MAX_DIGI 64
-#define DIGI_SRC_RATE 7042 /* classic speaker/SB rate used by many ports */
+/* Digitized samples in VSWAP are ~7000 Hz unsigned 8-bit PCM. */
+#define DIGI_SRC_RATE 7000
+#define DIGI_VOICE_GAIN 1.35f
 #define MAX_VOICE 8
 #define IMF_HZ 560.0 /* rough timer base for IMF ticks */
 
@@ -87,6 +89,23 @@ static void init_digimap(void)
         DIESND, 18, EVASND, 19, LEBENSND, 20, NAZIFIRESND, 21, SLURPIESND, 22,
         TOT_HUNDSND, 23, MEINGOTTSND, 24, SCHABBSHASND, 25, HITLERHASND, 26,
         SPIONSND, 27, NEINSOVASSND, 28, DOGATTACKSND, 29, LEVELDONESND, 30,
+        /* Extra gameplay cues mapped onto nearby digi slots. */
+        GETKEYSND, 3,
+        GETAMMOSND, 5,
+        GETMACHINESND, 4,
+        GETGATLINGSND, 6,
+        HEALTH1SND, 14,
+        HEALTH2SND, 14,
+        BONUS1SND, 30,
+        BONUS2SND, 30,
+        BONUS3SND, 30,
+        BONUS4SND, 30,
+        BONUS1UPSND, 30,
+        ATKKNIFESND, 5,
+        NOWAYSND, 31,
+        NOITEMSND, 31,
+        DONOTHINGSND, 31,
+        PLAYERDEATHSND, 18,
         LASTSOUND
     };
     for (i = 0; i < LASTSOUND; ++i) {
@@ -381,7 +400,7 @@ static void mix_callback(void *userdata, Uint8 *stream, int len)
             }
             sample_u8 = vc->data[spos];
             s = ((float)sample_u8 - 128.0f) / 128.0f;
-            mix += s * (vc->vol / 128.0f) * 0.6f;
+            mix += s * (vc->vol / 128.0f) * 0.85f * DIGI_VOICE_GAIN;
             /* step source at DIGI_SRC_RATE → MIX_RATE */
             vc->pos += (int)((DIGI_SRC_RATE << 16) / MIX_RATE);
         }
@@ -538,16 +557,17 @@ void SD_PlaySound(word sound)
         return;
     }
     digi_idx = DigiMap[sound];
-    if (digi_idx >= 0) {
-        play_digi_index(digi_idx, 110);
+    if (digi_idx >= 0 && digi_idx < num_digi && digi[digi_idx].data) {
+        play_digi_index(digi_idx, 140);
         return;
     }
-    /* Unmapped: short click fallback via voice white noise — skip if silent */
-    if (!SD_Silent && num_digi > 5) {
-        /* use pistol digi as generic click if present */
-        if (DigiMap[ATKPISTOLSND] >= 0) {
-            play_digi_index(DigiMap[ATKPISTOLSND], 40);
+    /* Unmapped: prefer a digi click, never a PC-speaker path. */
+    if (!SD_Silent && num_digi > 0 && DigiMode != sds_Off) {
+        int fb = DigiMap[ATKPISTOLSND];
+        if (fb < 0 || fb >= num_digi || !digi[fb].data) {
+            fb = 0;
         }
+        play_digi_index(fb, 50);
     }
 }
 
