@@ -9,9 +9,15 @@ One-button local smoke with clear PASS/FAIL (no commercial data in git).
 - #48 QA runbook docs  
 
 ## FRs
-FR-PLAT-001, FR-DATA-001–005, FR-AUD-001, FR-DATA-004 smoke path  
+FR-PLAT-001, FR-DATA-001–005, FR-AUD-001, FR-DATA-004 smoke path, FR-QA-001  
+
+## Implementation
+- `scripts/smoke_wl6.sh` — full harness (markers + exits)
+- `scripts/smoke_wl6.bat` — Windows entry (Git Bash preferred)
+- `docs/qa/SMOKE.md` — runbook
 
 ## Acceptance
-- [ ] Script in `scripts/`  
-- [ ] Documented in `docs/qa/SMOKE.md`  
-- [ ] Green on maintainer WL6 pack  
+- [x] Script in `scripts/`  
+- [x] Documented in `docs/qa/SMOKE.md`  
+- [x] Green on maintainer WL6 pack  
+- [x] Bad path exits 2 and fails harness if not  

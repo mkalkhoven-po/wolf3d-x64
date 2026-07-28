@@ -1,31 +1,60 @@
-# Local smoke (QA)
+# Local smoke (QA) — Q1 harness
 
 ## Goals
 
-- Non-interactive gate for loader + core systems already wired into `--smoke-only`.
-- Stable **exit codes** and **log markers**.
-- **Never** requires packing commercial data into git.
+- One-button **good path** + **bad path** gate for systems behind `--smoke-only`.
+- Assert **stable log markers** so silent regressions fail loudly.
+- **Never** pack commercial / shareware game data into git (`FR-DATA-005`).
 
-## Prerequisites
+## One-button (preferred)
 
-- Built `build/wolf3d.exe` (+ `SDL2.dll` beside it).
-- Own data folder (e.g. `Wolf3dgame` or `WOLF3D_DATA`).
+From repo root, with Git Bash or `scripts\smoke_wl6.bat`:
+
+```bash
+# Git Bash / MSYS
+export WOLF3D_DATA="/d/path/to/Wolf3dgame"   # optional if ./Wolf3dgame exists
+scripts/smoke_wl6.sh
+```
+
+```bat
+REM cmd.exe — wraps bash when Git for Windows is installed
+set WOLF3D_DATA=D:\path\to\Wolf3dgame
+scripts\smoke_wl6.bat
+```
+
+Options (`smoke_wl6.sh`):
+
+| Flag | Meaning |
+|------|---------|
+| `--data PATH` | Data directory (overrides `WOLF3D_DATA`) |
+| `--exe PATH` | Path to `wolf3d.exe` (default `build/wolf3d.exe`) |
+| `--no-build` | Skip `cmake --build` |
+| `--bad-path P` | Override negative-test directory |
+
+Default data search order: `--data` → `WOLF3D_DATA` → `./Wolf3dgame` → `./data` (if it contains `VSWAP.*`).
+
+## Manual equivalent
 
 ```bat
 cmake --build build -j
 set WOLF3D_DATA=D:\path\to\Wolf3dgame
 build\wolf3d.exe --data "%WOLF3D_DATA%" --smoke-only
-```
-
-Bad path (must fail):
-
-```bat
 build\wolf3d.exe --data C:\no-such-wolf-pack --smoke-only
 ```
 
-Expected: **exit 2** (or other non-zero) and no hang.
+Bad path expected: **exit 2**, no `wolf3d-win64 smoke OK`.
 
-## Exit codes (current main)
+## Harness exit codes (`smoke_wl6.sh`)
+
+| Code | Meaning |
+|------|---------|
+| 0 | All PASS |
+| 1 | Setup/build/harness failure |
+| 2 | Good-path process nonzero |
+| 3 | Good-path missing required markers |
+| 4 | Bad-path did not exit 2 / leaked smoke OK |
+
+## Game exit codes (`wolf3d.exe --smoke-only`)
 
 | Code | Meaning (approx.) |
 |------|-------------------|
@@ -38,41 +67,40 @@ Expected: **exit 2** (or other non-zero) and no hang.
 | 15–16 | Audio setup / audio smoke failed |
 | 17–19 | UserData / present smoke failed |
 
-Exact codes can drift; treat non-zero as fail and capture logs.
+## Required markers (good run)
 
-## Recommended markers (good run)
+Asserted by `scripts/smoke_wl6.sh` (must all appear in combined stdout/stderr):
 
-Grep smoke log for (subset is OK; expand under Q1 story #47):
+| Marker substring |
+|------------------|
+| `wolf3d-win64 smoke OK` |
+| `TITLEPIC loaded` |
+| `VSWAP chunks=` |
+| `VGAGRAPH open` |
+| `Audio digi:` |
+| `Audio smoke:` |
+| `silent fallback play: OK` |
+| `UserData smoke:` |
+| `config roundtrip OK` |
+| `save/load OK` |
+| `Present smoke:` |
+| `logical=320x200` |
 
-- `smoke OK` or `wolf3d-win64 smoke OK`
-- `TITLEPIC loaded`
-- `Audio digi:` / audio smoke
-- `UserData smoke:`
-- `Present smoke:` / `logical=320x200`
-
-## One-button script (Q1 #46)
-
-When landed, prefer:
-
-```bat
-scripts\smoke_wl6.bat
-```
-
-or Git Bash:
-
-```bash
-scripts/smoke_wl6.sh
-```
-
-Until then, the bare `--smoke-only` commands above are the harness.
+When changing engine print strings, update **both** the game and this list / script in the same PR.
 
 ## CI note
 
-GitHub Actions **must not** download commercial assets. Options:
+GitHub-hosted CI **must not** download commercial assets. Prefer:
 
-1. Compile-only CI (no play smoke).
-2. Self-hosted runner with private local pack (optional, later).
+1. Compile-only workflow (optional, later).
+2. Self-hosted runner with private local pack (optional).
+
+Local maintainer smoke is the source of truth for Q1.
 
 ## Related FRs
 
-FR-PLAT-001, FR-DATA-001–005, FR-AUD-001, FR-DATA-004, FR-SAVE smoke path.
+FR-PLAT-001 · FR-DATA-001–005 · FR-AUD-001 · FR-DATA-004 · FR-SAVE smoke path · FR-QA-001
+
+## Related issues
+
+Epic #45 · Stories #46 #47 #48
