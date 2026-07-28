@@ -59,3 +59,10 @@
 | SDL audio | `src/id/id_sd.c` | digi mixer + IMF music + silent fallback |
 | SFX hooks | `src/game/wl_play.c` | shoot/door/pickup/death |
 | Music hooks | menu/game loops | intro / march / getthem |
+
+## E8 additions
+| Module | Path | Notes |
+|--------|------|-------|
+| AppData user data | `src/platform/win_sdl/wolf_userdata.c` | config.ini, saves, high scores |
+| Present / DPI | `src/platform/win_sdl/wolf_present.c` | integer scale, fullscreen, DPI aware |
+| Player docs | `docs/player/QUICKSTART.md` | run + AppData + controls |

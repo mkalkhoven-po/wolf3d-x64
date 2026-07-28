@@ -1,7 +1,6 @@
 #include "wl_menu_simple.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #ifndef SDL_MAIN_HANDLED
@@ -9,13 +8,15 @@
 #endif
 #include <SDL.h>
 
+#include "id/audio_wl6.h"
+#include "id/gfxv_wl6.h"
 #include "id/id_ca.h"
+#include "id/id_sd.h"
 #include "id/id_vh.h"
 #include "id/id_vl.h"
-#include "id/gfxv_wl6.h"
 #include "wl_game.h"
-#include "id/id_sd.h"
-#include "id/audio_wl6.h"
+#include "wolf_present.h"
+#include "wolf_userdata.h"
 
 typedef enum {
     UI_TITLE = 0,
@@ -56,7 +57,8 @@ static void draw_title(void)
 static void draw_menu(int cursor)
 {
     int i;
-    VL_ClearScreen(0x18); /* dark blue-ish typical backdrop color index */
+    char line[64];
+    VL_ClearScreen(0x18);
     VL_SetPalette(gamepal);
 
     if (pictable) {
@@ -79,7 +81,10 @@ static void draw_menu(int cursor)
         }
         VH_DrawString(110, y, menu_items[i], color);
     }
-    VH_DrawString(40, 170, "UP/DOWN  ENTER  ESC QUIT", 6);
+    snprintf(line, sizeof(line), "SCALE x%d  %s", g_config.scale,
+             g_config.fullscreen ? "FULLSCREEN" : "WINDOW");
+    VH_DrawString(40, 160, line, 7);
+    VH_DrawString(40, 175, "UP/DOWN ENTER  F11 FS  +/- SCALE  ESC", 6);
 }
 
 int Wolf_RunIntroMenu(void)
@@ -87,67 +92,17 @@ int Wolf_RunIntroMenu(void)
     ui_state_t state = UI_TITLE;
     int cursor = 0;
     int running = 1;
-    int scale = 3;
-    SDL_Window *window = NULL;
-    SDL_Renderer *renderer = NULL;
-    SDL_Texture *texture = NULL;
-    Uint32 *pixels = NULL;
+    wolf_present_t pr;
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
-        fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
-        return 1;
-    }
-
-    window = SDL_CreateWindow(
-        "Wolf3D Win64",
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        SCREENWIDTH * scale,
-        SCREENHEIGHT * scale,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-    if (!window) {
-        fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-        SDL_Quit();
-        return 1;
-    }
-
-    renderer = SDL_CreateRenderer(window, -1,
-                                  SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer) {
-        renderer = SDL_CreateRenderer(window, -1, 0);
-    }
-    if (!renderer) {
-        fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
-    SDL_RenderSetLogicalSize(renderer, SCREENWIDTH, SCREENHEIGHT);
-
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                                SDL_TEXTUREACCESS_STREAMING,
-                                SCREENWIDTH, SCREENHEIGHT);
-    if (!texture) {
-        fprintf(stderr, "SDL_CreateTexture failed: %s\n", SDL_GetError());
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    pixels = (Uint32 *)malloc(SCREENPIXELS * sizeof(Uint32));
-    if (!pixels) {
-        SDL_DestroyTexture(texture);
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
+    if (!Wolf_PresentCreate(&pr, "Wolf3D Win64", g_config.scale,
+                            g_config.fullscreen)) {
         return 1;
     }
 
     draw_title();
-    SD_StartMusic(INTROCW3_MUS);
+    if (g_config.music_on) {
+        SD_StartMusic(INTROCW3_MUS);
+    }
 
     while (running && state != UI_QUIT) {
         SDL_Event ev;
@@ -155,14 +110,46 @@ int Wolf_RunIntroMenu(void)
             if (ev.type == SDL_QUIT) {
                 state = UI_QUIT;
                 running = 0;
+            } else if (ev.type == SDL_WINDOWEVENT &&
+                       (ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
+                        ev.window.event == SDL_WINDOWEVENT_RESIZED)) {
+                Wolf_PresentHandleResize(&pr);
             } else if (ev.type == SDL_KEYDOWN) {
                 SDL_Keycode k = ev.key.keysym.sym;
-                if (state == UI_TITLE) {
+                if (k == SDLK_F11) {
+                    if (Wolf_PresentToggleFullscreen(&pr)) {
+                        g_config.fullscreen = pr.fullscreen;
+                        (void)Wolf_ConfigSave();
+                        if (state == UI_MENU) {
+                            draw_menu(cursor);
+                        } else {
+                            draw_title();
+                        }
+                    }
+                } else if (k == SDLK_EQUALS || k == SDLK_PLUS || k == SDLK_KP_PLUS) {
+                    if (Wolf_PresentSetScale(&pr, pr.scale + 1)) {
+                        g_config.scale = pr.scale;
+                        (void)Wolf_ConfigSave();
+                        if (state == UI_MENU) {
+                            draw_menu(cursor);
+                        }
+                    }
+                } else if (k == SDLK_MINUS || k == SDLK_KP_MINUS) {
+                    if (Wolf_PresentSetScale(&pr, pr.scale - 1)) {
+                        g_config.scale = pr.scale;
+                        (void)Wolf_ConfigSave();
+                        if (state == UI_MENU) {
+                            draw_menu(cursor);
+                        }
+                    }
+                } else if (state == UI_TITLE) {
                     if (k == SDLK_RETURN || k == SDLK_SPACE) {
                         state = UI_MENU;
                         cursor = 0;
                         draw_menu(cursor);
-                        SD_StartMusic(WARMARCH_MUS);
+                        if (g_config.music_on) {
+                            SD_StartMusic(WARMARCH_MUS);
+                        }
                     } else if (k == SDLK_ESCAPE) {
                         state = UI_QUIT;
                         running = 0;
@@ -177,105 +164,52 @@ int Wolf_RunIntroMenu(void)
                     } else if (k == SDLK_ESCAPE) {
                         state = UI_TITLE;
                         draw_title();
-                        SD_StartMusic(INTROCW3_MUS);
+                        if (g_config.music_on) {
+                            SD_StartMusic(INTROCW3_MUS);
+                        }
                     } else if (k == SDLK_RETURN) {
-                                            if (cursor == 0) {
-                                                /* Hand off to E5 game loop; tear down menu window first. */
-                                                free(pixels);
-                                                pixels = NULL;
-                                                SDL_DestroyTexture(texture);
-                                                texture = NULL;
-                                                SDL_DestroyRenderer(renderer);
-                                                renderer = NULL;
-                                                SDL_DestroyWindow(window);
-                                                window = NULL;
-                                                SDL_Quit();
-                                                {
-                                                    int grc = Wolf_RunGame();
-                                                    if (grc != 0) {
-                                                        return grc;
-                                                    }
-                                                }
-                                                /* Restart menu SDL session after game returns. */
-                                                if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
-                                                    fprintf(stderr, "SDL_Init failed: %s\n",
-                                                            SDL_GetError());
-                                                    return 1;
-                                                }
-                                                window = SDL_CreateWindow(
-                                                    "Wolf3D Win64",
-                                                    SDL_WINDOWPOS_CENTERED,
-                                                    SDL_WINDOWPOS_CENTERED,
-                                                    SCREENWIDTH * scale,
-                                                    SCREENHEIGHT * scale,
-                                                    SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-                                                if (!window) {
-                                                    return 1;
-                                                }
-                                                renderer = SDL_CreateRenderer(
-                                                    window, -1,
-                                                    SDL_RENDERER_ACCELERATED |
-                                                        SDL_RENDERER_PRESENTVSYNC);
-                                                if (!renderer) {
-                                                    renderer = SDL_CreateRenderer(window, -1, 0);
-                                                }
-                                                if (!renderer) {
-                                                    return 1;
-                                                }
-                                                SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
-                                                SDL_RenderSetLogicalSize(renderer, SCREENWIDTH,
-                                                                         SCREENHEIGHT);
-                                                texture = SDL_CreateTexture(
-                                                    renderer, SDL_PIXELFORMAT_ARGB8888,
-                                                    SDL_TEXTUREACCESS_STREAMING, SCREENWIDTH,
-                                                    SCREENHEIGHT);
-                                                if (!texture) {
-                                                    return 1;
-                                                }
-                                                pixels =
-                                                    (Uint32 *)malloc(SCREENPIXELS * sizeof(Uint32));
-                                                if (!pixels) {
-                                                    return 1;
-                                                }
-                                                draw_menu(cursor);
-                                            } else if (cursor == 1) {
-                                                VL_Bar(40, 150, 240, 20, 0);
-                                                VH_DrawString(70, 154, "OPTIONS STUB", 14);
-                                            } else {
-                                                state = UI_QUIT;
-                                                running = 0;
-                                            }
-                                        }
+                        if (cursor == 0) {
+                            g_config.scale = pr.scale;
+                            g_config.fullscreen = pr.fullscreen;
+                            (void)Wolf_ConfigSave();
+                            Wolf_PresentDestroy(&pr);
+                            SDL_QuitSubSystem(SDL_INIT_VIDEO);
+                            {
+                                int grc = Wolf_RunGame();
+                                if (grc != 0) {
+                                    return grc;
+                                }
+                            }
+                            if (!Wolf_PresentCreate(&pr, "Wolf3D Win64",
+                                                    g_config.scale,
+                                                    g_config.fullscreen)) {
+                                return 1;
+                            }
+                            state = UI_MENU;
+                            draw_menu(cursor);
+                            if (g_config.music_on) {
+                                SD_StartMusic(WARMARCH_MUS);
+                            }
+                        } else if (cursor == 1) {
+                            VL_Bar(40, 145, 240, 28, 0);
+                            VH_DrawString(50, 148, "OPTIONS IN CONFIG.INI", 14);
+                            VH_DrawString(50, 160, "(AppData scale/mouse/audio)", 7);
+                        } else {
+                            state = UI_QUIT;
+                            running = 0;
+                        }
+                    }
                 }
             }
         }
 
-        /* Present framebuffer */
-        if (framebuffer) {
-            int i;
-            for (i = 0; i < SCREENPIXELS; ++i) {
-                byte idx = framebuffer[i];
-                byte r = VL_VGA6to8(g_palette[idx * 3 + 0]);
-                byte g = VL_VGA6to8(g_palette[idx * 3 + 1]);
-                byte b = VL_VGA6to8(g_palette[idx * 3 + 2]);
-                pixels[i] = (Uint32)(0xFF000000u | ((Uint32)r << 16) |
-                                     ((Uint32)g << 8) | (Uint32)b);
-            }
-            SDL_UpdateTexture(texture, NULL, pixels, SCREENWIDTH * 4);
-            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-            SDL_RenderClear(renderer);
-            SDL_RenderCopy(renderer, texture, NULL, NULL);
-            SDL_RenderPresent(renderer);
-        } else {
-            SDL_Delay(16);
-        }
+        Wolf_PresentFrame(&pr);
+        SDL_Delay(1);
     }
 
-    free(pixels);
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    /* Do not SDL_Quit here if other subsystems need it — full quit at process end. */
-    SDL_Quit();
+    g_config.scale = pr.scale;
+    g_config.fullscreen = pr.fullscreen;
+    (void)Wolf_ConfigSave();
+    Wolf_PresentDestroy(&pr);
     return 0;
 }

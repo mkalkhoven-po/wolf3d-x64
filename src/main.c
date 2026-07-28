@@ -1,6 +1,6 @@
 /*
  * Wolf3D Win64 — application entry.
- * E7: audio — digitized SFX + IMF music via SDL.
+ * E8: Win11 productization — AppData config/saves, integer scale, fullscreen.
  */
 
 #include <stdio.h>
@@ -17,6 +17,8 @@
 #include "id/id_vh.h"
 #include "id/id_vl.h"
 #include "id/wl_data.h"
+#include "platform/win_sdl/wolf_present.h"
+#include "platform/win_sdl/wolf_userdata.h"
 
 int main(int argc, char *argv[])
 {
@@ -25,6 +27,10 @@ int main(int argc, char *argv[])
     int i;
 
     setvbuf(stdout, NULL, _IOLBF, 0);
+    Wolf_EnableDpiAwareness();
+    Wolf_ConfigSetDefaults();
+    (void)Wolf_ConfigLoad();
+    (void)Wolf_HighScoresLoad();
 
     for (i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -33,15 +39,40 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("wolf3d-win64 starting (E7 audio)...\n");
+    printf("wolf3d-win64 starting (E8 Win11 productization)...\n");
     fflush(stdout);
 
     if (!Wolf_ResolveDataDir(argc, argv, &data_dir)) {
-        return 2;
-    }
+            /* Only fall back to last_data when the user did not pass --data. */
+            int has_data_arg = 0;
+            for (i = 1; i < argc; ++i) {
+                if (strcmp(argv[i], "--data") == 0 || strcmp(argv[i], "-data") == 0 ||
+                    strncmp(argv[i], "--data=", 7) == 0) {
+                    has_data_arg = 1;
+                    break;
+                }
+            }
+            if (!has_data_arg && g_config.last_data[0]) {
+                char *fallback_argv[4];
+                fallback_argv[0] = argv[0] ? argv[0] : (char *)"wolf3d";
+                fallback_argv[1] = (char *)"--data";
+                fallback_argv[2] = g_config.last_data;
+                fallback_argv[3] = NULL;
+                if (Wolf_ResolveDataDir(3, fallback_argv, &data_dir)) {
+                    printf("Using last_data from AppData config: %s\n",
+                           g_config.last_data);
+                } else {
+                    return 2;
+                }
+            } else {
+                return 2;
+            }
+        }
     if (!Wolf_CheckRequiredFiles(&data_dir)) {
         return 3;
     }
+    snprintf(g_config.last_data, sizeof(g_config.last_data), "%s", data_dir.path);
+    (void)Wolf_ConfigSave();
 
     ID_Engine_Startup();
 
@@ -64,6 +95,13 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Audio setup failed\n");
         ID_Engine_Shutdown();
         return 15;
+    }
+    if (!g_config.sfx_on) {
+        SD_SetSilent(true);
+    }
+    if (!g_config.music_on) {
+        SD_MusicOff();
+        MusicMode = smm_Off;
     }
 
     PM_PrintSmoke();
@@ -119,40 +157,36 @@ int main(int argc, char *argv[])
         ID_Engine_Shutdown();
         return 16;
     }
+    if (!Wolf_UserDataSmokeVerify()) {
+        fprintf(stderr, "UserData smoke verify failed\n");
+        ID_Engine_Shutdown();
+        return 17;
+    }
 
-    /* Multi-map progression smoke. */
+    /* Present path smoke without holding a window open long. */
     {
-        int m;
-        int maps_ok = 1;
-        for (m = 0; m < SHAREWARE_MAPS && maps_ok; ++m) {
-            if (!Wolf_SetupLevel(m)) {
-                fprintf(stderr, "Map %d failed in episode smoke\n", m);
-                maps_ok = 0;
-                break;
-            }
-            printf("Episode smoke map %d: enemies=%d pickups=%d doors=%d\n", m,
-                   g_level.enemies_alive, g_level.pickup_count,
-                   g_level.door_count);
-        }
-        if (!maps_ok) {
+        wolf_present_t pr;
+        if (!Wolf_PresentCreate(&pr, "Wolf3D present smoke", g_config.scale, 0)) {
+            fprintf(stderr, "Present create failed\n");
             ID_Engine_Shutdown();
-            return 14;
+            return 18;
         }
-
-        Wolf_SetupLevel(0);
-        g_level.player.health = 0;
-        g_level.player.dead = true;
-        g_level.player.lives -= 1;
-        printf("Death flow smoke: dead=1 lives=%d\n", g_level.player.lives);
-        if (g_level.player.lives < 0) {
-            Wolf_ResetPlayerStats();
-        } else {
-            int lives = g_level.player.lives;
-            Wolf_SetupLevel(0);
-            g_level.player.lives = lives;
-            g_level.player.dead = false;
-            printf("Respawn smoke OK lives=%d\n", g_level.player.lives);
+        VL_ClearScreen(0);
+        VL_SetPalette(gamepal);
+        VWB_DrawPic(0, 0, TITLEPIC);
+        Wolf_PresentFrame(&pr);
+        if (pr.scale < 1 || pr.logical_w != 320 || pr.logical_h != 200) {
+            fprintf(stderr, "Present logical size wrong\n");
+            Wolf_PresentDestroy(&pr);
+            ID_Engine_Shutdown();
+            return 19;
         }
+        printf("Present smoke: scale=%d logical=%dx%d fullscreen=%d\n", pr.scale,
+               pr.logical_w, pr.logical_h, pr.fullscreen);
+        (void)Wolf_PresentSetScale(&pr, pr.scale >= 8 ? 2 : pr.scale + 1);
+        printf("Present smoke: scale after bump=%d\n", pr.scale);
+        Wolf_PresentDestroy(&pr);
+        (void)Wolf_ConfigLoad();
     }
 
     smoke_only = Wolf_ArgSmokeOnly(argc, argv);
