@@ -4,36 +4,116 @@
 
 #define MAPSIZE 64
 #define AREATILE 107
+#define ELEVATORTILE 21
 #define MAX_DOORS 64
+#define MAX_ENEMIES 128
+#define MAX_PICKUPS 256
+#define SHAREWARE_MAPS 10
+
+typedef enum {
+    EN_NONE = 0,
+    EN_GUARD,
+    EN_OFFICER,
+    EN_SS,
+    EN_DOG,
+    EN_BOSS
+} enemy_kind_t;
+
+typedef enum {
+    ST_DEAD = 0,
+    ST_STAND,
+    ST_CHASE,
+    ST_ATTACK
+} enemy_state_t;
+
+typedef enum {
+    PK_NONE = 0,
+    PK_KEY1,
+    PK_KEY2,
+    PK_KEY3,
+    PK_KEY4,
+    PK_AMMO,
+    PK_FOOD,
+    PK_MEDKIT,
+    PK_1UP,
+    PK_TREASURE,
+    PK_MGUN,
+    PK_CGUN
+} pickup_kind_t;
 
 typedef struct {
-    float x; /* world: 1.0 = one map tile */
+    float x;
     float y;
-    float angle; /* radians; 0=east, +CCW */
+    float angle;
+    int health;
+    int lives;
+    int ammo;
+    int score;
+    int keys; /* bit0 gold, bit1 silver, etc. */
+    int weapon; /* 0 knife 1 pistol 2 mg 3 chain */
+    int best_weapon;
+    float attack_cd;
+    float hurt_flash;
+    boolean dead;
 } player_t;
 
 typedef struct {
     int tilex, tiley;
     int vertical;
-    int lock;
-    float open;   /* 0 closed .. 1 open */
-    int opening;  /* -1/0/+1 */
+    int lock; /* 0 free, 1 gold, 2 silver, ... */
+    float open;
+    int opening;
 } door_t;
+
+typedef struct {
+    boolean active;
+    enemy_kind_t kind;
+    enemy_state_t state;
+    float x, y;
+    float angle;
+    int health;
+    float think_t;
+    float attack_cd;
+    float speed;
+    int score_value;
+} enemy_t;
+
+typedef struct {
+    boolean active;
+    pickup_kind_t kind;
+    float x, y;
+    int amount;
+} pickup_t;
 
 typedef struct {
     byte tilemap[MAPSIZE][MAPSIZE];
     int door_id[MAPSIZE][MAPSIZE];
     door_t doors[MAX_DOORS];
     int door_count;
+    enemy_t enemies[MAX_ENEMIES];
+    int enemy_count;
+    int enemies_alive;
+    pickup_t pickups[MAX_PICKUPS];
+    int pickup_count;
     player_t player;
     int mapnum;
+    int episode_map; /* 0..SHAREWARE_MAPS-1 progress */
     boolean active;
+    boolean level_complete;
+    boolean elevator_ready;
+    int kill_count;
+    int pickup_got;
 } level_t;
 
 extern level_t g_level;
 
 boolean Wolf_SetupLevel(int mapnum);
-void Wolf_UpdateLevel(float dt, const boolean keys[8]);
+void Wolf_UpdateLevel(float dt, const boolean keys[12]);
 void Wolf_TryUse(void);
+void Wolf_TryShoot(void);
 boolean Wolf_SolidAt(float x, float y);
 byte Wolf_WallTile(int tx, int ty);
+void Wolf_ResetPlayerStats(void);
+boolean Wolf_CombatSmokeVerify(void);
+
+/* keys[]: 0 fwd 1 back 2 turnL 3 turnR 4 strafeL 5 strafeR 6 shoot held */
