@@ -53,6 +53,7 @@ set(WOLF_PLATFORM_SOURCES
   src/platform/win_sdl/platform_sdl.c
   src/platform/win_sdl/wolf_userdata.c
   src/platform/win_sdl/wolf_present.c
+  src/platform/win_sdl/wolf_winutil.c
 )
 
 add_executable(wolf3d

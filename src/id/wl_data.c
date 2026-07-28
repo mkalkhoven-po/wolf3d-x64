@@ -14,6 +14,8 @@
 #define WOLF_ISDIR(m) S_ISDIR(m)
 #endif
 
+#include "wolf_winutil.h"
+
 static const char *const k_required_basenames[] = {
     "VSWAP",
     "VGAGRAPH",
@@ -178,27 +180,55 @@ boolean Wolf_ResolveDataDir(int argc, char **argv, wolf_data_dir_t *out)
         return true;
     }
 
-    /* Convenience defaults for local dev mounts (still user-supplied data). */
-    {
-        static const char *defaults[] = {
-            "Wolf3dgame",
-            ".\\Wolf3dgame",
-            "./Wolf3dgame",
-            "data",
-        };
-        size_t d;
-        for (d = 0; d < sizeof(defaults) / sizeof(defaults[0]); ++d) {
-            if (fill_from_path(defaults[d], out)) {
-                printf("Using default data path: %s\n", out->path);
-                return true;
+    /* Convenience defaults: cwd, then next to the executable (double-click
+         * from build\ must still find repo\Wolf3dgame or sibling packs). */
+        {
+            static const char *cwd_defaults[] = {
+                "Wolf3dgame",
+                ".\\Wolf3dgame",
+                "./Wolf3dgame",
+                "data",
+                ".\\data",
+                "./data",
+            };
+            char exe_dir[WOLF_PATH_MAX];
+            char try_path[WOLF_PATH_MAX];
+            size_t d;
+
+            for (d = 0; d < sizeof(cwd_defaults) / sizeof(cwd_defaults[0]); ++d) {
+                if (fill_from_path(cwd_defaults[d], out)) {
+                    printf("Using default data path: %s\n", out->path);
+                    return true;
+                }
+            }
+
+            if (Wolf_GetExecutableDir(exe_dir, sizeof(exe_dir))) {
+                static const char *rel[] = {
+                    "Wolf3dgame",
+                    "data",
+                    "..\\Wolf3dgame",
+                    "../Wolf3dgame",
+                    "..\\data",
+                    "../data",
+                };
+                for (d = 0; d < sizeof(rel) / sizeof(rel[0]); ++d) {
+    #ifdef _WIN32
+                    snprintf(try_path, sizeof(try_path), "%s\\%s", exe_dir, rel[d]);
+    #else
+                    snprintf(try_path, sizeof(try_path), "%s/%s", exe_dir, rel[d]);
+    #endif
+                    if (fill_from_path(try_path, out)) {
+                        printf("Using data path near exe: %s\n", out->path);
+                        return true;
+                    }
+                }
             }
         }
-    }
 
-    fprintf(stderr, "No game data directory found.\n");
-    Wolf_PrintDataUsage();
-    return false;
-}
+        fprintf(stderr, "No game data directory found.\n");
+        Wolf_PrintDataUsage();
+        return false;
+    }
 
 boolean Wolf_ArgSmokeOnly(int argc, char **argv)
 {
@@ -218,6 +248,10 @@ void Wolf_PrintDataUsage(void)
             "Usage:\n"
             "  wolf3d.exe --data <dir> [--smoke-only]\n"
             "  set WOLF3D_DATA=<dir> && wolf3d.exe [--smoke-only]\n"
+            "\n"
+            "Also tries (no flags): ./Wolf3dgame, ./data, then those folders\n"
+            "next to the .exe and one level up (so double-click from build\\ works\n"
+            "when the pack lives at repo\\Wolf3dgame).\n"
             "\n"
             "dir must contain VSWAP + VGA* + MAP* + AUDIO* with a common extension\n"
             "(.WL6 / .WL1 / .SOD / ...). See docs/product/GAME_DATA.md\n");

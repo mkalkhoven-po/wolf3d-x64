@@ -7,16 +7,46 @@
 
 This project **never** ships game data.
 
-## Run
-```bat
-cd /d D:\path\to\build-or-release
-set WOLF3D_DATA=D:\path\to\your\Wolf3dgame
-wolf3d.exe --data "%WOLF3D_DATA%"
+## Run (easiest: double-click)
+
+Layout that works when you double-click `build\wolf3d.exe`:
+
+```
+wolf3d-master\
+  Wolf3dgame\          ← your VSWAP.WL6, etc. (gitignored)
+  build\
+    wolf3d.exe
+    SDL2.dll
 ```
 
-Smoke (no interactive window loop required beyond brief present probe):
+The game looks for:
+
+1. `--data` / `WOLF3D_DATA`
+2. `last_data` in `%APPDATA%\Wolf3DWin64\config.ini`
+3. `Wolf3dgame` or `data` in the **current folder**
+4. Same names **next to the .exe** and **one folder up** (`..\Wolf3dgame`)
+
+If data is still missing, a **message box** explains how to fix it (window no longer just flashes closed).
+
+### Explicit path (always works)
 ```bat
-wolf3d.exe --data "%WOLF3D_DATA%" --smoke-only
+cd /d D:\wolf3d-master
+set WOLF3D_DATA=D:\wolf3d-master\Wolf3dgame
+build\wolf3d.exe --data "%WOLF3D_DATA%"
+```
+
+### Play a level
+1. Double-click `build\wolf3d.exe` (with pack as above), or use `--data`.
+2. **Enter** on the title → main menu.
+3. **NEW GAME** → Enter → map 0.
+
+Smoke harness (no full play loop):
+```bat
+scripts\smoke_wl6.bat
+```
+or:
+```bat
+build\wolf3d.exe --data "%WOLF3D_DATA%" --smoke-only
 ```
 
 ## Where settings live
@@ -50,6 +80,7 @@ build\wolf3d.exe --data Wolf3dgame --smoke-only
 ```
 
 ## Support notes
-- Missing data → non-zero exit and `MISSING:` list.
+- Missing data → non-zero exit, optional popup; `MISSING:` list on console when pack incomplete.
 - No audio device → silent fallback (game still runs).
 - Aspect is fixed **4:3** logical 320×200 with nearest-neighbor integer scale.
+- Interactive launch does **not** run the full smoke suite (that is `--smoke-only` / `scripts/smoke_wl6.sh`).
