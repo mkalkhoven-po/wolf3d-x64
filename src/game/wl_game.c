@@ -148,10 +148,11 @@ int Wolf_RunGame(void)
                     Wolf_TryShoot();
                 }
             } else if (ev.type == SDL_MOUSEMOTION && g_config.mouse_look) {
-                /* Mouse X turns; sensitivity scale */
-                float turn = (float)ev.motion.xrel * (0.0025f * (float)g_config.mouse_sens);
-                g_level.player.angle -= turn;
-            }
+                            /* Mouse right → turn right (angle increases). */
+                            float turn = (float)ev.motion.xrel *
+                                         (0.0025f * (float)g_config.mouse_sens);
+                            g_level.player.angle += turn;
+                        }
         }
 
         state = SDL_GetKeyboardState(NULL);

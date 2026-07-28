@@ -779,12 +779,13 @@ void Wolf_UpdateLevel(float dt, const boolean keys[12])
         p->hurt_flash -= dt;
     }
 
-    if (keys[2]) {
-        p->angle += turn_speed;
-    }
-    if (keys[3]) {
-        p->angle -= turn_speed;
-    }
+    /* Left arrow decreases angle (turn left in our Y-down / dir_y=-sin frame). */
+        if (keys[2]) {
+            p->angle -= turn_speed;
+        }
+        if (keys[3]) {
+            p->angle += turn_speed;
+        }
 
     c = cosf(p->angle);
     s = sinf(p->angle);
