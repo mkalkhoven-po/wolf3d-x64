@@ -20,6 +20,13 @@ Smoke:
 build\wolf3d.exe --data "%WOLF3D_DATA%" --smoke-only
 ```
 
+One-button harness (Git Bash or `scripts\smoke_wl6.bat`):
+```bat
+set WOLF3D_DATA=D:\path\to\your\wolfdata
+scripts\smoke_wl6.bat
+```
+See [docs/qa/SMOKE.md](docs/qa/SMOKE.md).
+
 ## Live GitHub
 
 Private repo: https://github.com/mkalkhoven-po/wolf3d-win64  

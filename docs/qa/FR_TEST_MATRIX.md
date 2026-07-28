@@ -94,5 +94,5 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 
 | ID | Requirement | Status | Owner |
 |----|-------------|--------|-------|
-| FR-QA-001 | Repeatable local smoke script documents PASS/FAIL | Untested | Q1 |
+| FR-QA-001 | Repeatable local smoke script documents PASS/FAIL | Met | Q1 |
 | FR-QA-002 | This matrix kept current through Q5 | In progress | Q0–Q5 |
