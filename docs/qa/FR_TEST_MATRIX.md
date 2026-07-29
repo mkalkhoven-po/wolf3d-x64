@@ -97,7 +97,7 @@ Implementation epics after Q3 playtest closure; bugs #73/#74 feed F3/Q4.
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
-| FR-FID-001 | Get Psyched! after New Game | M | Untested | F1 | GETPSYCHEDPIC |
+| FR-FID-001 | Get Psyched! + red preload bar after New Game | M | Untested | F1 | GETPSYCHEDPIC; bar 0x37/0x32 |
 | FR-FID-002 | STATUSBARPIC layout vs ref-f1/f2 | M | Untested | F1 | temp text bar today |
 | FR-FID-003 | Digit/face/weapon latch art | M | Untested | F1 | |
 | FR-FID-010 | FP weapon in 3D view | M | Untested | F2 | ref-f2 hands+gun |
