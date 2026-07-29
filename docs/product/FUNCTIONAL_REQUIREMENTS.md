@@ -77,3 +77,21 @@ IDs are referenced from GitHub user stories.
 | NFR-001 | Steady logic timing target ~70 Hz original tick base (presentation may be decoupled). |
 | NFR-002 | No execute-permission required on heap for scalers (no JIT codegen). |
 | NFR-003 | Clear English error strings for missing data and fatal init failures. |
+
+## Fidelity ladder (post-MVP — reference screenshots)
+
+Player reference stills live under `docs/product/references/fidelity/` (`ref-f1.png`…`ref-f3.png`).  
+Epic briefs: [`docs/epics/F1-status-hud-get-psyched.md`](../epics/F1-status-hud-get-psyched.md), [`F2-weapon-view.md`](../epics/F2-weapon-view.md), [`F3-world-statics-corpses.md`](../epics/F3-world-statics-corpses.md).
+
+| ID | Requirement |
+|----|-------------|
+| FR-FID-001 | After New Game / map load, show pack **Get Psyched!** interstitial (`GETPSYCHEDPIC`) before play view. |
+| FR-FID-002 | In-play bottom strip uses original **STATUSBARPIC** layout (FLOOR / SCORE / LIVES / face / HEALTH% / AMMO / weapon glyph). |
+| FR-FID-003 | HUD numbers, BJ face, and weapon icon use pack latch/digit art (not only the temporary bitmap font strip). |
+| FR-FID-010 | First-person weapon (hands + gun) drawn in the 3D view region above the status bar. |
+| FR-FID-011 | View-weapon art switches with inventory / keys 1–4. |
+| FR-FID-012 | Attack animation plays at least one cycle per weapon class on fire. |
+| FR-FID-020 | Map statics (lamps, plants, flags, cups, etc.) draw from VSWAP sprites, not solid color cubes. |
+| FR-FID-021 | Living enemies draw from VSWAP sprite frames; kinds are visually distinguishable. |
+| FR-FID-022 | Killed enemies leave corpse/blood sprites for the rest of the map session. |
+| NFR-FID-001 | Sprite scale/occlusion uses the same camera plane as walls (no z-fight “teleport” look). |
