@@ -34,12 +34,11 @@ static void draw_hud(void)
         wname = "CHAIN";
     }
     snprintf(line, sizeof(line),
-             "HP %d  AMMO %d  LIVES %d  SCORE %d  %s  MAP %d  x%d%s",
-             p->health, p->ammo, p->lives, p->score, wname, g_level.mapnum,
-             g_config.scale, g_config.fullscreen ? " FS" : "");
+             "HP %d  AMMO %d  LIVES %d  SCORE %d  %s  KEYS %d  MAP %d",
+             p->health, p->ammo, p->lives, p->score, wname, p->keys, g_level.mapnum);
     VH_DrawString(2, SCREENHEIGHT - 18, line, 15);
     VH_DrawString(2, SCREENHEIGHT - 9,
-                  "WASD  CTRL SHOOT  E DOOR  F5 SAVE  F9 LOAD  F11 FS  ESC", 7);
+                  "WASD CTRL/E 1-4  F5/F9  F11  ESC", 7);
     if (p->dead) {
         if (p->lives >= 0) {
             VH_DrawString(90, 80, "YOU DIED - PRESS R", 12);

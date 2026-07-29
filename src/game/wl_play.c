@@ -140,15 +140,17 @@ static void spawn_pickup(pickup_kind_t kind, int x, int y, int amount)
 /* Map static type index (tile-23) → simplified pickup. */
 static void spawn_static_from_type(int x, int y, int type)
 {
-    /* Indices from WL_ACT1 statinfo for WL6. */
+    /* Indices match SPR_STAT_* order in original WL_ACT1 statinfo. */
     switch (type) {
-    case 6: /* bad food */
+    case 6: /* bad food bo_alpo */
         spawn_pickup(PK_FOOD, x, y, 4);
         break;
-    case 20: /* key1 */
+    case 19: /* skeleton relax — none */
+        break;
+    case 20: /* Key 1 gold */
         spawn_pickup(PK_KEY1, x, y, 1);
         break;
-    case 21: /* key2 */
+    case 21: /* Key 2 silver */
         spawn_pickup(PK_KEY2, x, y, 1);
         break;
     case 24: /* good food */
@@ -167,10 +169,16 @@ static void spawn_static_from_type(int x, int y, int type)
         spawn_pickup(PK_CGUN, x, y, 6);
         break;
     case 29: /* cross */
+        spawn_pickup(PK_TREASURE, x, y, 100);
+        break;
     case 30: /* chalice */
+        spawn_pickup(PK_TREASURE, x, y, 500);
+        break;
     case 31: /* bible */
+        spawn_pickup(PK_TREASURE, x, y, 1000);
+        break;
     case 32: /* crown */
-        spawn_pickup(PK_TREASURE, x, y, 100 * (type - 28));
+        spawn_pickup(PK_TREASURE, x, y, 5000);
         break;
     case 33: /* one up */
         spawn_pickup(PK_1UP, x, y, 1);
@@ -442,12 +450,20 @@ void Wolf_TryShoot(void)
         return;
     }
 
+    /* Guns need ammo; empty gun → knife only (no phantom pistol shots). */
+    if (p->weapon > 0 && p->ammo <= 0) {
+        p->weapon = 0;
+        p->attack_cd = 0.25f;
+        SD_PlaySound(NOITEMSND);
+        return;
+    }
+
     if (p->weapon == 0) {
-            /* knife */
-            p->attack_cd = 0.35f;
-            dmg = 8;
-            SD_PlaySound(ATKKNIFESND);
-            c = cosf(p->angle);
+        /* knife melee */
+        p->attack_cd = 0.35f;
+        dmg = 8;
+        SD_PlaySound(ATKKNIFESND);
+        c = cosf(p->angle);
         s = sinf(p->angle);
         if (ray_hits_enemy(p->x, p->y, c, -s, 0.9f, &ei, &dist)) {
             enemy_t *e = &g_level.enemies[ei];
@@ -467,36 +483,32 @@ void Wolf_TryShoot(void)
         return;
     }
 
-    if (p->ammo <= 0) {
-        p->weapon = 0;
-        p->attack_cd = 0.2f;
-        return;
-    }
-
     p->ammo--;
-        switch (p->weapon) {
-        case 2:
-            p->attack_cd = 0.12f;
-            dmg = 12;
-            SD_PlaySound(ATKMACHINEGUNSND);
-            break;
-        case 3:
-            p->attack_cd = 0.07f;
-            dmg = 10;
-            SD_PlaySound(ATKGATLINGSND);
-            break;
-        default:
-            p->attack_cd = 0.28f;
-            dmg = 16;
-            SD_PlaySound(ATKPISTOLSND);
-            break;
-        }
+    if (p->ammo < 0) {
+        p->ammo = 0;
+    }
+    switch (p->weapon) {
+    case 2:
+        p->attack_cd = 0.12f;
+        dmg = 12;
+        SD_PlaySound(ATKMACHINEGUNSND);
+        break;
+    case 3:
+        p->attack_cd = 0.07f;
+        dmg = 10;
+        SD_PlaySound(ATKGATLINGSND);
+        break;
+    default:
+        p->attack_cd = 0.28f;
+        dmg = 16;
+        SD_PlaySound(ATKPISTOLSND);
+        break;
+    }
 
     c = cosf(p->angle);
     s = sinf(p->angle);
     if (ray_hits_enemy(p->x, p->y, c, -s, 16.0f, &ei, &dist)) {
         enemy_t *e = &g_level.enemies[ei];
-        /* Distance falloff */
         if (dist > 8.0f) {
             dmg = dmg / 2;
         }
@@ -504,16 +516,15 @@ void Wolf_TryShoot(void)
         e->state = ST_CHASE;
         if (e->health <= 0) {
             e->state = ST_DEAD;
-                        e->active = false;
-                        g_level.enemies_alive--;
-                        g_level.kill_count++;
-                        give_score(e->score_value);
-                        if (e->kind == EN_DOG) {
-                            SD_PlaySound(DOGDEATHSND);
-                        } else {
-                            SD_PlaySound(DEATHSCREAM1SND);
-                        }
-                        /* Drop a tiny ammo chance */
+            e->active = false;
+            g_level.enemies_alive--;
+            g_level.kill_count++;
+            give_score(e->score_value);
+            if (e->kind == EN_DOG) {
+                SD_PlaySound(DOGDEATHSND);
+            } else {
+                SD_PlaySound(DEATHSCREAM1SND);
+            }
             if (g_level.pickup_count < MAX_PICKUPS) {
                 spawn_pickup(PK_AMMO, (int)e->x, (int)e->y, 4);
             }
@@ -521,8 +532,15 @@ void Wolf_TryShoot(void)
                    p->score, p->ammo);
         }
     }
+    if (p->ammo <= 0) {
+        p->weapon = 0;
+    }
 }
 
+/*
+ * Door lock from map tiles 90..101 → (tile-90|91)/2:
+ *   0 = normal, 1..4 = gold..key4, 5 = elevator door (no key — original dr_elevator).
+ */
 void Wolf_TryUse(void)
 {
     player_t *p = &g_level.player;
@@ -531,55 +549,81 @@ void Wolf_TryUse(void)
     int did = -1;
     int i;
     int checkx, checky;
+    int elev_x = -1, elev_y = -1;
 
     if (p->dead) {
         return;
     }
 
-    for (i = 1; i <= 3 && did < 0; ++i) {
-        float ux = p->x + c * (0.4f * (float)i);
-        float uy = p->y - s * (0.4f * (float)i);
+    for (i = 1; i <= 4; ++i) {
+        float ux = p->x + c * (0.45f * (float)i);
+        float uy = p->y - s * (0.45f * (float)i);
         checkx = (int)floorf(ux);
         checky = (int)floorf(uy);
-        did = door_at(checkx, checky);
+        if ((unsigned)checkx >= MAPSIZE || (unsigned)checky >= MAPSIZE) {
+            continue;
+        }
 
-        if (did < 0 && (unsigned)checkx < MAPSIZE && (unsigned)checky < MAPSIZE) {
-                    if (g_level.tilemap[checkx][checky] == ELEVATORTILE) {
-                        g_level.level_complete = true;
-                        g_level.elevator_ready = true;
-                        SD_PlaySound(LEVELDONESND);
-                        printf("Elevator activated at %d,%d → next map\n", checkx, checky);
-                        return;
-                    }
+        if (did < 0) {
+            did = door_at(checkx, checky);
+        }
+        if (g_level.tilemap[checkx][checky] == ELEVATORTILE) {
+            elev_x = checkx;
+            elev_y = checky;
+        }
+        /* Elevator cab walls sometimes sit beside elev tile — probe adjacent. */
+        if (elev_x < 0) {
+            static const int ox[4] = {1, -1, 0, 0};
+            static const int oy[4] = {0, 0, 1, -1};
+            int k;
+            for (k = 0; k < 4; ++k) {
+                int ax = checkx + ox[k];
+                int ay = checky + oy[k];
+                if ((unsigned)ax < MAPSIZE && (unsigned)ay < MAPSIZE &&
+                    g_level.tilemap[ax][ay] == ELEVATORTILE) {
+                    elev_x = ax;
+                    elev_y = ay;
+                    break;
                 }
+            }
+        }
     }
 
     if (did >= 0) {
         door_t *d = &g_level.doors[did];
-        if (d->lock > 0) {
-            int need = d->lock - 1; /* lock 1 needs key bit0 */
-            if (need < 0) {
-                need = 0;
-            }
-            if (need > 3) {
-                need = 3;
-            }
+        /* Matches original OperateDoor: only dr_lock1..dr_lock4 need keys. */
+        if (d->lock >= 1 && d->lock <= 4) {
+            int need = d->lock - 1;
             if ((p->keys & (1 << need)) == 0) {
-                            printf("Door %d locked (need key %d)\n", did, need + 1);
-                            SD_PlaySound(NOWAYSND);
-                            return;
-                        }
-                    }
-                    if (d->open < 0.5f) {
-                        d->opening = 1;
-                        SD_PlaySound(OPENDOORSND);
-                        printf("Door %d opening at %d,%d\n", did, d->tilex, d->tiley);
-                    } else {
-                        d->opening = -1;
-                        SD_PlaySound(CLOSEDOORSND);
-                        printf("Door %d closing at %d,%d\n", did, d->tilex, d->tiley);
-                    }
+                printf("Door %d locked (need key %d, have mask=0x%x)\n", did,
+                       d->lock, p->keys);
+                SD_PlaySound(NOWAYSND);
+                return;
+            }
+        }
+        if (d->open < 0.5f) {
+            d->opening = 1;
+            SD_PlaySound(OPENDOORSND);
+            printf("Door %d opening lock=%d at %d,%d\n", did, d->lock, d->tilex,
+                   d->tiley);
+        } else {
+            d->opening = -1;
+            SD_PlaySound(CLOSEDOORSND);
+            printf("Door %d closing at %d,%d\n", did, d->tilex, d->tiley);
+        }
+        return;
     }
+
+    if (elev_x >= 0) {
+        g_level.level_complete = true;
+        g_level.elevator_ready = true;
+        SD_PlaySound(LEVELDONESND);
+        printf("Elevator activated at %d,%d → press N for next map\n", elev_x,
+               elev_y);
+        return;
+    }
+
+    SD_PlaySound(DONOTHINGSND);
 }
 
 static void update_pickups(void)
