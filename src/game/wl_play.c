@@ -39,13 +39,12 @@ boolean Wolf_SolidAt(float x, float y)
     }
 
     tile = g_level.tilemap[tx][ty];
-    /* Elevator tiles are walkable markers but CAM still wall-code 21 as solid;
-     * treat elevator as solid visually but walkable from open side. Allow walk. */
-    if (tile == ELEVATORTILE) {
-        return false;
+        /* Elevator switch walls are solid (original tilemap[21] is blocking). */
+        if (tile == ELEVATORTILE) {
+            return true;
+        }
+        return tile != 0;
     }
-    return tile != 0;
-}
 
 static boolean blocked_player(float x, float y)
 {

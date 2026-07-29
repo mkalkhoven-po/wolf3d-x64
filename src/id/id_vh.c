@@ -232,11 +232,14 @@ void VH_DrawString(int x, int y, const char *text, int color)
                     glyph[4] = 0x7E; glyph[5] = 0x0C; glyph[6] = 0x78;
                     break;
                 case '-':
-                    glyph[3] = 0x7E; glyph[4] = 0x7E;
-                    break;
-                case '+':
-                    glyph[2] = 0x18; glyph[3] = 0x7E; glyph[4] = 0x18;
-                    break;
+                            glyph[3] = 0x7E; glyph[4] = 0x7E;
+                            break;
+                        case '=':
+                            glyph[2] = 0x7E; glyph[4] = 0x7E;
+                            break;
+                        case '+':
+                            glyph[2] = 0x18; glyph[3] = 0x7E; glyph[4] = 0x18;
+                            break;
                 case '/':
                     glyph[1] = 0x06; glyph[2] = 0x0C; glyph[3] = 0x18;
                     glyph[4] = 0x30; glyph[5] = 0x60; glyph[6] = 0xC0;
