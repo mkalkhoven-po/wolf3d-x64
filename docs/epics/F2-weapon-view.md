@@ -27,6 +27,7 @@ Draw the active weapon as a **first-person overlay** from VSWAP weapon shapes (a
 ## Notes
 - Status bar weapon **icon** is F1; this epic is the **in-view hands/gun**.
 - Simplified frames acceptable if full pipe set is huge — document Partial.
+- In-motion rest snout on E1M1 any%: [`docs/qa/E1M1_ANYPERCENT_REFERENCE.md`](../qa/E1M1_ANYPERCENT_REFERENCE.md).
 
 ## GitHub
 

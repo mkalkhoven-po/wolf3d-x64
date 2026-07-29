@@ -35,6 +35,9 @@ Also insure non-door elevator switch plates use correct wall/door page art (alre
 - Full AI state machine / smooth rotations across all angles path
 - Pushwalls / secret art unless trivial with current maps
 
+## Related route reference
+Any% may show **distant living guards with SCORE still 0** — do not require mop-up to validate spritess; full corpse density → `ref-f3.png` + kill tests. See [`docs/qa/E1M1_ANYPERCENT_REFERENCE.md`](../qa/E1M1_ANYPERCENT_REFERENCE.md).
+
 ## GitHub
 
 - Epic: #78

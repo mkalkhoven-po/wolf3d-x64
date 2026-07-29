@@ -7,6 +7,7 @@ Phase 2 of the Wolf3D Win64 port: **testing, playtest, and bugfix**.
 | [FR_TEST_MATRIX.md](FR_TEST_MATRIX.md) | Every MVP FR → method, status, owner Q-epic |
 | [SMOKE.md](SMOKE.md) | Automated harness `scripts/smoke_wl6.*` |
 | [PLAYTEST_MANUAL.md](PLAYTEST_MANUAL.md) | Manual checklists (Q2–Q4) |
+| [E1M1_ANYPERCENT_REFERENCE.md](E1M1_ANYPERCENT_REFERENCE.md) | Floor-1 any% route + fidelity notes (Short + stills map) |
 | [BUG_TRIAGE.md](BUG_TRIAGE.md) | Severity, labels, project Status hygiene |
 | [GO_NO_GO.md](GO_NO_GO.md) | Stabilization sign-off (Q5) |
 
