@@ -55,10 +55,14 @@ static int num_digi;
 static voice_t voices[MAX_VOICE];
 
 /* IMF music */
-static byte *music_data;
-static int music_len;
-static int music_pos; /* word index */
-static double music_tick_acc;
+static byte *music_data;       /* full AUDIOT music chunk */
+static int music_len;          /* total chunk bytes */
+static int music_pos;          /* byte offset into values[] stream */
+static int music_seq_len;      /* MusicGroup.length (bytes of values) */
+static int music_remaining;    /* bytes left in values this loop */
+static double music_tick_acc;  /* fractional AdLib timer ticks */
+static long music_al_time;     /* alTimeCount analogue */
+static long music_sq_time;     /* sqHackTime analogue */
 static boolean music_on;
 static int music_index_cur = -1;
 
@@ -264,6 +268,11 @@ static void free_music(void)
     music_data = NULL;
     music_len = 0;
     music_pos = 0;
+    music_seq_len = 0;
+    music_remaining = 0;
+    music_tick_acc = 0;
+    music_al_time = 0;
+    music_sq_time = 0;
     music_on = false;
     music_index_cur = -1;
 }
@@ -301,39 +310,58 @@ static void al_out(byte reg, byte val)
     }
 }
 
+static word rd_le16(const byte *p)
+{
+    return (word)(p[0] | (p[1] << 8));
+}
+
+/*
+ * Original ID_SD SDL_ALService (MusicGroup stream):
+ *   while (len && sqHackTime <= alTimeCount) {
+ *     cmd = *ptr++; delay = *ptr++;  // words
+ *     alOut(cmd&0xff, cmd>>8);
+ *     sqHackTime = alTimeCount + delay;
+ *     len -= 4;
+ *   }
+ *   alTimeCount++;
+ * AdLib ISR runs ~700 Hz.
+ */
 static void imf_advance(double samples_at_mix)
 {
-    /* Convert mix samples → IMF timer ticks (700 Hz in id AdLib player). */
     double ticks = samples_at_mix * (IMF_HZ / (double)MIX_RATE);
     music_tick_acc += ticks;
 
-    while (music_on && music_data && music_tick_acc >= 1.0) {
-        byte reg, val;
-        word delay;
-        if (music_pos + 4 > music_len) {
-            music_pos = 0; /* loop */
-            music_tick_acc = 0;
-            break;
+    while (music_on && music_data && music_seq_len > 0 && music_tick_acc >= 1.0) {
+        /* Drain all events due at this alTimeCount. */
+        while (music_remaining >= 4 && music_sq_time <= music_al_time) {
+            word cmd, delay;
+            byte reg, val;
+            if (music_pos + 4 > music_len) {
+                music_remaining = 0;
+                break;
+            }
+            cmd = rd_le16(music_data + music_pos);
+            delay = rd_le16(music_data + music_pos + 2);
+            music_pos += 4;
+            music_remaining -= 4;
+            reg = (byte)(cmd & 0xFF);
+            val = (byte)((cmd >> 8) & 0xFF);
+            al_out(reg, val);
+            music_sq_time = music_al_time + (long)delay;
         }
-        /*
-         * Wolfenstein packs IMF as type-0 streams after a 16-bit length word:
-         *   [reg][val][delay_lo][delay_hi]
-         * (see AUDIOT mb chunks; original SD_StartMusic feeds MusicGroup values.)
-         */
-        reg = music_data[music_pos + 0];
-        val = music_data[music_pos + 1];
-        delay = (word)(music_data[music_pos + 2] | (music_data[music_pos + 3] << 8));
-        music_pos += 4;
-        if (reg == 0 && val == 0 && delay == 0) {
-            music_pos = 0;
-            music_tick_acc = 0;
-            break;
+
+        music_al_time += 1;
+        music_tick_acc -= 1.0;
+
+        if (music_remaining < 4) {
+            /* Loop MusicGroup values (original rewinds pointer). */
+            music_pos = (music_seq_len > 0 && music_len >= music_seq_len + 2)
+                            ? 2
+                            : 0;
+            music_remaining = music_seq_len;
+            music_al_time = 0;
+            music_sq_time = 0;
         }
-        al_out(reg, val);
-        if (delay == 0) {
-            delay = 1;
-        }
-        music_tick_acc -= (double)delay;
     }
 }
 
@@ -358,7 +386,7 @@ static float opl_sample(void)
             opl_ch[ch].phase -= floor(opl_ch[ch].phase);
         }
         s = (opl_ch[ch].phase < 0.5) ? 1.0 : -1.0;
-        sum += (float)(s * (opl_ch[ch].vol / 63.0) * 0.08);
+        sum += (float)(s * ((opl_ch[ch].vol > 0 ? opl_ch[ch].vol : 32) / 63.0) * 0.22);
     }
     return sum;
 }
@@ -619,26 +647,38 @@ void SD_StartMusic(word music_index)
     }
     memcpy(music_data, audiot_blob + start, (size_t)len);
     music_len = (int)len;
-    music_pos = 0;
-    /*
-     * Chunks are length-prefixed (WORD bytes of following IMF stream).
-     * If the embedded length matches payload-2, skip the word (id MusicGroup).
-     */
-    if (music_len >= 4) {
+    /* MusicGroup (ID_SD.H): first word = byte length of values[], then
+         * pairs of words (cmd, delay). cmd low=reg, high=val. */
+        music_pos = 0;
+        music_seq_len = 0;
+    if (music_len >= 6) {
         word nest = (word)(music_data[0] | (music_data[1] << 8));
-        if ((int)nest + 2 == music_len || (int)nest + 4 == music_len) {
-            music_pos = 2;
-        } else if (music_data[2] == 0 && music_data[3] == 0 && nest > 0) {
-            music_pos = 4;
+        if (nest >= 4 && (int)nest + 2 <= music_len && (nest % 4) == 0) {
+            music_seq_len = (int)nest;
+            music_pos = 2; /* start of values[] */
+        } else {
+            /* Fallback: whole chunk is the values stream. */
+            music_seq_len = music_len & ~3;
+            music_pos = 0;
         }
     }
+    music_remaining = music_seq_len;
     music_tick_acc = 0;
+    music_al_time = 0;
+    music_sq_time = 0;
     music_on = true;
     music_index_cur = (int)music_index;
     memset(opl_ch, 0, sizeof(opl_ch));
     memset(opl_reg, 0, sizeof(opl_reg));
-    printf("SD: music start index=%u chunk=%d bytes=%ld imf_off=%d\n", music_index,
-           chunk, len, music_pos);
+    /* Default operator volume so notes sound before first level write. */
+    {
+        int ch;
+        for (ch = 0; ch < 9; ++ch) {
+            opl_ch[ch].vol = 48;
+        }
+    }
+    printf("SD: music start index=%u chunk=%d bytes=%ld seq_len=%d values_off=%d\n",
+           music_index, chunk, len, music_seq_len, music_pos);
 }
 
 void SD_MusicOn(void)
@@ -731,16 +771,38 @@ boolean SD_AudioSmokeVerify(void)
     }
 
     if (!SD_Silent && MusicMode == smm_AdLib && audiot_blob) {
-        SD_StartMusic(CORNER_MUS);
-        if (!SD_MusicPlaying()) {
-            fprintf(stderr, "Audio smoke: music failed to start\n");
-            ok = false;
-        } else {
-            SDL_Delay(50);
-            SD_MusicOff();
-            printf("  music start/stop: OK\n");
+            SD_StartMusic(GETTHEM_MUS);
+            if (!SD_MusicPlaying() || music_seq_len < 4 || music_pos != 2) {
+                fprintf(stderr,
+                        "Audio smoke: music failed (playing=%d seq_len=%d off=%d)\n",
+                        (int)SD_MusicPlaying(), music_seq_len, music_pos);
+                ok = false;
+            } else {
+                int max_keyed = 0;
+                int sample;
+                /* Sample several mix windows — notes are not continuous. */
+                for (sample = 0; sample < 12; ++sample) {
+                    int ch, keyed = 0;
+                    SDL_Delay(40);
+                    for (ch = 0; ch < 9; ++ch) {
+                        if (opl_ch[ch].keyon && opl_ch[ch].fnum != 0) {
+                            keyed++;
+                        }
+                    }
+                    if (keyed > max_keyed) {
+                        max_keyed = keyed;
+                    }
+                }
+                printf("  music start/stop: OK seq_len=%d values_off=%d max_keyed=%d\n",
+                       music_seq_len, music_pos, max_keyed);
+                if (max_keyed == 0) {
+                    fprintf(stderr,
+                            "Audio smoke: music stream advanced but soft-OPL never key-on\n");
+                    ok = false;
+                }
+                SD_MusicOff();
+            }
         }
-    }
 
     return ok;
 }
