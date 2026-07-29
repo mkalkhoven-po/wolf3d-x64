@@ -11,5 +11,8 @@ Manual verification of data errors, title/menu, scale/fullscreen, focus.
 ## FRs
 FR-DATA-*, FR-VID-*, FR-IN-003, FR-GAME-001–002  
 
+## Status
+**COMPLETED** (stories #50–#52 closed; music silence fixed later in #69).
+
 ## Acceptance
 - [ ] Checklist in `docs/qa/PLAYTEST_MANUAL.md` Q2 section completed or bugs filed  
