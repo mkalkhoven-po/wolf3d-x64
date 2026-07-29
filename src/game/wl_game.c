@@ -16,6 +16,11 @@
 #include "wolf_present.h"
 #include "wolf_userdata.h"
 
+/* Episode 1 map songs from original WL_PLAY.C (mapon 0..9). */
+static const int episode1_songs[] = {
+    GETTHEM_MUS, SEARCHN_MUS, POW_MUS, SUSPENSE_MUS, GETTHEM_MUS,
+    SEARCHN_MUS, POW_MUS, SUSPENSE_MUS, WARMARCH_MUS, CORNER_MUS};
+
 static void draw_hud(void)
 {
     char line[160];
@@ -69,7 +74,11 @@ int Wolf_RunGame(void)
     memset(keys, 0, sizeof(keys));
     last_ticks = SDL_GetTicks();
     if (g_config.music_on) {
-        SD_StartMusic(GETTHEM_MUS);
+        int track = episode1_songs[0];
+        if (start_map >= 0 && start_map < 10) {
+            track = episode1_songs[start_map];
+        }
+        SD_StartMusic((word)track);
     }
     printf("E8: F5 save / F9 load / F11 fullscreen / +/- scale, ESC exit\n");
 
@@ -136,11 +145,15 @@ int Wolf_RunGame(void)
                         VH_DrawString(40, 100, "EPISODE COMPLETE - ESC", 14);
                     } else {
                         if (!Wolf_SetupLevel(next)) {
-                            fprintf(stderr, "Failed next map %d\n", next);
-                            running = 0;
-                        } else {
-                            printf("Entered map %d\n", next);
-                        }
+                                                    fprintf(stderr, "Failed next map %d\n", next);
+                                                    running = 0;
+                                                } else {
+                                                    if (g_config.music_on) {
+                                                        int track = episode1_songs[next < 10 ? next : 0];
+                                                        SD_StartMusic((word)track);
+                                                    }
+                                                    printf("Entered map %d\n", next);
+                                                }
                     }
                 }
             } else if (ev.type == SDL_MOUSEBUTTONDOWN) {

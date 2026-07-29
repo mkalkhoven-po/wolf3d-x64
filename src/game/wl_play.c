@@ -707,13 +707,22 @@ static void update_enemies(float dt)
                 c = cosf(ang);
                 s = sinf(ang);
                 if (dist > 0.85f) {
-                    nx = e->x + c * e->speed * dt;
-                    ny = e->y - s * e->speed * dt;
-                    if (!blocked_actor(nx, e->y, 0.15f)) {
-                        e->x = nx;
+                    float step = e->speed * dt;
+                    /* Cap step so large dt spikes cannot cannon through walls. */
+                    if (step > 0.20f) {
+                        step = 0.20f;
                     }
-                    if (!blocked_actor(e->x, ny, 0.15f)) {
+                    nx = e->x + c * step;
+                    ny = e->y - s * step;
+                    if (!blocked_actor(nx, e->y, 0.20f)) {
+                        e->x = nx;
+                    } else if (!blocked_actor(e->x + c * step * 0.5f, e->y, 0.20f)) {
+                        e->x += c * step * 0.5f;
+                    }
+                    if (!blocked_actor(e->x, ny, 0.20f)) {
                         e->y = ny;
+                    } else if (!blocked_actor(e->x, e->y - s * step * 0.5f, 0.20f)) {
+                        e->y -= s * step * 0.5f;
                     }
                 }
             }
