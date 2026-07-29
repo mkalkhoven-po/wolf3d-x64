@@ -90,9 +90,27 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 | NFR-002 | No JIT heap-exec | M | Met | Q0 | Software path |
 | NFR-003 | Clear English errors | A/M | Met | Q1/Q2 | missing data |
 
+## Fidelity ladder (F1–F3 visual parity)
+
+Reference stills: `docs/product/references/fidelity/ref-f{1,2,3}.png`.  
+Implementation epics after Q3 playtest closure; bugs #73/#74 feed F3/Q4.
+
+| ID | Method | Smoke | Status | Owner | Notes |
+|----|--------|-------|--------|-------|-------|
+| FR-FID-001 | Get Psyched! after New Game | M | Untested | F1 | GETPSYCHEDPIC |
+| FR-FID-002 | STATUSBARPIC layout vs ref-f1/f2 | M | Untested | F1 | temp text bar today |
+| FR-FID-003 | Digit/face/weapon latch art | M | Untested | F1 | |
+| FR-FID-010 | FP weapon in 3D view | M | Untested | F2 | ref-f2 hands+gun |
+| FR-FID-011 | View weapon switches 1–4 | M | Untested | F2 | |
+| FR-FID-012 | Attack frame cycle | M | Untested | F2 | |
+| FR-FID-020 | Static props VSWAP sprites | M | Untested | F3 | lamps/plants/flags |
+| FR-FID-021 | Enemy living sprites | M | Fail | F3 | #73 color cubes |
+| FR-FID-022 | Corpse/blood after kill | M | Untested | F3 | ref-f3 bodies |
+| NFR-FID-001 | Same camera plane as walls | A/M | Partial | F3 | FOV fix #68 |
+
 ## QA-only
 
 | ID | Requirement | Status | Owner |
 |----|-------------|--------|-------|
 | FR-QA-001 | Repeatable local smoke script documents PASS/FAIL | Met | Q1 |
-| FR-QA-002 | This matrix kept current through Q5 | In progress | Q0–Q5 |
+| FR-QA-002 | This matrix kept current through Q5 + F ladder | In progress | Q0–Q5/F |
