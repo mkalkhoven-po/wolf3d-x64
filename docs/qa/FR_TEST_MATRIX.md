@@ -43,8 +43,8 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 | FR-VID-001 | 320×200 logical FB; HUD string for status band | A/M | Partial | Q2 | Not full original status-bar art |
 | FR-VID-002 | Title palette paint non-empty | A/M | Met | Q1/Q2 | |
 | FR-VID-003 | Integer scale 4:3 letterbox | A/M | Met | Q2 | +/- keys, present helper |
-| FR-VID-004 | Esc / window close | M | Untested | Q2 | |
-| FR-VID-005 | Alt-tab no crash | M | Untested | Q2/Q4 | |
+| FR-VID-004 | Esc / window close | M | Met | Q2 | Player sign-off |
+| FR-VID-005 | Alt-tab no crash | M | Partial | Q2/Q4 | Informal |
 
 ## Input
 
@@ -52,14 +52,14 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 |----|--------|-------|--------|-------|-------|
 | FR-IN-001 | WASD/arrows/CTRL/E/1–4 | M | Partial | Q3 | Core set present |
 | FR-IN-002 | Mouse X turn when enabled | M | Partial | Q3/Q4 | config mouse_look |
-| FR-IN-003 | Menu keyboard | M | Untested | Q2 | |
+| FR-IN-003 | Menu keyboard | M | Met | Q2 | up/down/enter/esc |
 
 ## Gameplay
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
 | FR-GAME-001 | Title → menu | A/M | Met | Q2 | |
-| FR-GAME-002 | New Game starts | M | Untested | Q2/Q3 | |
+| FR-GAME-002 | New Game starts | M | Met | Q2/Q3 | Player sessions |
 | FR-GAME-003 | Move + wall collide | A/M | Met | Q3 | Raycast smoke |
 | FR-GAME-004 | Doors (+ locks/keys) | A/M | Partial | Q3 | Pushwalls not full fidelity |
 | FR-GAME-005 | Pickups | A/M | Met | Q3 | |
@@ -73,7 +73,7 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 |----|--------|-------|--------|-------|-------|
 | FR-AUD-001 | Silent fallback | A | Met | Q1/Q4 | |
 | FR-AUD-002 | Digi weapons/doors | A/M | Met | Q4 | 46 samples smoke |
-| FR-AUD-003 | IMF music menu/game | A/M | Partial | Q4 | Lightweight OPL-ish |
+| FR-AUD-003 | IMF music menu/game | A/M | Partial | Q4 | MusicGroup audible (#69); soft-OPL not NukedOPL |
 
 ## Persistence
 
