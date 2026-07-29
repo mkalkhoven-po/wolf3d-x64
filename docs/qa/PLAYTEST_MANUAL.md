@@ -29,6 +29,9 @@ Use with **your** WL6/WL1 folder. File defects as **type:bug** with severity lab
 | 7 | Die → R respawn with lives | | |
 | 8 | Elevator → level complete → next map | | |
 
+**Thin any% path (no mop-up):** doors → elevator exit is enough for “map completable”; SCORE may stay 0.  
+Step-by-step + fidelity snapshot: [E1M1_ANYPERCENT_REFERENCE.md](E1M1_ANYPERCENT_REFERENCE.md).
+
 ## Q4 — Audio & AppData (#57)
 
 | # | Step | Pass? | Bug # |

@@ -45,6 +45,9 @@ Palette indices **0x37 / 0x32** are the authentic reds (same family as the gothi
 - Exact face animation set can land after static face + numbers.
 - Digits may latch from `L_*` / number pics in `GFXV_WL6.H`.
 
+## Related route reference
+Live-floor HUD while moving (any% E1M1): [`docs/qa/E1M1_ANYPERCENT_REFERENCE.md`](../qa/E1M1_ANYPERCENT_REFERENCE.md) — FLOOR/SCORE/LIVES/face/HEALTH/AMMO update mid-run.
+
 ## GitHub
 
 - Epic: #76
