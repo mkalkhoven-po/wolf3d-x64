@@ -87,13 +87,19 @@ static void draw_menu(int cursor)
 {
     int i;
     char line[64];
+    /* MainItems-like layout from original WL_MENU (gun, not checkboxes). */
+    const int items_x = MENU_X;          /* 76 */
+    const int items_y = MENU_Y;          /* 55 */
+    const int indent = 24;               /* text starts here */
+    const int gun_x = items_x & ~7;      /* DrawGun X alignment */
+    const int text_x = items_x + indent;
 
-    VL_ClearScreen(0); /* classic ClearMScreen default */
+    VL_ClearScreen(0);
     VL_SetPalette(gamepal);
 
-    /* Blue-ish top/bottom frames (approximation of striped backdrop). */
-    VL_Bar(0, 0, SCREENWIDTH, 16, MENU_BORDCOLOR);
-    VL_Bar(0, SCREENHEIGHT - 8, SCREENWIDTH, 8, MENU_BORDCOLOR);
+    /* Top/bottom red border strips (ClearMScreen / DrawStripes style). */
+    VL_Bar(0, 0, SCREENWIDTH, 14, MENU_BORDCOLOR);
+    VL_Bar(0, SCREENHEIGHT - 14, SCREENWIDTH, 14, MENU_BORDCOLOR);
     draw_stripes(10);
 
     if (pictable) {
@@ -103,44 +109,35 @@ static void draw_menu(int cursor)
         }
     }
 
-    /* Red control panel window (MENU_X/Y/W/H style). */
+    /* Red control panel window only — no per-row selected checkbox pics. */
     draw_window(MENU_X - 8, MENU_Y - 3, MENU_W, MENU_H, MENU_BKGDCOLOR);
 
     for (i = 0; i < MENU_COUNT; ++i) {
-        int y = MENU_Y + i * 13;
+        int y = items_y + i * 13;
         int color = (i == cursor) ? MENU_HIGHLIGHT : MENU_TEXTCOLOR;
-        int mark_x = MENU_X + 4;
-        int text_x = MENU_X + 24;
-
-        if (pictable) {
-            int mark = (i == cursor) ? C_SELECTEDPIC : C_NOTSELECTEDPIC;
-            CA_CacheGrChunk(mark);
-            if (grsegs[mark]) {
-                VWB_DrawPic(mark_x, y, mark);
-            } else if (i == cursor) {
-                VH_DrawString(mark_x, y + 2, "*", MENU_HIGHLIGHT);
-            }
-        } else if (i == cursor) {
-            VH_DrawString(mark_x, y + 2, "*", MENU_HIGHLIGHT);
-        }
         VH_DrawString(text_x, y + 2, menu_items[i], color);
     }
 
+    /* Gun cursor only on the active row (original HandleMenu/DrawGun). */
     if (pictable) {
+        CA_CacheGrChunk(C_CURSOR1PIC);
+        if (grsegs[C_CURSOR1PIC]) {
+            VWB_DrawPic(gun_x, items_y - 2 + cursor * 13, C_CURSOR1PIC);
+        } else {
+            VH_DrawString(gun_x, items_y + cursor * 13 + 2, ">", MENU_HIGHLIGHT);
+        }
         CA_CacheGrChunk(C_MOUSELBACKPIC);
         if (grsegs[C_MOUSELBACKPIC]) {
             VWB_DrawPic(112, 184, C_MOUSELBACKPIC);
         }
-        /* Gun cursor on active row (original uses C_CURSOR*). */
-        CA_CacheGrChunk(C_CURSOR1PIC);
-        if (grsegs[C_CURSOR1PIC]) {
-            VWB_DrawPic(MENU_X - 16, MENU_Y + cursor * 13 - 2, C_CURSOR1PIC);
-        }
+    } else {
+        VH_DrawString(gun_x, items_y + cursor * 13 + 2, ">", MENU_HIGHLIGHT);
     }
 
+    /* Scale hint above the mouse help strip, left-aligned to avoid overlap. */
     snprintf(line, sizeof(line), "SCALE x%d  %s", g_config.scale,
              g_config.fullscreen ? "FULLSCREEN" : "WINDOW");
-    VH_DrawString(8, 192, line, 7);
+    VH_DrawString(8, 170, line, 7);
 }
 
 int Wolf_RunIntroMenu(void)
@@ -157,7 +154,7 @@ int Wolf_RunIntroMenu(void)
 
     draw_title();
     if (g_config.music_on) {
-        SD_StartMusic(INTROCW3_MUS);
+        SD_StartMusic(NAZI_NOR_MUS);
     }
 
     while (running && state != UI_QUIT) {
@@ -204,7 +201,7 @@ int Wolf_RunIntroMenu(void)
                         cursor = 0;
                         draw_menu(cursor);
                         if (g_config.music_on) {
-                            SD_StartMusic(WARMARCH_MUS);
+                            SD_StartMusic(WONDERIN_MUS);
                         }
                     } else if (k == SDLK_ESCAPE) {
                         state = UI_QUIT;
@@ -223,7 +220,7 @@ int Wolf_RunIntroMenu(void)
                         state = UI_TITLE;
                         draw_title();
                         if (g_config.music_on) {
-                            SD_StartMusic(INTROCW3_MUS);
+                            SD_StartMusic(NAZI_NOR_MUS);
                         }
                     } else if (k == SDLK_RETURN) {
                         SD_PlaySound(SELECTITEMSND);
@@ -247,7 +244,7 @@ int Wolf_RunIntroMenu(void)
                             state = UI_MENU;
                             draw_menu(cursor);
                             if (g_config.music_on) {
-                                SD_StartMusic(WARMARCH_MUS);
+                                SD_StartMusic(WONDERIN_MUS);
                             }
                         } else if (cursor == 6) {
                             state = UI_QUIT;

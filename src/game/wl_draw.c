@@ -21,8 +21,9 @@
  * line height looks too squat; multiply project height toward that.
  */
 #define WALL_HEIGHT_MUL 1.45f
-/* Slightly narrower FOV (~50°) — also makes mid-range walls feel larger. */
+/* Match wall ray FOV with billboard camera plane (tan(fov/2)). */
 #define FOV_RAD ((float)(M_PI * 50.0 / 180.0))
+#define CAMERA_PLANE ((float)(0.46630765815)) /* tan(25°) */
 
 static float zbuffer[SCREENWIDTH];
 
@@ -70,8 +71,8 @@ static void draw_billboard(float ex, float ey, int color, float scale_mul)
     }
 
     /* Camera plane perpendicular to dir */
-    plane_x = cosf(p->angle - (float)(M_PI * 0.5)) * 0.66f;
-    plane_y = -sinf(p->angle - (float)(M_PI * 0.5)) * 0.66f;
+    plane_x = cosf(p->angle - (float)(M_PI * 0.5)) * CAMERA_PLANE;
+    plane_y = -sinf(p->angle - (float)(M_PI * 0.5)) * CAMERA_PLANE;
 
     {
         float dir_x = cosf(p->angle);
@@ -124,8 +125,8 @@ void Wolf_DrawWorld(void)
 {
     int x, y, i;
     player_t *p = &g_level.player;
-    const float fov = FOV_RAD;
-        int view_h = VIEW_HEIGHT;
+    int view_h = VIEW_HEIGHT;
+    (void)FOV_RAD;
 
     if (!framebuffer || !g_level.active) {
         return;
@@ -142,11 +143,15 @@ void Wolf_DrawWorld(void)
         memset(framebuffer + y * SCREENWIDTH, bar, SCREENWIDTH);
     }
 
+    {
+        float dir_x = cosf(p->angle);
+        float dir_y = -sinf(p->angle);
+        float plane_x = cosf(p->angle - (float)(M_PI * 0.5)) * CAMERA_PLANE;
+        float plane_y = -sinf(p->angle - (float)(M_PI * 0.5)) * CAMERA_PLANE;
     for (x = 0; x < SCREENWIDTH; ++x) {
         float cam = 2.0f * (float)x / (float)SCREENWIDTH - 1.0f;
-        float ray_ang = p->angle + cam * (fov * 0.5f);
-        float ray_dir_x = cosf(ray_ang);
-        float ray_dir_y = -sinf(ray_ang);
+        float ray_dir_x = dir_x + plane_x * cam;
+        float ray_dir_y = dir_y + plane_y * cam;
 
         int map_x = (int)floorf(p->x);
         int map_y = (int)floorf(p->y);
@@ -249,13 +254,12 @@ void Wolf_DrawWorld(void)
             int d = y * 256 - view_h * 128 + line_h * 128;
             int tex_y = ((d * TEX_SIZE) / line_h) / 256;
             byte c = sample_wall((int)wall_tile, tex_x, tex_y, side);
-                        /* Mild NS darkening without the old bit-mangle purple mess. */
-                        if (side == 1 && c > 4) {
-                            c = (byte)(c - 4);
-                        }
-                        framebuffer[y * SCREENWIDTH + x] = c;
+            /* NS/EW already use different wall pages; never subtract palette indices. */
+            (void)side;
+            framebuffer[y * SCREENWIDTH + x] = c;
         }
     }
+    } /* dir/plane scope */
 
     /* Pickups as small blips */
     for (i = 0; i < g_level.pickup_count; ++i) {

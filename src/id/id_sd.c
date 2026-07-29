@@ -25,7 +25,7 @@
 #define DIGI_SRC_RATE 7000
 #define DIGI_VOICE_GAIN 1.35f
 #define MAX_VOICE 8
-#define IMF_HZ 560.0 /* rough timer base for IMF ticks */
+#define IMF_HZ 700.0 /* Wolf3D AdLib IMF rate (ID_SD) */
 
 SDMode SoundMode = sdm_Off;
 SMMode MusicMode = smm_Off;
@@ -303,27 +303,33 @@ static void al_out(byte reg, byte val)
 
 static void imf_advance(double samples_at_mix)
 {
-    /* Convert mix samples → IMF ticks */
+    /* Convert mix samples → IMF timer ticks (700 Hz in id AdLib player). */
     double ticks = samples_at_mix * (IMF_HZ / (double)MIX_RATE);
     music_tick_acc += ticks;
 
     while (music_on && music_data && music_tick_acc >= 1.0) {
-        word delay, cmd;
+        byte reg, val;
+        word delay;
         if (music_pos + 4 > music_len) {
             music_pos = 0; /* loop */
+            music_tick_acc = 0;
+            break;
         }
-        delay = (word)(music_data[music_pos] | (music_data[music_pos + 1] << 8));
-        cmd = (word)(music_data[music_pos + 2] | (music_data[music_pos + 3] << 8));
+        /*
+         * Wolfenstein packs IMF as type-0 streams after a 16-bit length word:
+         *   [reg][val][delay_lo][delay_hi]
+         * (see AUDIOT mb chunks; original SD_StartMusic feeds MusicGroup values.)
+         */
+        reg = music_data[music_pos + 0];
+        val = music_data[music_pos + 1];
+        delay = (word)(music_data[music_pos + 2] | (music_data[music_pos + 3] << 8));
         music_pos += 4;
-        if (delay == 0 && cmd == 0) {
+        if (reg == 0 && val == 0 && delay == 0) {
             music_pos = 0;
-            continue;
+            music_tick_acc = 0;
+            break;
         }
-        /* Type-0 IMF: word0=reg|val packed differently for id — common layout is:
-           [reg][val][delay_lo][delay_hi] OR [delay][command]
-           WL uses length-prefixed bank; try order: delay then (reg,val) in cmd as
-           reg=low, val=high */
-        al_out((byte)(cmd & 0xFF), (byte)((cmd >> 8) & 0xFF));
+        al_out(reg, val);
         if (delay == 0) {
             delay = 1;
         }
@@ -614,11 +620,25 @@ void SD_StartMusic(word music_index)
     memcpy(music_data, audiot_blob + start, (size_t)len);
     music_len = (int)len;
     music_pos = 0;
+    /*
+     * Chunks are length-prefixed (WORD bytes of following IMF stream).
+     * If the embedded length matches payload-2, skip the word (id MusicGroup).
+     */
+    if (music_len >= 4) {
+        word nest = (word)(music_data[0] | (music_data[1] << 8));
+        if ((int)nest + 2 == music_len || (int)nest + 4 == music_len) {
+            music_pos = 2;
+        } else if (music_data[2] == 0 && music_data[3] == 0 && nest > 0) {
+            music_pos = 4;
+        }
+    }
     music_tick_acc = 0;
     music_on = true;
     music_index_cur = (int)music_index;
     memset(opl_ch, 0, sizeof(opl_ch));
-    printf("SD: music start index=%u chunk=%d bytes=%ld\n", music_index, chunk, len);
+    memset(opl_reg, 0, sizeof(opl_reg));
+    printf("SD: music start index=%u chunk=%d bytes=%ld imf_off=%d\n", music_index,
+           chunk, len, music_pos);
 }
 
 void SD_MusicOn(void)
