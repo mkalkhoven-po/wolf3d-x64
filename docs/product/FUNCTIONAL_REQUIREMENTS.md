@@ -85,7 +85,7 @@ Epic briefs: [`docs/epics/F1-status-hud-get-psyched.md`](../epics/F1-status-hud-
 
 | ID | Requirement |
 |----|-------------|
-| FR-FID-001 | After New Game / map load, show pack **Get Psyched!** interstitial (`GETPSYCHEDPIC`) before play view. |
+| FR-FID-001 | After New Game / map load, show pack **Get Psyched!** interstitial (`GETPSYCHEDPIC`) before play view, with a **red** left-to-right preload progress bar under the banner (original palette `0x37`/`0x32`, same red family as the lettering). |
 | FR-FID-002 | In-play bottom strip uses original **STATUSBARPIC** layout (FLOOR / SCORE / LIVES / face / HEALTH% / AMMO / weapon glyph). |
 | FR-FID-003 | HUD numbers, BJ face, and weapon icon use pack latch/digit art (not only the temporary bitmap font strip). |
 | FR-FID-010 | First-person weapon (hands + gun) drawn in the 3D view region above the status bar. |
