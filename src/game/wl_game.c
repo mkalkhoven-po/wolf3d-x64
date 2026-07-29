@@ -47,7 +47,7 @@ static void draw_hud(void)
         }
     }
     if (g_level.level_complete) {
-        VH_DrawString(70, 70, "LEVEL COMPLETE! N=NEXT", 14);
+        VH_DrawString(50, 70, "LEVEL COMPLETE - PRESS N", 14);
     }
 }
 

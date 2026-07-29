@@ -27,12 +27,45 @@
 
 static float zbuffer[SCREENWIDTH];
 
-static byte sample_wall(int wall_id, int tex_x, int tex_y, int side)
+/* Door wall pages live just before sprite pages (original DOORWALL). */
+static int door_wall_base(void)
 {
-    int page;
+    if (PMSpriteStart >= 8) {
+        return (int)PMSpriteStart - 8;
+    }
+    return 0;
+}
+
+/*
+ * Sample a VSWAP wall/door page. page is absolute VSWAP page index.
+ * page_is_door: skip wallish (wall_id-1)*2 mapping.
+ */
+static byte sample_page(int page, int tex_x, int tex_y)
+{
     const byte *tex;
     int tx = tex_x & 63;
     int ty = tex_y & 63;
+
+    if (page < 0) {
+        page = 0;
+    }
+    /* Door pages are PMSpriteStart-8 .. SpriteStart-1; walls [0, SpriteStart). */
+    if (PMSoundStart && (word)page >= PMSoundStart) {
+        page = (int)PMSoundStart - 1;
+        if (page < 0) {
+            page = 0;
+        }
+    }
+    tex = (const byte *)PM_GetPage(page);
+    if (!tex) {
+        return 0;
+    }
+    return tex[ty + tx * TEX_SIZE];
+}
+
+static byte sample_wall(int wall_id, int tex_x, int tex_y, int side)
+{
+    int page;
 
     if (wall_id <= 0) {
         wall_id = 1;
@@ -47,11 +80,21 @@ static byte sample_wall(int wall_id, int tex_x, int tex_y, int side)
             page = 0;
         }
     }
-    tex = (const byte *)PM_GetPage(page);
-    if (!tex) {
-        return (byte)(wall_id * 3 + side * 8);
+    return sample_page(page, tex_x, tex_y);
+}
+
+/* lock: 0 normal, 1-4 keys, 5 elevator (dr_*). Matches Hit*Door switch. */
+static byte sample_door(int lock, int tex_x, int tex_y)
+{
+    int base = door_wall_base();
+    int page = base; /* dr_normal */
+
+    if (lock >= 1 && lock <= 4) {
+        page = base + 6; /* locked doors */
+    } else if (lock >= 5) {
+        page = base + 4; /* elevator door */
     }
-    return tex[ty + tx * TEX_SIZE];
+    return sample_page(page, tex_x, tex_y);
 }
 
 static void draw_billboard(float ex, float ey, int color, float scale_mul)
@@ -251,13 +294,18 @@ void Wolf_DrawWorld(void)
         }
 
         for (y = draw_start; y <= draw_end; ++y) {
-            int d = y * 256 - view_h * 128 + line_h * 128;
-            int tex_y = ((d * TEX_SIZE) / line_h) / 256;
-            byte c = sample_wall((int)wall_tile, tex_x, tex_y, side);
-            /* NS/EW already use different wall pages; never subtract palette indices. */
-            (void)side;
-            framebuffer[y * SCREENWIDTH + x] = c;
-        }
+                    int d = y * 256 - view_h * 128 + line_h * 128;
+                    int tex_y = ((d * TEX_SIZE) / line_h) / 256;
+                    byte c;
+                    if (door_hit >= 0) {
+                        c = sample_door(g_level.doors[door_hit].lock, tex_x, tex_y);
+                    } else {
+                        c = sample_wall((int)wall_tile, tex_x, tex_y, side);
+                    }
+                    /* NS/EW already use different wall pages; never subtract palette indices. */
+                    (void)side;
+                    framebuffer[y * SCREENWIDTH + x] = c;
+                }
     }
     } /* dir/plane scope */
 

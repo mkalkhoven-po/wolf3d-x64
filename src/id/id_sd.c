@@ -84,6 +84,11 @@ static longword time_count_base;
 static void init_digimap(void)
 {
     int i;
+    /*
+     * Official wolfdigimap (WL_MAIN.C InitDigiMap) — sounds NOT in this list
+     * have DigiMap=-1 and must not fall back to unrelated digi (e.g. pistol).
+     * Pickups like GETAMMOSND / BONUS* are AdLib-only in the original.
+     */
     static const int map[] = {
         HALTSND, 0, DOGBARKSND, 1, CLOSEDOORSND, 2, OPENDOORSND, 3,
         ATKMACHINEGUNSND, 4, ATKPISTOLSND, 5, ATKGATLINGSND, 6, SCHUTZADSND, 7,
@@ -93,23 +98,7 @@ static void init_digimap(void)
         DIESND, 18, EVASND, 19, LEBENSND, 20, NAZIFIRESND, 21, SLURPIESND, 22,
         TOT_HUNDSND, 23, MEINGOTTSND, 24, SCHABBSHASND, 25, HITLERHASND, 26,
         SPIONSND, 27, NEINSOVASSND, 28, DOGATTACKSND, 29, LEVELDONESND, 30,
-        /* Extra gameplay cues mapped onto nearby digi slots. */
-        GETKEYSND, 3,
-        GETAMMOSND, 5,
-        GETMACHINESND, 4,
-        GETGATLINGSND, 6,
-        HEALTH1SND, 14,
-        HEALTH2SND, 14,
-        BONUS1SND, 30,
-        BONUS2SND, 30,
-        BONUS3SND, 30,
-        BONUS4SND, 30,
-        BONUS1UPSND, 30,
-        ATKKNIFESND, 5,
-        NOWAYSND, 31,
-        NOITEMSND, 31,
-        DONOTHINGSND, 31,
-        PLAYERDEATHSND, 18,
+        /* mech step 31 and yeah 32 exist on some packs — omit if no enum */
         LASTSOUND
     };
     for (i = 0; i < LASTSOUND; ++i) {
@@ -595,14 +584,11 @@ void SD_PlaySound(word sound)
         play_digi_index(digi_idx, 140);
         return;
     }
-    /* Unmapped: prefer a digi click, never a PC-speaker path. */
-    if (!SD_Silent && num_digi > 0 && DigiMode != sds_Off) {
-        int fb = DigiMap[ATKPISTOLSND];
-        if (fb < 0 || fb >= num_digi || !digi[fb].data) {
-            fb = 0;
-        }
-        play_digi_index(fb, 50);
-    }
+    /*
+     * No DigiMap entry (pickups/treasure/etc.): original plays AdLib, not digi.
+     * Do NOT fall back to pistol digi — that made ammo pickups sound like shots.
+     */
+    (void)sound;
 }
 
 void SD_StopSound(void)
