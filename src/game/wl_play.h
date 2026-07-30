@@ -77,6 +77,7 @@ typedef struct {
     float think_t;
     float attack_cd;
     float speed;
+    float anim_t; /* walk-cycle timer */
     int score_value;
 } enemy_t;
 
