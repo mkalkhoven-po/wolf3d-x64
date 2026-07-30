@@ -85,6 +85,7 @@ Asserted by `scripts/smoke_wl6.sh` (must all appear in combined stdout/stderr):
 | `save/load OK` |
 | `Status smoke:` |
 | `Get Psyched:` |
+| `Weapon smoke:` |
 | `Present smoke:` |
 | `logical=320x200` |
 | `windowed_client=` |
