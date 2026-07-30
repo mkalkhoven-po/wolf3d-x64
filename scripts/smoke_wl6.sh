@@ -167,6 +167,7 @@ REQUIRED_MARKERS=(
   "Status smoke:"
   "Get Psyched:"
   "Weapon smoke:"
+  "Sprite smoke:"
   "Present smoke:"
   "logical=320x200"
   "windowed_client="

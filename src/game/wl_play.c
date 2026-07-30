@@ -6,6 +6,7 @@
 
 #include "id/id_ca.h"
 #include "id/id_sd.h"
+#include "id/wl_sprite.h"
 #include "id/audio_wl6.h"
 
 #ifndef M_PI
@@ -122,6 +123,36 @@ static void spawn_enemy(enemy_kind_t kind, int x, int y, int dir)
     g_level.enemies_alive++;
 }
 
+static int pickup_default_shape(pickup_kind_t kind)
+{
+    switch (kind) {
+    case PK_KEY1:
+        return SPR_STAT_BASE + 20;
+    case PK_KEY2:
+        return SPR_STAT_BASE + 21;
+    case PK_KEY3:
+        return SPR_STAT_BASE + 22;
+    case PK_KEY4:
+        return SPR_STAT_BASE + 23;
+    case PK_FOOD:
+        return SPR_STAT_BASE + 24;
+    case PK_MEDKIT:
+        return SPR_STAT_BASE + 25;
+    case PK_AMMO:
+        return SPR_STAT_BASE + 26;
+    case PK_MGUN:
+        return SPR_STAT_BASE + 27;
+    case PK_CGUN:
+        return SPR_STAT_BASE + 28;
+    case PK_TREASURE:
+        return SPR_STAT_BASE + 29;
+    case PK_1UP:
+        return SPR_STAT_BASE + 33;
+    default:
+        return SPR_STAT_BASE + 26;
+    }
+}
+
 static void spawn_pickup(pickup_kind_t kind, int x, int y, int amount)
 {
     pickup_t *p;
@@ -134,56 +165,86 @@ static void spawn_pickup(pickup_kind_t kind, int x, int y, int amount)
     p->x = (float)x + 0.5f;
     p->y = (float)y + 0.5f;
     p->amount = amount;
+    p->shapenum = pickup_default_shape(kind);
 }
 
-/* Map static type index (tile-23) → simplified pickup. */
+static void spawn_pickup_shape(pickup_kind_t kind, int x, int y, int amount, int shapenum)
+{
+    pickup_t *p;
+    if (kind == PK_NONE || g_level.pickup_count >= MAX_PICKUPS) {
+        return;
+    }
+    p = &g_level.pickups[g_level.pickup_count++];
+    p->active = true;
+    p->kind = kind;
+    p->x = (float)x + 0.5f;
+    p->y = (float)y + 0.5f;
+    p->amount = amount;
+    p->shapenum = shapenum;
+}
+
+static void spawn_decor(int x, int y, int shapenum)
+{
+    decor_t *d;
+    if (g_level.decor_count >= MAX_DECOR || shapenum < 0) {
+        return;
+    }
+    d = &g_level.decor[g_level.decor_count++];
+    d->active = true;
+    d->x = (float)x + 0.5f;
+    d->y = (float)y + 0.5f;
+    d->shapenum = shapenum;
+}
+
+/* Map static type index (tile-23) -> pickup or decorative VSWAP sprite. */
 static void spawn_static_from_type(int x, int y, int type)
 {
-    /* Indices match SPR_STAT_* order in original WL_ACT1 statinfo. */
+    int shape = SPR_STAT_BASE + type;
     switch (type) {
-    case 6: /* bad food bo_alpo */
-        spawn_pickup(PK_FOOD, x, y, 4);
-        break;
-    case 19: /* skeleton relax — none */
-        break;
-    case 20: /* Key 1 gold */
-        spawn_pickup(PK_KEY1, x, y, 1);
-        break;
-    case 21: /* Key 2 silver */
-        spawn_pickup(PK_KEY2, x, y, 1);
-        break;
-    case 24: /* good food */
-        spawn_pickup(PK_FOOD, x, y, 10);
-        break;
-    case 25: /* first aid */
-        spawn_pickup(PK_MEDKIT, x, y, 25);
-        break;
-    case 26: /* clip */
-        spawn_pickup(PK_AMMO, x, y, 8);
-        break;
-    case 27: /* machine gun */
-        spawn_pickup(PK_MGUN, x, y, 6);
-        break;
-    case 28: /* chaingun */
-        spawn_pickup(PK_CGUN, x, y, 6);
-        break;
-    case 29: /* cross */
-        spawn_pickup(PK_TREASURE, x, y, 100);
-        break;
-    case 30: /* chalice */
-        spawn_pickup(PK_TREASURE, x, y, 500);
-        break;
-    case 31: /* bible */
-        spawn_pickup(PK_TREASURE, x, y, 1000);
-        break;
-    case 32: /* crown */
-        spawn_pickup(PK_TREASURE, x, y, 5000);
-        break;
-    case 33: /* one up */
-        spawn_pickup(PK_1UP, x, y, 1);
-        break;
+    case 6:
+        spawn_pickup_shape(PK_FOOD, x, y, 4, shape);
+        return;
+    case 20:
+        spawn_pickup_shape(PK_KEY1, x, y, 1, shape);
+        return;
+    case 21:
+        spawn_pickup_shape(PK_KEY2, x, y, 1, shape);
+        return;
+    case 24:
+        spawn_pickup_shape(PK_FOOD, x, y, 10, shape);
+        return;
+    case 25:
+        spawn_pickup_shape(PK_MEDKIT, x, y, 25, shape);
+        return;
+    case 26:
+        spawn_pickup_shape(PK_AMMO, x, y, 8, shape);
+        return;
+    case 27:
+        spawn_pickup_shape(PK_MGUN, x, y, 6, shape);
+        return;
+    case 28:
+        spawn_pickup_shape(PK_CGUN, x, y, 6, shape);
+        return;
+    case 29:
+        spawn_pickup_shape(PK_TREASURE, x, y, 100, shape);
+        return;
+    case 30:
+        spawn_pickup_shape(PK_TREASURE, x, y, 500, shape);
+        return;
+    case 31:
+        spawn_pickup_shape(PK_TREASURE, x, y, 1000, shape);
+        return;
+    case 32:
+        spawn_pickup_shape(PK_TREASURE, x, y, 5000, shape);
+        return;
+    case 33:
+        spawn_pickup_shape(PK_1UP, x, y, 1, shape);
+        return;
     default:
         break;
+    }
+    if (type >= 0 && type <= 47) {
+        spawn_decor(x, y, shape);
     }
 }
 
@@ -471,7 +532,7 @@ void Wolf_TryShoot(void)
             e->health -= dmg;
             if (e->health <= 0) {
                 e->state = ST_DEAD;
-                e->active = false;
+                /* keep active so corpse billboard draws (combat AI skips ST_DEAD). */
                 g_level.enemies_alive--;
                 g_level.kill_count++;
                 give_score(e->score_value);
@@ -518,7 +579,7 @@ void Wolf_TryShoot(void)
         e->state = ST_CHASE;
         if (e->health <= 0) {
             e->state = ST_DEAD;
-            e->active = false;
+            /* keep active for corpse draw */
             g_level.enemies_alive--;
             g_level.kill_count++;
             give_score(e->score_value);

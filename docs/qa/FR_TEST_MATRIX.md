@@ -103,10 +103,10 @@ Implementation epics after Q3 playtest closure; bugs #73/#74 feed F3/Q4.
 | FR-FID-010 | FP weapon in 3D view | A/M | Met | F2 | VSWAP SimpleScaleShape; #F2 |
 | FR-FID-011 | View weapon switches 1–4 | A/M | Met | F2 | keys 1–4 + best_weapon |
 | FR-FID-012 | Attack frame cycle | A/M | Met | F2 | weapon_frame 1..4 over attack_cd |
-| FR-FID-020 | Static props VSWAP sprites | M | Untested | F3 | lamps/plants/flags |
-| FR-FID-021 | Enemy living sprites | M | Fail | F3 | #73 color cubes |
-| FR-FID-022 | Corpse/blood after kill | M | Untested | F3 | ref-f3 bodies |
-| NFR-FID-001 | Same camera plane as walls | A/M | Partial | F3 | FOV fix #68 |
+| FR-FID-020 | Static props VSWAP sprites | A/M | Met | F3 | decor + pickups from STAT pages |
+| FR-FID-021 | Enemy living sprites | A/M | Met | F3 | guard/dog/ss/ofc/boss front frames |
+| FR-FID-022 | Corpse/blood after kill | A/M | Met | F3 | ST_DEAD stays drawable |
+| NFR-FID-001 | Same camera plane as walls | A/M | Met | F3 | billboard shares CAMERA_PLANE |
 
 ## Original weapons (F4+)
 

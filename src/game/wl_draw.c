@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "id/id_pm.h"
+#include "id/wl_sprite.h"
 #include "id/id_vh.h"
 #include "id/id_vl.h"
 #include "wl_play.h"
@@ -97,23 +98,26 @@ static byte sample_door(int lock, int tex_x, int tex_y)
     return sample_page(page, tex_x, tex_y);
 }
 
-static void draw_billboard(float ex, float ey, int color, float scale_mul)
+static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_mul)
 {
     player_t *p = &g_level.player;
     float dx = ex - p->x;
     float dy = ey - p->y;
-    float dist = dx * cosf(p->angle) + (-dy) * sinf(p->angle);
     float inv_det, transform_x, transform_y;
     int sprite_screen_x, sprite_h, sprite_w;
     int draw_start_y, draw_end_y, draw_start_x, draw_end_x;
     int stripe, y;
     float plane_x, plane_y;
+    byte tex[64 * 64];
+    int tex_x0;
 
-    if (dist <= 0.15f) {
+    if (shapenum < 0) {
+        return;
+    }
+    if (!Wolf_SpriteExpand(shapenum, tex)) {
         return;
     }
 
-    /* Camera plane perpendicular to dir */
     plane_x = cosf(p->angle - (float)(M_PI * 0.5)) * CAMERA_PLANE;
     plane_y = -sinf(p->angle - (float)(M_PI * 0.5)) * CAMERA_PLANE;
 
@@ -130,6 +134,9 @@ static void draw_billboard(float ex, float ey, int color, float scale_mul)
 
     sprite_screen_x = (int)((SCREENWIDTH / 2) * (1.0f + transform_x / transform_y));
     sprite_h = (int)fabsf((float)VIEW_HEIGHT / transform_y * scale_mul);
+    if (sprite_h < 1) {
+        return;
+    }
     sprite_w = sprite_h;
     draw_start_y = -sprite_h / 2 + VIEW_HEIGHT / 2;
     draw_end_y = sprite_h / 2 + VIEW_HEIGHT / 2;
@@ -141,26 +148,66 @@ static void draw_billboard(float ex, float ey, int color, float scale_mul)
     }
     draw_start_x = -sprite_w / 2 + sprite_screen_x;
     draw_end_x = sprite_w / 2 + sprite_screen_x;
-    if (draw_start_x < 0) {
-        draw_start_x = 0;
-    }
-    if (draw_end_x >= SCREENWIDTH) {
-        draw_end_x = SCREENWIDTH - 1;
-    }
 
     for (stripe = draw_start_x; stripe < draw_end_x; ++stripe) {
+        int tex_x;
+        if ((unsigned)stripe >= (unsigned)SCREENWIDTH) {
+            continue;
+        }
         if (transform_y >= zbuffer[stripe]) {
             continue;
         }
+        tex_x = (int)((stripe - (-sprite_w / 2 + sprite_screen_x)) * 64 / sprite_w);
+        if ((unsigned)tex_x >= 64u) {
+            continue;
+        }
         for (y = draw_start_y; y < draw_end_y; ++y) {
-            /* Simple filled body with outline */
-            float v = (float)(y - draw_start_y) / (float)(draw_end_y - draw_start_y + 1);
-            byte c = (byte)color;
-            if (v < 0.15f) {
-                c = (byte)(color + 4);
+            int d = y * 256 - VIEW_HEIGHT * 128 + sprite_h * 128;
+            int tex_y = ((d * 64) / sprite_h) / 256;
+            byte c;
+            if ((unsigned)tex_y >= 64u) {
+                continue;
+            }
+            c = tex[tex_y * 64 + tex_x];
+            if (c == 0xFF) {
+                continue; /* transparent */
             }
             framebuffer[y * SCREENWIDTH + stripe] = c;
         }
+    }
+}
+
+static int enemy_live_shape(const enemy_t *e)
+{
+    switch (e->kind) {
+    case EN_DOG:
+        return SPR_DOG_W1_1;
+    case EN_SS:
+        return SPR_SS_S1;
+    case EN_OFFICER:
+        return SPR_OFC_S1;
+    case EN_BOSS:
+        return SPR_BOSS_W1;
+    case EN_GUARD:
+    default:
+        return SPR_GRD_S1;
+    }
+}
+
+static int enemy_dead_shape(const enemy_t *e)
+{
+    switch (e->kind) {
+    case EN_DOG:
+        return SPR_DOG_DEAD;
+    case EN_SS:
+        return SPR_SS_DEAD;
+    case EN_OFFICER:
+        return SPR_OFC_DEAD;
+    case EN_BOSS:
+        return SPR_BOSS_DEAD;
+    case EN_GUARD:
+    default:
+        return SPR_GRD_DEAD;
     }
 }
 
@@ -309,48 +356,38 @@ void Wolf_DrawWorld(void)
     }
     } /* dir/plane scope */
 
-    /* Pickups as small blips */
-    for (i = 0; i < g_level.pickup_count; ++i) {
-        if (g_level.pickups[i].active) {
-            int col = 14;
-            if (g_level.pickups[i].kind == PK_KEY1 ||
-                g_level.pickups[i].kind == PK_KEY2) {
-                col = 14;
-            } else if (g_level.pickups[i].kind == PK_AMMO) {
-                col = 7;
-            } else if (g_level.pickups[i].kind == PK_MEDKIT ||
-                       g_level.pickups[i].kind == PK_FOOD) {
-                col = 12;
-            }
-            draw_billboard(g_level.pickups[i].x, g_level.pickups[i].y, col, 0.35f);
+    /* Decorative statics (lamps, plants, furniture, ...) */
+    for (i = 0; i < g_level.decor_count; ++i) {
+        if (g_level.decor[i].active) {
+            draw_shape_billboard(g_level.decor[i].x, g_level.decor[i].y,
+                                 g_level.decor[i].shapenum, 0.55f);
         }
     }
 
-    /* Enemies as colored sprites */
+    /* Pickups from VSWAP STAT pages */
+    for (i = 0; i < g_level.pickup_count; ++i) {
+        if (g_level.pickups[i].active) {
+            draw_shape_billboard(g_level.pickups[i].x, g_level.pickups[i].y,
+                                 g_level.pickups[i].shapenum, 0.40f);
+        }
+    }
+
+    /* Living enemies + corpses */
     for (i = 0; i < g_level.enemy_count; ++i) {
         enemy_t *e = &g_level.enemies[i];
-        int col = 40;
-        if (!e->active || e->state == ST_DEAD) {
+        int shape;
+        float sc;
+        if (!e->active) {
             continue;
         }
-        switch (e->kind) {
-        case EN_DOG:
-            col = 6;
-            break;
-        case EN_SS:
-            col = 1;
-            break;
-        case EN_OFFICER:
-            col = 4;
-            break;
-        case EN_BOSS:
-            col = 5;
-            break;
-        default:
-            col = 12;
-            break;
+        if (e->state == ST_DEAD) {
+            shape = enemy_dead_shape(e);
+            sc = 0.70f;
+        } else {
+            shape = enemy_live_shape(e);
+            sc = (e->kind == EN_DOG) ? 0.55f : 0.85f;
         }
-        draw_billboard(e->x, e->y, col, 0.85f);
+        draw_shape_billboard(e->x, e->y, shape, sc);
     }
 
     /* Kill flash */
