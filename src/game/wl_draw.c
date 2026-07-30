@@ -98,7 +98,15 @@ static byte sample_door(int lock, int tex_x, int tex_y)
     return sample_page(page, tex_x, tex_y);
 }
 
-static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_mul)
+#define SPR_PLACE_FLOOR 0
+#define SPR_PLACE_CEIL 1
+
+/*
+ * Textured billboard. Height tracks wall projection so scale matches walls.
+ * Floor: feet on wall-bottom. Ceiling fixtures: hang from wall-top.
+ */
+static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_mul,
+                                 int placement)
 {
     player_t *p = &g_level.player;
     float dx = ex - p->x;
@@ -109,7 +117,9 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
     int stripe, y;
     float plane_x, plane_y;
     byte tex[64 * 64];
-    int tex_x0;
+    int v_mid;
+    int wall_h;
+    int top_op, bot_op, op_h;
 
     if (shapenum < 0) {
         return;
@@ -117,6 +127,42 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
     if (!Wolf_SpriteExpand(shapenum, tex)) {
         return;
     }
+    top_op = 0;
+    bot_op = 63;
+    {
+        int yy, xx, found;
+        found = 0;
+        for (yy = 0; yy < 64; ++yy) {
+            for (xx = 0; xx < 64; ++xx) {
+                if (tex[yy * 64 + xx] != 0xFF) {
+                    top_op = yy;
+                    found = 1;
+                    break;
+                }
+            }
+            if (found) {
+                break;
+            }
+        }
+        found = 0;
+        for (yy = 63; yy >= 0; --yy) {
+            for (xx = 0; xx < 64; ++xx) {
+                if (tex[yy * 64 + xx] != 0xFF) {
+                    bot_op = yy;
+                    found = 1;
+                    break;
+                }
+            }
+            if (found) {
+                break;
+            }
+        }
+        if (bot_op < top_op) {
+            top_op = 0;
+            bot_op = 63;
+        }
+    }
+    op_h = bot_op - top_op + 1;
 
     plane_x = cosf(p->angle - (float)(M_PI * 0.5)) * CAMERA_PLANE;
     plane_y = -sinf(p->angle - (float)(M_PI * 0.5)) * CAMERA_PLANE;
@@ -133,24 +179,48 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
     }
 
     sprite_screen_x = (int)((SCREENWIDTH / 2) * (1.0f + transform_x / transform_y));
-    sprite_h = (int)fabsf((float)VIEW_HEIGHT / transform_y * scale_mul);
+    wall_h = (int)fabsf((float)VIEW_HEIGHT * WALL_HEIGHT_MUL / transform_y);
+    if (wall_h < 1) {
+        wall_h = 1;
+    }
+    sprite_h = (int)((float)wall_h * scale_mul);
     if (sprite_h < 1) {
         return;
     }
     sprite_w = sprite_h;
-    draw_start_y = -sprite_h / 2 + VIEW_HEIGHT / 2;
-    draw_end_y = sprite_h / 2 + VIEW_HEIGHT / 2;
+    /* Project only the opaque row range so empty padding cannot float the art. */
+    {
+        int full_h = sprite_h;
+        int op_pix = (op_h * full_h + 32) / 64;
+        if (op_pix < 1) {
+            op_pix = 1;
+        }
+        sprite_h = op_pix;
+    }
+
+    v_mid = VIEW_HEIGHT / 2;
+    if (placement == SPR_PLACE_CEIL) {
+        draw_start_y = v_mid - wall_h / 2;
+        draw_end_y = draw_start_y + sprite_h;
+    } else {
+        draw_end_y = v_mid + wall_h / 2;
+        draw_start_y = draw_end_y - sprite_h;
+    }
     if (draw_start_y < 0) {
         draw_start_y = 0;
     }
     if (draw_end_y >= VIEW_HEIGHT) {
         draw_end_y = VIEW_HEIGHT - 1;
     }
+    if (draw_end_y <= draw_start_y) {
+        return;
+    }
     draw_start_x = -sprite_w / 2 + sprite_screen_x;
     draw_end_x = sprite_w / 2 + sprite_screen_x;
 
     for (stripe = draw_start_x; stripe < draw_end_x; ++stripe) {
         int tex_x;
+        int span_h = draw_end_y - draw_start_y + 1;
         if ((unsigned)stripe >= (unsigned)SCREENWIDTH) {
             continue;
         }
@@ -161,36 +231,57 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
         if ((unsigned)tex_x >= 64u) {
             continue;
         }
-        for (y = draw_start_y; y < draw_end_y; ++y) {
-            int d = y * 256 - VIEW_HEIGHT * 128 + sprite_h * 128;
-            int tex_y = ((d * 64) / sprite_h) / 256;
+        for (y = draw_start_y; y <= draw_end_y; ++y) {
+            int tex_y = top_op + ((y - draw_start_y) * op_h) / span_h;
             byte c;
-            if ((unsigned)tex_y >= 64u) {
-                continue;
+            if (tex_y < top_op) {
+                tex_y = top_op;
+            }
+            if (tex_y > bot_op) {
+                tex_y = bot_op;
             }
             c = tex[tex_y * 64 + tex_x];
             if (c == 0xFF) {
-                continue; /* transparent */
+                continue;
             }
             framebuffer[y * SCREENWIDTH + stripe] = c;
         }
     }
 }
 
+static int is_ceiling_stat(int shapenum)
+{
+    return shapenum == (SPR_STAT_BASE + 4) || shapenum == (SPR_STAT_BASE + 14);
+}
+
 static int enemy_live_shape(const enemy_t *e)
 {
+    int phase = ((int)e->anim_t) & 3;
+
     switch (e->kind) {
     case EN_DOG:
-        return SPR_DOG_W1_1;
+        if (e->state == ST_STAND) {
+            return SPR_DOG_W1_1;
+        }
+        return SPR_DOG_W1_1 + phase * 8;
     case EN_SS:
-        return SPR_SS_S1;
+        if (e->state == ST_STAND) {
+            return SPR_SS_S1;
+        }
+        return SPR_SS_W1_1 + phase * 8;
     case EN_OFFICER:
-        return SPR_OFC_S1;
+        if (e->state == ST_STAND) {
+            return SPR_OFC_S1;
+        }
+        return SPR_OFC_W1_1 + phase * 8;
     case EN_BOSS:
-        return SPR_BOSS_W1;
+        return SPR_BOSS_W1 + (phase & 3);
     case EN_GUARD:
     default:
-        return SPR_GRD_S1;
+        if (e->state == ST_STAND) {
+            return SPR_GRD_S1;
+        }
+        return SPR_GRD_W1_1 + phase * 8;
     }
 }
 
@@ -340,39 +431,62 @@ void Wolf_DrawWorld(void)
             tex_x = TEX_SIZE - tex_x - 1;
         }
 
-        for (y = draw_start; y <= draw_end; ++y) {
+        if (door_hit >= 0) {
+            /* Sliding open: only lower portion of tex u remains as open rises. */
+            door_t *dd = &g_level.doors[door_hit];
+            float openf = dd->open;
+            int remain;
+            if (openf < 0.0f) {
+                openf = 0.0f;
+            }
+            if (openf > 1.0f) {
+                openf = 1.0f;
+            }
+            remain = (int)((1.0f - openf) * (float)TEX_SIZE + 0.5f);
+            if (remain > 0 && tex_x < remain) {
+                for (y = draw_start; y <= draw_end; ++y) {
                     int d = y * 256 - view_h * 128 + line_h * 128;
                     int tex_y = ((d * TEX_SIZE) / line_h) / 256;
-                    byte c;
-                    if (door_hit >= 0) {
-                        c = sample_door(g_level.doors[door_hit].lock, tex_x, tex_y);
-                    } else {
-                        c = sample_wall((int)wall_tile, tex_x, tex_y, side);
-                    }
-                    /* NS/EW already use different wall pages; never subtract palette indices. */
-                    (void)side;
+                    byte c = sample_door(dd->lock, tex_x, tex_y);
                     framebuffer[y * SCREENWIDTH + x] = c;
                 }
+            }
+            /* When mostly open, do not occlude sprites beyond the doorway. */
+            if (openf > 0.55f) {
+                zbuffer[x] = 1e30f;
+            }
+        } else {
+            for (y = draw_start; y <= draw_end; ++y) {
+                int d = y * 256 - view_h * 128 + line_h * 128;
+                int tex_y = ((d * TEX_SIZE) / line_h) / 256;
+                byte c = sample_wall((int)wall_tile, tex_x, tex_y, side);
+                (void)side;
+                framebuffer[y * SCREENWIDTH + x] = c;
+            }
+        }
     }
     } /* dir/plane scope */
 
     /* Decorative statics (lamps, plants, furniture, ...) */
     for (i = 0; i < g_level.decor_count; ++i) {
         if (g_level.decor[i].active) {
+            int place = is_ceiling_stat(g_level.decor[i].shapenum) ? SPR_PLACE_CEIL
+                                                                    : SPR_PLACE_FLOOR;
+            float sc = is_ceiling_stat(g_level.decor[i].shapenum) ? 0.35f : 0.90f;
             draw_shape_billboard(g_level.decor[i].x, g_level.decor[i].y,
-                                 g_level.decor[i].shapenum, 0.55f);
+                                 g_level.decor[i].shapenum, sc, place);
         }
     }
 
-    /* Pickups from VSWAP STAT pages */
+    /* Pickups on the floor */
     for (i = 0; i < g_level.pickup_count; ++i) {
         if (g_level.pickups[i].active) {
             draw_shape_billboard(g_level.pickups[i].x, g_level.pickups[i].y,
-                                 g_level.pickups[i].shapenum, 0.40f);
+                                 g_level.pickups[i].shapenum, 0.35f, SPR_PLACE_FLOOR);
         }
     }
 
-    /* Living enemies + corpses */
+    /* Living enemies + corpses (grounded) */
     for (i = 0; i < g_level.enemy_count; ++i) {
         enemy_t *e = &g_level.enemies[i];
         int shape;
@@ -382,12 +496,12 @@ void Wolf_DrawWorld(void)
         }
         if (e->state == ST_DEAD) {
             shape = enemy_dead_shape(e);
-            sc = 0.70f;
+            sc = 0.55f;
         } else {
             shape = enemy_live_shape(e);
-            sc = (e->kind == EN_DOG) ? 0.55f : 0.85f;
+            sc = (e->kind == EN_DOG) ? 0.55f : 0.95f;
         }
-        draw_shape_billboard(e->x, e->y, shape, sc);
+        draw_shape_billboard(e->x, e->y, shape, sc, SPR_PLACE_FLOOR);
     }
 
     /* Kill flash */

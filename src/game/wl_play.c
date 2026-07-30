@@ -585,11 +585,12 @@ void Wolf_TryShoot(void)
             give_score(e->score_value);
             if (e->kind == EN_DOG) {
                 SD_PlaySound(DOGDEATHSND);
+                /* Dogs have no gun — never drop ammo clips. */
             } else {
                 SD_PlaySound(DEATHSCREAM1SND);
-            }
-            if (g_level.pickup_count < MAX_PICKUPS) {
-                spawn_pickup(PK_AMMO, (int)e->x, (int)e->y, 4);
+                if (g_level.pickup_count < MAX_PICKUPS) {
+                    spawn_pickup(PK_AMMO, (int)e->x, (int)e->y, 4);
+                }
             }
             printf("Killed enemy. Alive=%d score=%d ammo=%d\n", g_level.enemies_alive,
                    p->score, p->ammo);
@@ -808,6 +809,7 @@ static void update_enemies(float dt)
         }
 
         if (e->state == ST_CHASE || e->state == ST_ATTACK) {
+            e->anim_t += dt * (e->kind == EN_DOG ? 6.0f : 4.0f);
             if (dist > 0.01f) {
                 ang = atan2f(-dy, dx); /* match player angle convention */
                 e->angle = ang;
@@ -923,12 +925,12 @@ void Wolf_UpdateLevel(float dt, const boolean keys[12])
         p->hurt_flash -= dt;
     }
 
-    /* Left arrow decreases angle (turn left in our Y-down / dir_y=-sin frame). */
+    /* Playtest: left key must turn left on screen (was inverted with dir_y=-sin). */
         if (keys[2]) {
-            p->angle -= turn_speed;
+            p->angle += turn_speed;
         }
         if (keys[3]) {
-            p->angle += turn_speed;
+            p->angle -= turn_speed;
         }
 
     c = cosf(p->angle);

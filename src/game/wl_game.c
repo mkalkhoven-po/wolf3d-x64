@@ -163,9 +163,10 @@ int Wolf_RunGame(void)
                     Wolf_TryShoot();
                 }
             } else if (ev.type == SDL_MOUSEMOTION && g_config.mouse_look) {
+                /* Match keyboard: positive xrel turns right on screen = decrease angle. */
                 float turn = (float)ev.motion.xrel *
                              (0.0025f * (float)g_config.mouse_sens);
-                g_level.player.angle += turn;
+                g_level.player.angle -= turn;
             }
         }
 
