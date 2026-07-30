@@ -40,6 +40,9 @@ _deps/
 !/data/README.md
 /Wolf3dgame/
 /wolf3dgame/
+# PNG lookbook / rips — not runtime, never commit (see docs/product/LOCAL_ASSETS.md)
+/assets/
+/Assets/
 
 # Extensions / classic id pack names
 *.WL1

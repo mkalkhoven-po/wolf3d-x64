@@ -45,4 +45,5 @@ Board: [Project #1 delivery](https://github.com/users/mkalkhoven-po/projects/1) 
 | F3 | [World statics & corpses](F3-world-statics-corpses.md) · #78 | VSWAP props/enemies/bodies (closes #73 class) |
 
 References: `docs/product/references/fidelity/ref-f{1,2,3}.png`.  
-In-motion E1M1 any% flow (doors → elevator, HUD/gun/enemy glance): [`docs/qa/E1M1_ANYPERCENT_REFERENCE.md`](../qa/E1M1_ANYPERCENT_REFERENCE.md).
+In-motion E1M1 any% flow (doors → elevator, HUD/gun/enemy glance): [`docs/qa/E1M1_ANYPERCENT_REFERENCE.md`](../qa/E1M1_ANYPERCENT_REFERENCE.md).  
+Runtime pack = WL6 under `Wolf3dgame/` (not `assets/` PNG sheets) — [`docs/product/LOCAL_ASSETS.md`](../product/LOCAL_ASSETS.md).
