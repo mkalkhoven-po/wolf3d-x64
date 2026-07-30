@@ -8,6 +8,7 @@
 #define MAX_DOORS 64
 #define MAX_ENEMIES 128
 #define MAX_PICKUPS 256
+#define MAX_DECOR 384
 #define SHAREWARE_MAPS 10
 
 typedef enum {
@@ -84,7 +85,14 @@ typedef struct {
     pickup_kind_t kind;
     float x, y;
     int amount;
+    int shapenum;
 } pickup_t;
+
+typedef struct {
+    boolean active;
+    float x, y;
+    int shapenum;
+} decor_t;
 
 typedef struct {
     byte tilemap[MAPSIZE][MAPSIZE];
@@ -96,6 +104,8 @@ typedef struct {
     int enemies_alive;
     pickup_t pickups[MAX_PICKUPS];
     int pickup_count;
+    decor_t decor[MAX_DECOR];
+    int decor_count;
     player_t player;
     int mapnum;
     int episode_map; /* 0..SHAREWARE_MAPS-1 progress */

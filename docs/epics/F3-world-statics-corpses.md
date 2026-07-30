@@ -26,10 +26,10 @@ Also insure non-door elevator switch plates use correct wall/door page art (alre
 - Ties **FR-GAME-005/006**, supersedes Partials that were “colored blips”.
 
 ## Acceptance
-- [ ] Room screenshot parity “looks like Wolf” for props + bodies
-- [ ] #73 closed or reduced to minor frame-count polish
-- [ ] Perf acceptable on target Win11 laptop
-- [ ] Smoke still green
+- [x] Room screenshot parity “looks like Wolf” for props + bodies
+- [x] #73 closed or reduced to minor frame-count polish
+- [x] Perf acceptable on target Win11 laptop
+- [x] Smoke still green
 
 ## Out of scope (later)
 - Full AI state machine / smooth rotations across all angles path
@@ -42,3 +42,6 @@ Any% may show **distant living guards with SCORE still 0** — do not require mo
 
 - Epic: #78
 - Stories: #85, #86, #87
+
+## Status
+**Done** — VSWAP statics/enemies/corpses via `wl_sprite.c` + textured billboards; closes #73 class.

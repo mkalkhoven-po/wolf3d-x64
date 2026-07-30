@@ -11,6 +11,7 @@
 #include "game/wl_play.h"
 #include "game/wl_status.h"
 #include "game/wl_weapon.h"
+#include "id/wl_sprite.h"
 #include "id/audio_wl6.h"
 #include "id/gfxv_wl6.h"
 #include "id/id_ca.h"
@@ -121,6 +122,10 @@ static int run_smoke_suite(void)
     if (!Wolf_WeaponSmokeVerify()) {
         fprintf(stderr, "Weapon smoke verify failed\n");
         return 21;
+    }
+    if (!Wolf_SpriteSmokeVerify()) {
+        fprintf(stderr, "Sprite smoke verify failed\n");
+        return 22;
     }
 
     if (!Wolf_PresentCreate(&pr, "Wolf3D present smoke", g_config.scale, 0)) {

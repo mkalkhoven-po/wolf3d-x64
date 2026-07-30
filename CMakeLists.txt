@@ -40,6 +40,7 @@ set(WOLF_ID_SOURCES
   src/id/id_sd.c
   src/id/wl_data.c
   src/id/gamepal.c
+  src/id/wl_sprite.c
 )
 
 set(WOLF_GAME_SOURCES
