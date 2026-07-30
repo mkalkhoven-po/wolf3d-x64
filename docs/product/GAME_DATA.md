@@ -2,7 +2,8 @@
 
 > **When:** Explicit plan step at **Epic E3 / Milestone M3** (before menus, 3D, or combat).  
 > **Who:** The player/developer, using a **legally owned** Wolfenstein 3D install (shareware WL1 or later full WL6).  
-> **What never happens:** Committing or shipping commercial/shareware `.WL*` binaries in this repo or releases (`FR-DATA-005`).
+> **What never happens:** Committing or shipping commercial/shareware `.WL*` binaries in this repo or releases (`FR-DATA-005`).  
+> **Local layout:** Runtime pack vs optional PNG lookbook — see **[LOCAL_ASSETS.md](LOCAL_ASSETS.md)** (this workspace uses `Wolf3dgame/` + `assets/`).
 
 ## Why this is a first-class plan step
 

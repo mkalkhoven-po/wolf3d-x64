@@ -62,6 +62,7 @@ Phase 2 after E8: automated smoke, playtest checklists, FR matrix, bug burn-down
 - [Exclusions](docs/product/EXCLUSIONS.md)
 - [Functional requirements](docs/product/FUNCTIONAL_REQUIREMENTS.md)
 - [User-supplied game assets](docs/product/GAME_DATA.md)
+- [Local assets layout (pack vs PNG lookbook)](docs/product/LOCAL_ASSETS.md)
 - [**Player quickstart**](docs/player/QUICKSTART.md)
 - [**QA index**](docs/qa/README.md)
 - [ADR-001 Platform backend](docs/adr/001-platform-backend.md)
