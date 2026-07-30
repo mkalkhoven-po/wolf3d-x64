@@ -9,6 +9,7 @@
 #include "game/wl_draw.h"
 #include "game/wl_menu_simple.h"
 #include "game/wl_play.h"
+#include "game/wl_status.h"
 #include "id/audio_wl6.h"
 #include "id/gfxv_wl6.h"
 #include "id/id_ca.h"
@@ -112,6 +113,10 @@ static int run_smoke_suite(void)
         fprintf(stderr, "UserData smoke verify failed\n");
         return 17;
     }
+    if (!Wolf_StatusSmokeVerify()) {
+        fprintf(stderr, "Status HUD smoke verify failed\n");
+        return 20;
+    }
 
     if (!Wolf_PresentCreate(&pr, "Wolf3D present smoke", g_config.scale, 0)) {
         fprintf(stderr, "Present create failed\n");
@@ -121,14 +126,18 @@ static int run_smoke_suite(void)
     VL_SetPalette(gamepal);
     VWB_DrawPic(0, 0, TITLEPIC);
     Wolf_PresentFrame(&pr);
+    /* Brief Get Psyched paint path (short_mode skips long wait). */
+    (void)Wolf_ShowGetPsyched(&pr, true);
+    Wolf_DrawStatusBar();
+    Wolf_PresentFrame(&pr);
     if (pr.scale < 1 || pr.logical_w != 320 || pr.logical_h != 200) {
         fprintf(stderr, "Present logical size wrong\n");
         Wolf_PresentDestroy(&pr);
         return 19;
     }
     printf("Present smoke: scale=%d logical=%dx%d fullscreen=%d windowed_client=%dx%d\n",
-                   pr.scale, pr.logical_w, pr.logical_h, pr.fullscreen, 320 * pr.scale,
-                   240 * pr.scale);
+           pr.scale, pr.logical_w, pr.logical_h, pr.fullscreen, 320 * pr.scale,
+           240 * pr.scale);
     (void)Wolf_PresentSetScale(&pr, pr.scale >= 8 ? 2 : pr.scale + 1);
     printf("Present smoke: scale after bump=%d\n", pr.scale);
     Wolf_PresentDestroy(&pr);

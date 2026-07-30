@@ -40,7 +40,7 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
-| FR-VID-001 | 320×200 logical FB; HUD string for status band | A/M | Partial | Q2 | Not full original status-bar art |
+| FR-VID-001 | 320×200 logical FB; HUD string for status band | A/M | Met | F1 | STATUSBARPIC strip (F1); was Partial text HUD |
 | FR-VID-002 | Title palette paint non-empty | A/M | Met | Q1/Q2 | |
 | FR-VID-003 | Integer scale 4:3 letterbox | A/M | Met | Q2 | +/- keys, present helper |
 | FR-VID-004 | Esc / window close | M | Met | Q2 | Player sign-off |
@@ -97,9 +97,9 @@ Implementation epics after Q3 playtest closure; bugs #73/#74 feed F3/Q4.
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
-| FR-FID-001 | Get Psyched! + red preload bar after New Game | M | Untested | F1 | GETPSYCHEDPIC; bar 0x37/0x32 |
-| FR-FID-002 | STATUSBARPIC layout vs ref-f1/f2 | M | Untested | F1 | temp text bar today |
-| FR-FID-003 | Digit/face/weapon latch art | M | Untested | F1 | |
+| FR-FID-001 | Get Psyched! + red preload bar after New Game | A/M | Met | F1 | GETPSYCHEDPIC; bar 0x37/0x32 (#95) |
+| FR-FID-002 | STATUSBARPIC layout vs ref-f1/f2 | A/M | Met | F1 | pack status strip + live digits |
+| FR-FID-003 | Digit/face/weapon latch art | A/M | Met | F1 | N_*/FACE*/KNIFE* gears |
 | FR-FID-010 | FP weapon in 3D view | M | Untested | F2 | ref-f2 hands+gun |
 | FR-FID-011 | View weapon switches 1–4 | M | Untested | F2 | |
 | FR-FID-012 | Attack frame cycle | M | Untested | F2 | |

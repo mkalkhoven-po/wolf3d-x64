@@ -164,6 +164,8 @@ REQUIRED_MARKERS=(
   "UserData smoke:"
   "config roundtrip OK"
   "save/load OK"
+  "Status smoke:"
+  "Get Psyched:"
   "Present smoke:"
   "logical=320x200"
   "windowed_client="

@@ -11,8 +11,10 @@
 #include "id/audio_wl6.h"
 #include "id/id_sd.h"
 #include "id/id_vh.h"
+#include "id/id_vl.h"
 #include "wl_draw.h"
 #include "wl_play.h"
+#include "wl_status.h"
 #include "wolf_present.h"
 #include "wolf_userdata.h"
 
@@ -21,24 +23,12 @@ static const int episode1_songs[] = {
     GETTHEM_MUS, SEARCHN_MUS, POW_MUS, SUSPENSE_MUS, GETTHEM_MUS,
     SEARCHN_MUS, POW_MUS, SUSPENSE_MUS, WARMARCH_MUS, CORNER_MUS};
 
-static void draw_hud(void)
+static void draw_overlays(void)
 {
-    char line[160];
     player_t *p = &g_level.player;
-    const char *wname = "KNIFE";
-    if (p->weapon == 1) {
-        wname = "PISTOL";
-    } else if (p->weapon == 2) {
-        wname = "MGUN";
-    } else if (p->weapon == 3) {
-        wname = "CHAIN";
-    }
-    snprintf(line, sizeof(line),
-             "HP %d  AMMO %d  LIVES %d  SCORE %d  %s  KEYS %d  MAP %d",
-             p->health, p->ammo, p->lives, p->score, wname, p->keys, g_level.mapnum);
-    VH_DrawString(2, SCREENHEIGHT - 18, line, 15);
-    VH_DrawString(2, SCREENHEIGHT - 9,
-                  "WASD CTRL/E 1-4  F5/F9  F11  ESC", 7);
+
+    Wolf_DrawStatusBar();
+
     if (p->dead) {
         if (p->lives >= 0) {
             VH_DrawString(90, 80, "YOU DIED - PRESS R", 12);
@@ -48,6 +38,20 @@ static void draw_hud(void)
     }
     if (g_level.level_complete) {
         VH_DrawString(50, 70, "LEVEL COMPLETE - PRESS N", 14);
+    }
+}
+
+static void start_map_music(int map)
+{
+    if (!g_config.music_on) {
+        return;
+    }
+    {
+        int track = episode1_songs[0];
+        if (map >= 0 && map < 10) {
+            track = episode1_songs[map];
+        }
+        SD_StartMusic((word)track);
     }
 }
 
@@ -70,16 +74,14 @@ int Wolf_RunGame(void)
         return 1;
     }
 
+    VL_SetPalette(gamepal);
+    /* F1: Get Psyched! before first possession of the play view. */
+    (void)Wolf_ShowGetPsyched(&pr, false);
+
     memset(keys, 0, sizeof(keys));
     last_ticks = SDL_GetTicks();
-    if (g_config.music_on) {
-        int track = episode1_songs[0];
-        if (start_map >= 0 && start_map < 10) {
-            track = episode1_songs[start_map];
-        }
-        SD_StartMusic((word)track);
-    }
-    printf("E8: F5 save / F9 load / F11 fullscreen / +/- scale, ESC exit\n");
+    start_map_music(start_map);
+    printf("E8/F1: F5 save / F9 load / F11 fullscreen / +/- scale, ESC exit\n");
 
     while (running) {
         SDL_Event ev;
@@ -144,15 +146,13 @@ int Wolf_RunGame(void)
                         VH_DrawString(40, 100, "EPISODE COMPLETE - ESC", 14);
                     } else {
                         if (!Wolf_SetupLevel(next)) {
-                                                    fprintf(stderr, "Failed next map %d\n", next);
-                                                    running = 0;
-                                                } else {
-                                                    if (g_config.music_on) {
-                                                        int track = episode1_songs[next < 10 ? next : 0];
-                                                        SD_StartMusic((word)track);
-                                                    }
-                                                    printf("Entered map %d\n", next);
-                                                }
+                            fprintf(stderr, "Failed next map %d\n", next);
+                            running = 0;
+                        } else {
+                            (void)Wolf_ShowGetPsyched(&pr, false);
+                            start_map_music(next);
+                            printf("Entered map %d\n", next);
+                        }
                     }
                 }
             } else if (ev.type == SDL_MOUSEBUTTONDOWN) {
@@ -160,11 +160,10 @@ int Wolf_RunGame(void)
                     Wolf_TryShoot();
                 }
             } else if (ev.type == SDL_MOUSEMOTION && g_config.mouse_look) {
-                            /* Mouse right → turn right (angle increases). */
-                            float turn = (float)ev.motion.xrel *
-                                         (0.0025f * (float)g_config.mouse_sens);
-                            g_level.player.angle += turn;
-                        }
+                float turn = (float)ev.motion.xrel *
+                             (0.0025f * (float)g_config.mouse_sens);
+                g_level.player.angle += turn;
+            }
         }
 
         state = SDL_GetKeyboardState(NULL);
@@ -189,7 +188,7 @@ int Wolf_RunGame(void)
 
         Wolf_UpdateLevel(dt, keys);
         Wolf_DrawWorld();
-        draw_hud();
+        draw_overlays();
         Wolf_PresentFrame(&pr);
     }
 
