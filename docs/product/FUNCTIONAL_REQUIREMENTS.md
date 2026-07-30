@@ -81,7 +81,7 @@ IDs are referenced from GitHub user stories.
 ## Fidelity ladder (post-MVP — reference screenshots)
 
 Player reference stills live under `docs/product/references/fidelity/` (`ref-f1.png`…`ref-f3.png`).  
-Epic briefs: [`docs/epics/F1-status-hud-get-psyched.md`](../epics/F1-status-hud-get-psyched.md), [`F2-weapon-view.md`](../epics/F2-weapon-view.md), [`F3-world-statics-corpses.md`](../epics/F3-world-statics-corpses.md).
+Epic briefs: [`docs/epics/F1-status-hud-get-psyched.md`](../epics/F1-status-hud-get-psyched.md), [`F2-weapon-view.md`](../epics/F2-weapon-view.md), [`F3-world-statics-corpses.md`](../epics/F3-world-statics-corpses.md), [`F4-dual-pistols.md`](../epics/F4-dual-pistols.md).
 
 | ID | Requirement |
 |----|-------------|
@@ -95,3 +95,12 @@ Epic briefs: [`docs/epics/F1-status-hud-get-psyched.md`](../epics/F1-status-hud-
 | FR-FID-021 | Living enemies draw from VSWAP sprite frames; kinds are visually distinguishable. |
 | FR-FID-022 | Killed enemies leave corpse/blood sprites for the rest of the map session. |
 | NFR-FID-001 | Sprite scale/occlusion uses the same camera plane as walls (no z-fight “teleport” look). |
+
+## Original weapons (post-fidelity, optional)
+
+Player-directed **mod-original** features. Require stock weapon view (F2) before dual art.
+
+| ID | Requirement |
+|----|-------------|
+| FR-FID-030 | Dual-pistol first-person view shows **two** VSWAP pistol barrels (one mirrored), centered as a pair above the status bar when duals are equipped. |
+| FR-GAME-010 | Dual pistols: **alternate** barrel fire; **damage per shot equals** single pistol; cadence **slightly faster** than single (DPS up via rate only); **one ammo** per shot; one gunshot SFX per shot (no double-stack). |

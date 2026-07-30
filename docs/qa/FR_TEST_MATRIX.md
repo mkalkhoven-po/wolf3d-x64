@@ -108,6 +108,13 @@ Implementation epics after Q3 playtest closure; bugs #73/#74 feed F3/Q4.
 | FR-FID-022 | Corpse/blood after kill | M | Untested | F3 | ref-f3 bodies |
 | NFR-FID-001 | Same camera plane as walls | A/M | Partial | F3 | FOV fix #68 |
 
+## Original weapons (F4+)
+
+| ID | Method | Smoke | Status | Owner | Notes |
+|----|--------|-------|--------|-------|-------|
+| FR-FID-030 | Dual pistol FP pair centered | M | Untested | F4 | Depends on F2; mirror VSWAP pistol |
+| FR-GAME-010 | Alternate fire; dmg=pistol; faster rate; 1 ammo/shot | A/M | Untested | F4 | No double-damage frame |
+
 ## QA-only
 
 | ID | Requirement | Status | Owner |
