@@ -26,7 +26,7 @@ Docs: [`docs/qa/`](../qa/README.md).
 | Q0 | [QA governance](Q0-qa-governance.md) | #41 |
 | Q1 | [Smoke harness](Q1-smoke-harness.md) | #45 |
 | Q2 | [Present & data playtest](Q2-present-data-playtest.md) | #49 |
-| Q3 | [World & combat playtest](Q3-world-combat-playtest.md) | #53 |
+| Q3 | [World & combat playtest](Q3-world-combat-playtest.md) | #53 **Done** |
 | Q4 | [Audio & UX playtest](Q4-audio-ux-playtest.md) | #57 |
 | Q5 | [Stabilization](Q5-stabilization.md) | #60 |
 
