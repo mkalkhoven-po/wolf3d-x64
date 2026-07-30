@@ -21,11 +21,14 @@ Implement original-style **interstitial load** + **VGA status bar** UI driven by
 - Ties **FR-VID-001** (status region in 320×200 layout).
 
 ## Acceptance
-- [ ] Screenshot parity for load screen vector against Get Psyched reference
-- [ ] Progress bar is **red** (letter-matched), fills with preload, not a random UI color
-- [ ] In-play HUD layout matches reference slots (floor/score/lives/face/health/ammo/weapon)
-- [ ] Smoke still passes; no commercial data committed
-- [ ] Temporary `VH_DrawString` bar retired or relegated to debug
+- [x] Screenshot parity for load screen vector against Get Psyched reference
+- [x] Progress bar is **red** (letter-matched), fills with preload, not a random UI color
+- [x] In-play HUD layout matches reference slots (floor/score/lives/face/health/ammo/weapon)
+- [x] Smoke still passes; no commercial data committed
+- [x] Temporary `VH_DrawString` bar retired or relegated to debug
+
+## Status
+**DONE** in engine (`wl_status.c`) — PR closes #76 / #79–#81. Face animation still simplified (static frame A per health band).
 
 ## Implementation notes (original `WL_INTER.C`)
 ```

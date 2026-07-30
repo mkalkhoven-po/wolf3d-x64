@@ -47,6 +47,7 @@ set(WOLF_GAME_SOURCES
   src/game/wl_play.c
   src/game/wl_draw.c
   src/game/wl_game.c
+  src/game/wl_status.c
 )
 
 set(WOLF_PLATFORM_SOURCES
