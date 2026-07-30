@@ -10,6 +10,7 @@
 #include "game/wl_menu_simple.h"
 #include "game/wl_play.h"
 #include "game/wl_status.h"
+#include "game/wl_weapon.h"
 #include "id/audio_wl6.h"
 #include "id/gfxv_wl6.h"
 #include "id/id_ca.h"
@@ -117,6 +118,10 @@ static int run_smoke_suite(void)
         fprintf(stderr, "Status HUD smoke verify failed\n");
         return 20;
     }
+    if (!Wolf_WeaponSmokeVerify()) {
+        fprintf(stderr, "Weapon smoke verify failed\n");
+        return 21;
+    }
 
     if (!Wolf_PresentCreate(&pr, "Wolf3D present smoke", g_config.scale, 0)) {
         fprintf(stderr, "Present create failed\n");
@@ -128,6 +133,9 @@ static int run_smoke_suite(void)
     Wolf_PresentFrame(&pr);
     /* Brief Get Psyched paint path (short_mode skips long wait). */
     (void)Wolf_ShowGetPsyched(&pr, true);
+    Wolf_DrawStatusBar();
+    g_level.active = true;
+    Wolf_DrawPlayerWeapon();
     Wolf_DrawStatusBar();
     Wolf_PresentFrame(&pr);
     if (pr.scale < 1 || pr.logical_w != 320 || pr.logical_h != 200) {

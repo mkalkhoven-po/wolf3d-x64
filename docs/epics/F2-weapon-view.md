@@ -19,10 +19,10 @@ Draw the active weapon as a **first-person overlay** from VSWAP weapon shapes (a
 - Ties **FR-GAME-007** (weapons) and **FR-IN-001**.
 
 ## Acceptance
-- [ ] Rest pose matches silhouettes on reference screenshots for pistol / auto
-- [ ] Fire visibly animates
-- [ ] No permanent covering of status bar digits
-- [ ] Smoke / present still OK
+- [x] Rest pose matches silhouettes on reference screenshots for pistol / auto
+- [x] Fire visibly animates
+- [x] No permanent covering of status bar digits
+- [x] Smoke / present still OK
 
 ## Notes
 - Status bar weapon **icon** is F1; this epic is the **in-view hands/gun**.
@@ -34,3 +34,6 @@ Draw the active weapon as a **first-person overlay** from VSWAP weapon shapes (a
 
 - Epic: #77
 - Stories: #82, #83, #84
+
+## Status
+**Done** — pack VSWAP FP weapons via SimpleScaleShape (`wl_weapon.c`); smoke `Weapon smoke:`.

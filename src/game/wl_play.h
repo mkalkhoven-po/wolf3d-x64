@@ -52,6 +52,7 @@ typedef struct {
     int keys; /* bit0 gold, bit1 silver, etc. */
     int weapon; /* 0 knife 1 pistol 2 mg 3 chain */
     int best_weapon;
+    int weapon_frame; /* 0=ready, 1..4 = attack frames (F2) */
     float attack_cd;
     float hurt_flash;
     boolean dead;

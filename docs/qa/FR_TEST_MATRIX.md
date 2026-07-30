@@ -100,9 +100,9 @@ Implementation epics after Q3 playtest closure; bugs #73/#74 feed F3/Q4.
 | FR-FID-001 | Get Psyched! + red preload bar after New Game | A/M | Met | F1 | GETPSYCHEDPIC; bar 0x37/0x32 (#95) |
 | FR-FID-002 | STATUSBARPIC layout vs ref-f1/f2 | A/M | Met | F1 | pack status strip + live digits |
 | FR-FID-003 | Digit/face/weapon latch art | A/M | Met | F1 | N_*/FACE*/KNIFE* gears |
-| FR-FID-010 | FP weapon in 3D view | M | Untested | F2 | ref-f2 hands+gun |
-| FR-FID-011 | View weapon switches 1–4 | M | Untested | F2 | |
-| FR-FID-012 | Attack frame cycle | M | Untested | F2 | |
+| FR-FID-010 | FP weapon in 3D view | A/M | Met | F2 | VSWAP SimpleScaleShape; #F2 |
+| FR-FID-011 | View weapon switches 1–4 | A/M | Met | F2 | keys 1–4 + best_weapon |
+| FR-FID-012 | Attack frame cycle | A/M | Met | F2 | weapon_frame 1..4 over attack_cd |
 | FR-FID-020 | Static props VSWAP sprites | M | Untested | F3 | lamps/plants/flags |
 | FR-FID-021 | Enemy living sprites | M | Fail | F3 | #73 color cubes |
 | FR-FID-022 | Corpse/blood after kill | M | Untested | F3 | ref-f3 bodies |

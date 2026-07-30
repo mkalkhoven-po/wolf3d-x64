@@ -197,6 +197,7 @@ void Wolf_ResetPlayerStats(void)
     p->keys = 0;
     p->weapon = 1; /* pistol */
     p->best_weapon = 1;
+    p->weapon_frame = 0;
     p->attack_cd = 0.0f;
     p->hurt_flash = 0.0f;
     p->dead = false;
@@ -459,6 +460,7 @@ void Wolf_TryShoot(void)
 
     if (p->weapon == 0) {
         /* knife melee */
+        p->weapon_frame = 1;
         p->attack_cd = 0.35f;
         dmg = 8;
         SD_PlaySound(ATKKNIFESND);
@@ -486,6 +488,7 @@ void Wolf_TryShoot(void)
     if (p->ammo < 0) {
         p->ammo = 0;
     }
+    p->weapon_frame = 1;
     switch (p->weapon) {
     case 2:
         p->attack_cd = 0.12f;
@@ -825,7 +828,35 @@ void Wolf_UpdateLevel(float dt, const boolean keys[12])
     }
 
     if (p->attack_cd > 0) {
+        float total = 0.28f;
         p->attack_cd -= dt;
+        if (p->weapon == 0) {
+            total = 0.35f;
+        } else if (p->weapon == 2) {
+            total = 0.12f;
+        } else if (p->weapon == 3) {
+            total = 0.07f;
+        }
+        if (total < 0.05f) {
+            total = 0.05f;
+        }
+        if (p->weapon_frame > 0) {
+            float u = 1.0f - (p->attack_cd / total);
+            if (u < 0.0f) {
+                u = 0.0f;
+            }
+            if (u > 1.0f) {
+                u = 1.0f;
+            }
+            p->weapon_frame = 1 + (int)(u * 3.99f);
+            if (p->weapon_frame > 4) {
+                p->weapon_frame = 4;
+            }
+        }
+        if (p->attack_cd <= 0.0f) {
+            p->attack_cd = 0.0f;
+            p->weapon_frame = 0;
+        }
     }
     if (p->hurt_flash > 0) {
         p->hurt_flash -= dt;
@@ -875,15 +906,19 @@ void Wolf_UpdateLevel(float dt, const boolean keys[12])
     /* Weapon select 1-4 */
     if (keys[7] && p->best_weapon >= 0) {
         p->weapon = 0;
+        p->weapon_frame = 0;
     }
     if (keys[8] && p->best_weapon >= 1) {
         p->weapon = 1;
+        p->weapon_frame = 0;
     }
     if (keys[9] && p->best_weapon >= 2) {
         p->weapon = 2;
+        p->weapon_frame = 0;
     }
     if (keys[10] && p->best_weapon >= 3) {
         p->weapon = 3;
+        p->weapon_frame = 0;
     }
 
     update_pickups();

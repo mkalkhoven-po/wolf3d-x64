@@ -41,7 +41,7 @@ Board: [Project #1 delivery](https://github.com/users/mkalkhoven-po/projects/1) 
 | Milestone | Epic brief | Focus |
 |-----------|------------|--------|
 | F1 | [Status HUD & Get Psyched!](F1-status-hud-get-psyched.md) · #76 | `GETPSYCHEDPIC`, `STATUSBARPIC`, digits/face/weapon icon · **Done #95** |
-| F2 | [First-person weapon view](F2-weapon-view.md) · #77 | Hands+gun overlay, fire frames, 1–4 switch · **prerequisite for F4** |
+| F2 | [First-person weapon view](F2-weapon-view.md) · #77 | Hands+gun overlay, fire frames, 1–4 switch · **Done** · prereq F4 |
 | F3 | [World statics & corpses](F3-world-statics-corpses.md) · #78 | VSWAP props/enemies/bodies (closes #73 class) |
 | F4 | [Dual pistols / akimbo](F4-dual-pistols.md) · #96 | Optional original: mirror pistol pair, alt-fire, same dmg/shot |
 

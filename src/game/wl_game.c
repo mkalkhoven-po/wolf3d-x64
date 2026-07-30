@@ -15,6 +15,7 @@
 #include "wl_draw.h"
 #include "wl_play.h"
 #include "wl_status.h"
+#include "wl_weapon.h"
 #include "wolf_present.h"
 #include "wolf_userdata.h"
 
@@ -27,6 +28,8 @@ static void draw_overlays(void)
 {
     player_t *p = &g_level.player;
 
+    /* FP weapon fills view body; then status bar clobbers y>=160. */
+    Wolf_DrawPlayerWeapon();
     Wolf_DrawStatusBar();
 
     if (p->dead) {
