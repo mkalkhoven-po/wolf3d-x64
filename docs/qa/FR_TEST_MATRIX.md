@@ -61,11 +61,11 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 | FR-GAME-001 | Title → menu | A/M | Met | Q2 | |
 | FR-GAME-002 | New Game starts | M | Met | Q2/Q3 | Player sessions |
 | FR-GAME-003 | Move + wall collide | A/M | Met | Q3 | Raycast smoke |
-| FR-GAME-004 | Doors (+ locks/keys) | A/M | Partial | Q3 | Pushwalls not full fidelity |
-| FR-GAME-005 | Pickups | A/M | Met | Q3 | |
-| FR-GAME-006 | Enemies die | A/M | Partial | Q3 | Simplified AI vs original |
-| FR-GAME-007 | Weapons hitscan/melee | A/M | Partial | Q3 | Campaign parity incomplete |
-| FR-GAME-008 | Lives / elevator / episode | A/M | Partial | Q3 | Shareware-style path |
+| FR-GAME-004 | Doors (+ locks/keys) | A/M | Met | Q3 | Elev door lock=5 + solid elev wall (#72/#75); pushwalls still Partial residual |
+| FR-GAME-005 | Pickups | A/M | Met | Q3 | UI; digi pickup SFX quiet (honest digimap) |
+| FR-GAME-006 | Enemies die | A/M | Met | Q3 | Teleport fixed; sprites = F3/#73 |
+| FR-GAME-007 | Weapons hitscan/melee | A/M | Met | Q3 | Empty-gun blocks fire; knife view = F2 |
+| FR-GAME-008 | Lives / elevator / episode | A/M | Met | Q3 | Death/R/GO; elev E → N next map (player #56) |
 
 ## Audio
 
