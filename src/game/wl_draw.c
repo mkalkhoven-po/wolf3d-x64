@@ -119,12 +119,91 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
     byte tex[64 * 64];
     int v_mid;
     int wall_h;
+    int top_op, bot_op, op_h;
+    int left_op, right_op, op_w;
 
     if (shapenum < 0) {
         return;
     }
     if (!Wolf_SpriteExpand(shapenum, tex)) {
         return;
+    }
+
+    /* Opaque bounds: floor lamps live in lower rows; full-64 stretch made them tiny. */
+    top_op = 0;
+    bot_op = 63;
+    left_op = 0;
+    right_op = 63;
+    {
+        int yy, xx, found;
+        found = 0;
+        for (yy = 0; yy < 64; ++yy) {
+            for (xx = 0; xx < 64; ++xx) {
+                if (tex[yy * 64 + xx] != 0xFF) {
+                    top_op = yy;
+                    found = 1;
+                    break;
+                }
+            }
+            if (found) {
+                break;
+            }
+        }
+        found = 0;
+        for (yy = 63; yy >= 0; --yy) {
+            for (xx = 0; xx < 64; ++xx) {
+                if (tex[yy * 64 + xx] != 0xFF) {
+                    bot_op = yy;
+                    found = 1;
+                    break;
+                }
+            }
+            if (found) {
+                break;
+            }
+        }
+        found = 0;
+        for (xx = 0; xx < 64; ++xx) {
+            for (yy = 0; yy < 64; ++yy) {
+                if (tex[yy * 64 + xx] != 0xFF) {
+                    left_op = xx;
+                    found = 1;
+                    break;
+                }
+            }
+            if (found) {
+                break;
+            }
+        }
+        found = 0;
+        for (xx = 63; xx >= 0; --xx) {
+            for (yy = 0; yy < 64; ++yy) {
+                if (tex[yy * 64 + xx] != 0xFF) {
+                    right_op = xx;
+                    found = 1;
+                    break;
+                }
+            }
+            if (found) {
+                break;
+            }
+        }
+        if (bot_op < top_op) {
+            top_op = 0;
+            bot_op = 63;
+        }
+        if (right_op < left_op) {
+            left_op = 0;
+            right_op = 63;
+        }
+    }
+    op_h = bot_op - top_op + 1;
+    op_w = right_op - left_op + 1;
+    if (op_h < 1) {
+        op_h = 1;
+    }
+    if (op_w < 1) {
+        op_w = 1;
     }
 
     plane_x = cosf(p->angle - (float)(M_PI * 0.5)) * CAMERA_PLANE;
@@ -137,28 +216,37 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
         transform_x = inv_det * (dir_y * dx - dir_x * dy);
         transform_y = inv_det * (-plane_y * dx + plane_x * dy);
     }
-    if (transform_y <= 0.05f) {
-        return;
+    /* Near-camera clamp: stop extreme fisheye stretch when walking into an actor. */
+    if (transform_y < 0.55f) {
+        if (transform_y <= 0.08f) {
+            return;
+        }
+        transform_y = 0.55f;
     }
 
     sprite_screen_x = (int)((SCREENWIDTH / 2) * (1.0f + transform_x / transform_y));
-    /* Full 64x64 frame at wall-matched height (no opaque crop — crop made art tiny/pulse). */
     wall_h = (int)fabsf((float)VIEW_HEIGHT * WALL_HEIGHT_MUL / transform_y);
     if (wall_h < 1) {
         wall_h = 1;
     }
-    sprite_h = (int)((float)wall_h * scale_mul);
+    /* Project opaque height only (fraction of wall height * scale_mul). */
+    sprite_h = (int)((float)wall_h * scale_mul * ((float)op_h / 64.0f));
     if (sprite_h < 1) {
         return;
     }
-    sprite_w = sprite_h;
+    /* Keep aspect from opaque bounds (not forced square). */
+    sprite_w = (int)((float)sprite_h * ((float)op_w / (float)op_h));
+    if (sprite_w < 1) {
+        sprite_w = 1;
+    }
 
     v_mid = VIEW_HEIGHT / 2;
     if (placement == SPR_PLACE_CEIL) {
+        /* Opaque TOP sits on wall-top / ceiling line. */
         draw_start_y = v_mid - wall_h / 2;
         draw_end_y = draw_start_y + sprite_h;
     } else {
-        /* Feet on floor line (wall bottom). */
+        /* Opaque BOTTOM (feet) sits on wall-bottom / floor line. */
         draw_end_y = v_mid + wall_h / 2;
         draw_start_y = draw_end_y - sprite_h;
     }
@@ -177,21 +265,31 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
     for (stripe = draw_start_x; stripe < draw_end_x; ++stripe) {
         int tex_x;
         int span_h = draw_end_y - draw_start_y + 1;
+        int span_w = draw_end_x - draw_start_x;
         if ((unsigned)stripe >= (unsigned)SCREENWIDTH) {
             continue;
         }
         if (transform_y >= zbuffer[stripe]) {
             continue;
         }
-        tex_x = (int)((stripe - (-sprite_w / 2 + sprite_screen_x)) * 64 / sprite_w);
-        if ((unsigned)tex_x >= 64u) {
+        if (span_w < 1) {
             continue;
         }
+        tex_x = left_op + ((stripe - draw_start_x) * op_w) / span_w;
+        if (tex_x < left_op) {
+            tex_x = left_op;
+        }
+        if (tex_x > right_op) {
+            tex_x = right_op;
+        }
         for (y = draw_start_y; y <= draw_end_y; ++y) {
-            int tex_y = ((y - draw_start_y) * 64) / span_h;
+            int tex_y = top_op + ((y - draw_start_y) * op_h) / span_h;
             byte c;
-            if ((unsigned)tex_y >= 64u) {
-                continue;
+            if (tex_y < top_op) {
+                tex_y = top_op;
+            }
+            if (tex_y > bot_op) {
+                tex_y = bot_op;
             }
             c = tex[tex_y * 64 + tex_x];
             if (c == 0xFF) {
@@ -425,8 +523,11 @@ void Wolf_DrawWorld(void)
                 }
                 /* slab keeps existing wall-depth zbuffer */
             } else {
-                /* Open gap only — allow sprites past doorway. */
-                zbuffer[x] = 1e30f;
+                /*
+                 * Open gap: leave floor/ceil (no door tex). Keep z at door plane so
+                 * sprites in other rooms don't paint through the doorway mid-slide.
+                 */
+                (void)0;
             }
         } else {
             for (y = draw_start; y <= draw_end; ++y) {
@@ -445,7 +546,7 @@ void Wolf_DrawWorld(void)
         if (g_level.decor[i].active) {
             int place = is_ceiling_stat(g_level.decor[i].shapenum) ? SPR_PLACE_CEIL
                                                                     : SPR_PLACE_FLOOR;
-            float sc = is_ceiling_stat(g_level.decor[i].shapenum) ? 0.45f : 1.00f;
+            float sc = is_ceiling_stat(g_level.decor[i].shapenum) ? 0.55f : 1.15f;
             draw_shape_billboard(g_level.decor[i].x, g_level.decor[i].y,
                                  g_level.decor[i].shapenum, sc, place);
         }
