@@ -155,29 +155,22 @@ static void draw_shape_billboard(float ex, float ey, int shapenum)
         transform_y = inv_det * (-plane_y * dx + plane_x * dy);
     }
 
-    /* Original: nx < mindist -> hide (no infinite close-up stretch). */
+    /*
+     * mindist hide (original). No depth floor — flooring made lamps "follow"
+     * overhead at constant size while walking under them.
+     */
     if (transform_y < MINDIST_TILES) {
         return;
     }
 
-    /*
-     * Size uses a floored depth so walking into a prop does not fisheye.
-     * Screen X still uses true transform for lateral position.
-     * Cap height to play view (original maxscale-ish).
-     */
-    {
-        float depth_sz = transform_y;
-        if (depth_sz < 0.90f) {
-            depth_sz = 0.90f;
-        }
-        sprite_screen_x = (int)((SCREENWIDTH / 2) * (1.0f + transform_x / transform_y));
-        sprite_h = (int)fabsf((float)VIEW_HEIGHT * WALL_HEIGHT_MUL / depth_sz);
-    }
+    sprite_screen_x = (int)((SCREENWIDTH / 2) * (1.0f + transform_x / transform_y));
+    sprite_h = (int)fabsf((float)VIEW_HEIGHT * WALL_HEIGHT_MUL / transform_y);
     if (sprite_h < 1) {
         return;
     }
     {
-        const int max_h = VIEW_HEIGHT; /* never taller than the 3D view */
+        /* Cap only extreme near (maxscale-ish); still shrinks with true depth above. */
+        const int max_h = (VIEW_HEIGHT * 7) / 8;
         if (sprite_h > max_h) {
             sprite_h = max_h;
         }
@@ -304,6 +297,20 @@ static int enemy_dead_shape(const enemy_t *e)
     case EN_GUARD:
     default:
         return SPR_GRD_DEAD;
+    }
+}
+
+/* Local dir deltas — same as play DI_* (0N 1E 2S 3W). */
+static void dir_delta_draw(int dir, int *ox, int *oy)
+{
+    *ox = 0;
+    *oy = 0;
+    switch (dir) {
+    case 0: *oy = -1; break;
+    case 1: *ox = 1; break;
+    case 2: *oy = 1; break;
+    case 3: *ox = -1; break;
+    default: break;
     }
 }
 
@@ -451,13 +458,37 @@ void Wolf_DrawWorld(void)
                     }
                     /* else: open gap — continue DDA to walls beyond (no grey void) */
                 }
-            } else if (g_level.tilemap[map_x][map_y] > 0 &&
-                       g_level.tilemap[map_x][map_y] != ELEVATORTILE) {
-                hit = 1;
-                wall_tile = (byte)(g_level.tilemap[map_x][map_y] & 63);
-            } else if (g_level.tilemap[map_x][map_y] == ELEVATORTILE) {
-                hit = 1;
-                wall_tile = ELEVATORTILE; /* already < 64 */
+            } else {
+                byte tm = g_level.tilemap[map_x][map_y];
+                byte tid = (byte)(tm & TILE_WALL_MASK);
+                int is_pwall_origin = (tm & TILE_PWALL_MASK) == TILE_PWALL_MASK;
+                int is_pwall_lead = 0;
+
+                if (g_level.pwall_state > 0) {
+                    int lox = 0, loy = 0;
+                    dir_delta_draw(g_level.pwall_dir, &lox, &loy);
+                    if (map_x == g_level.pwall_x + lox && map_y == g_level.pwall_y + loy) {
+                        is_pwall_lead = 1;
+                    }
+                }
+
+                /*
+                 * Moving pushwall origin (0xC0): do not ray-hit as a full solid —
+                 * the face is drawn on the leading cell with a sliding plane
+                 * (original Hit*PWall). Lets the passage open visually.
+                 */
+                if (is_pwall_origin) {
+                    /* keep casting */
+                } else if (tid == ELEVATORTILE) {
+                    hit = 1;
+                    wall_tile = ELEVATORTILE;
+                } else if (tid > 0) {
+                    hit = 1;
+                    wall_tile = tid;
+                    if (is_pwall_lead) {
+                        door_hit = -2; /* reuse as pwall-lead marker (not a door id) */
+                    }
+                }
             }
         }
 
@@ -466,15 +497,66 @@ void Wolf_DrawWorld(void)
         } else {
             perp_wall_dist = (map_y - p->y + (1 - step_y) * 0.5f) / ray_dir_y;
         }
+
+        /*
+         * Sliding pushwall plane (original pwallpos offset).
+         * door_hit == -2 marks leading cell of active push.
+         */
+        if (door_hit == -2 && g_level.pwall_state > 0) {
+            float frac = (float)(g_level.pwall_pos & 63) / 64.0f;
+            int pdir = g_level.pwall_dir;
+            float plane;
+            float dist;
+            /* Face moves from trailing edge of leading cell toward push dir. */
+            if (pdir == 1) { /* EAST: plane x = map_x + frac */
+                plane = (float)map_x + frac;
+                if (fabsf(ray_dir_x) > 1e-6f) {
+                    dist = (plane - p->x) / ray_dir_x;
+                    if (dist > 0.05f) {
+                        perp_wall_dist = dist;
+                        side = 0;
+                    }
+                }
+            } else if (pdir == 3) { /* WEST: plane x = map_x + 1 - frac */
+                plane = (float)map_x + 1.0f - frac;
+                if (fabsf(ray_dir_x) > 1e-6f) {
+                    dist = (plane - p->x) / ray_dir_x;
+                    if (dist > 0.05f) {
+                        perp_wall_dist = dist;
+                        side = 0;
+                    }
+                }
+            } else if (pdir == 2) { /* SOUTH: plane y = map_y + frac */
+                plane = (float)map_y + frac;
+                if (fabsf(ray_dir_y) > 1e-6f) {
+                    dist = (plane - p->y) / ray_dir_y;
+                    if (dist > 0.05f) {
+                        perp_wall_dist = dist;
+                        side = 1;
+                    }
+                }
+            } else { /* NORTH: plane y = map_y + 1 - frac */
+                plane = (float)map_y + 1.0f - frac;
+                if (fabsf(ray_dir_y) > 1e-6f) {
+                    dist = (plane - p->y) / ray_dir_y;
+                    if (dist > 0.05f) {
+                        perp_wall_dist = dist;
+                        side = 1;
+                    }
+                }
+            }
+            wall_tile = g_level.pwall_tile ? g_level.pwall_tile : wall_tile;
+            door_hit = -1; /* draw as wall below */
+        }
+
         if (perp_wall_dist < 0.05f) {
             perp_wall_dist = 0.05f;
         }
-        (void)door_hit;
         zbuffer[x] = perp_wall_dist;
 
         line_h = (int)((view_h * WALL_HEIGHT_MUL) / perp_wall_dist);
-                draw_start = -line_h / 2 + view_h / 2;
-                draw_end = line_h / 2 + view_h / 2;
+        draw_start = -line_h / 2 + view_h / 2;
+        draw_end = line_h / 2 + view_h / 2;
         if (draw_start < 0) {
             draw_start = 0;
         }
@@ -492,36 +574,11 @@ void Wolf_DrawWorld(void)
         if ((side == 0 && ray_dir_x > 0) || (side == 1 && ray_dir_y < 0)) {
             tex_x = TEX_SIZE - tex_x - 1;
         }
-
-        /*
-         * Pushwall slide: original offsets wall u by pwallpos (0..63) while moving.
-         * Apply on the moving column (flagged 0xC0) and the leading dest cell.
-         */
-        if (door_hit < 0 && g_level.pwall_state > 0) {
-            int pwx = g_level.pwall_x;
-            int pwy = g_level.pwall_y;
-            int ox = 0, oy = 0;
-            int leading_x, leading_y;
-            switch (g_level.pwall_dir) {
-            case 0: oy = -1; break; /* DI_NORTH */
-            case 1: ox = 1; break;  /* DI_EAST */
-            case 2: oy = 1; break;  /* DI_SOUTH */
-            case 3: ox = -1; break; /* DI_WEST */
-            default: break;
-            }
-            leading_x = pwx + ox;
-            leading_y = pwy + oy;
-            if ((map_x == pwx && map_y == pwy) ||
-                (map_x == leading_x && map_y == leading_y)) {
-                int pos = g_level.pwall_pos & 63;
-                /* Move texture with the wall so the face slides instead of teleporting. */
-                if (g_level.pwall_dir == 1 || g_level.pwall_dir == 3) {
-                    /* east/west push — shift along ray u */
-                    tex_x = (tex_x + pos) & 63;
-                } else {
-                    tex_x = (tex_x + pos) & 63;
-                }
-            }
+        if (tex_x < 0) {
+            tex_x = 0;
+        }
+        if (tex_x >= TEX_SIZE) {
+            tex_x = TEX_SIZE - 1;
         }
 
         if (door_hit >= 0) {
