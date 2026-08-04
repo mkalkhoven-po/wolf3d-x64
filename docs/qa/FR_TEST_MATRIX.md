@@ -61,7 +61,7 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 | FR-GAME-001 | Title → menu | A/M | Met | Q2 | |
 | FR-GAME-002 | New Game starts | M | Met | Q2/Q3 | Player sessions |
 | FR-GAME-003 | Move + wall collide | A/M | Met | Q3 | Raycast smoke |
-| FR-GAME-004 | Doors (+ locks/keys) | A/M | Met | Q3 | Elev door lock=5 + solid elev wall (#72/#75); pushwalls still Partial residual |
+| FR-GAME-004 | Doors + pushwalls/secrets | A/M | Partial | L1 | Doors Met (#72/#75); pushwalls → L1.1 |
 | FR-GAME-005 | Pickups | A/M | Met | Q3 | UI; digi pickup SFX quiet (honest digimap) |
 | FR-GAME-006 | Enemies die | A/M | Met | Q3 | Teleport fixed; sprites = F3/#73 |
 | FR-GAME-007 | Weapons hitscan/melee | A/M | Met | Q3 | Empty-gun blocks fire; knife view = F2 |
@@ -114,6 +114,17 @@ Implementation epics after Q3 playtest closure; bugs #73/#74 feed F3/Q4.
 |----|--------|-------|--------|-------|-------|
 | FR-FID-030 | Dual pistol FP pair centered | M | Untested | F4 | Depends on F2; mirror VSWAP pistol |
 | FR-GAME-010 | Alternate fire; dmg=pistol; faster rate; 1 ammo/shot | A/M | Untested | F4 | No double-damage frame |
+
+
+
+## Level geometry (L1)
+
+| ID | Method | Smoke | Status | Owner | Notes |
+|----|--------|-------|--------|-------|-------|
+| FR-FID-040 | Wall/sprite shared projection | A/M | Partial | L1 | Unify post-#108 |
+| FR-FID-041 | Floor/ceil solid palette | M | Partial | L1 | MVP 0x19/0x18 today |
+| FR-FID-042 | Wall/door page audit E1 | M | Untested | L1 | |
+| FR-GAME-011 | Pushwall secret playtest | M | Untested | L1 | |
 
 ## QA-only
 
