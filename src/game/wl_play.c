@@ -733,11 +733,16 @@ static void move_pwalls(float dt)
         return;
     }
     oldblock = g_level.pwall_state / 128;
+    /* Cap tics so a hitch cannot skip the whole 2-tile push in one frame. */
     add = (int)(dt * 70.0f + 0.5f);
     if (add < 1) {
         add = 1;
     }
+    if (add > 8) {
+        add = 8;
+    }
     g_level.pwall_state += add;
+    /* pwallpos 0..63 within current block (original: (pwallstate/2)&63). */
     g_level.pwall_pos = (g_level.pwall_state / 2) & 63;
     newblock = g_level.pwall_state / 128;
     if (newblock == oldblock) {
@@ -747,7 +752,7 @@ static void move_pwalls(float dt)
     /* Vacate current pwall cell (walkable). */
     g_level.tilemap[g_level.pwall_x][g_level.pwall_y] = 0;
     if (g_level.pwall_state > 256) {
-        /* Finished two-tile push; dest already holds wall from last step. */
+        /* Finished two-tile push; leading cell already has solid wall. */
         g_level.pwall_state = 0;
         g_level.pwall_pos = 0;
         printf("Pushwall done at %d,%d\n", g_level.pwall_x, g_level.pwall_y);
@@ -780,48 +785,85 @@ void Wolf_TryUse(void)
     int i;
     int checkx, checky;
     int elev_x = -1, elev_y = -1;
+    int dir;
+    int ptx, pty;
 
     if (p->dead) {
         return;
     }
 
-    for (i = 1; i <= 4; ++i) {
-        float ux = p->x + c * (0.45f * (float)i);
-        float uy = p->y - s * (0.45f * (float)i);
-        checkx = (int)floorf(ux);
-        checky = (int)floorf(uy);
-        if ((unsigned)checkx >= MAPSIZE || (unsigned)checky >= MAPSIZE) {
-            continue;
+    /*
+     * Original Cmd_Use: one tile in cardinal facing dir (not a multi-step ray).
+     * Order: PUSHABLETILE first, then elevator, then doors — so secrets never
+     * steal OPENDOORSND from a door behind/beside the wall.
+     */
+    dir = dir_from_player();
+    ptx = (int)floorf(p->x);
+    pty = (int)floorf(p->y);
+    {
+        int ox, oy;
+        dir_delta(dir, &ox, &oy);
+        checkx = ptx + ox;
+        checky = pty + oy;
+    }
+
+    if ((unsigned)checkx < MAPSIZE && (unsigned)checky < MAPSIZE) {
+        /* 1) Pushwall */
+        if (g_level.objmap[checkx][checky] == PUSHABLETILE &&
+            (g_level.tilemap[checkx][checky] & TILE_WALL_MASK) != 0) {
+            if (try_push_wall(checkx, checky, dir)) {
+                return;
+            }
         }
 
-        if (did < 0) {
-            did = door_at(checkx, checky);
-        }
-        if (g_level.tilemap[checkx][checky] == ELEVATORTILE) {
+        /* 2) Elevator switch on facing tile (or orthogonal neighbor). */
+        if ((g_level.tilemap[checkx][checky] & TILE_WALL_MASK) == ELEVATORTILE) {
             elev_x = checkx;
             elev_y = checky;
-        }
-        /* Elevator cab walls sometimes sit beside elev tile — probe adjacent. */
-        if (elev_x < 0) {
-            static const int ox[4] = {1, -1, 0, 0};
-            static const int oy[4] = {0, 0, 1, -1};
-            int k;
-            for (k = 0; k < 4; ++k) {
-                int ax = checkx + ox[k];
-                int ay = checky + oy[k];
+        } else {
+            static const int ax4[4] = {1, -1, 0, 0};
+            static const int ay4[4] = {0, 0, 1, -1};
+            for (i = 0; i < 4; ++i) {
+                int ax = checkx + ax4[i];
+                int ay = checky + ay4[i];
                 if ((unsigned)ax < MAPSIZE && (unsigned)ay < MAPSIZE &&
-                    g_level.tilemap[ax][ay] == ELEVATORTILE) {
+                    (g_level.tilemap[ax][ay] & TILE_WALL_MASK) == ELEVATORTILE) {
                     elev_x = ax;
                     elev_y = ay;
                     break;
                 }
             }
         }
+
+        /* 3) Door on facing tile */
+        did = door_at(checkx, checky);
+    }
+
+    /* Fallback: short ray for doors only if facing tile missed (diagonal stand). */
+    if (did < 0 && elev_x < 0) {
+        for (i = 1; i <= 3; ++i) {
+            float ux = p->x + c * (0.40f * (float)i);
+            float uy = p->y - s * (0.40f * (float)i);
+            int tx = (int)floorf(ux);
+            int ty = (int)floorf(uy);
+            if ((unsigned)tx >= MAPSIZE || (unsigned)ty >= MAPSIZE) {
+                continue;
+            }
+            if (g_level.objmap[tx][ty] == PUSHABLETILE &&
+                (g_level.tilemap[tx][ty] & TILE_WALL_MASK) != 0) {
+                if (try_push_wall(tx, ty, dir)) {
+                    return;
+                }
+            }
+            did = door_at(tx, ty);
+            if (did >= 0) {
+                break;
+            }
+        }
     }
 
     if (did >= 0) {
         door_t *d = &g_level.doors[did];
-        /* Matches original OperateDoor: only dr_lock1..dr_lock4 need keys. */
         if (d->lock >= 1 && d->lock <= 4) {
             int need = d->lock - 1;
             if ((p->keys & (1 << need)) == 0) {
@@ -853,28 +895,9 @@ void Wolf_TryUse(void)
         return;
     }
 
-    /* Pushwalls: plane1 PUSHABLETILE on facing solid wall (original Operate). */
-    {
-        int dir = dir_from_player();
-        for (i = 1; i <= 4; ++i) {
-            float ux = p->x + c * (0.45f * (float)i);
-            float uy = p->y - s * (0.45f * (float)i);
-            checkx = (int)floorf(ux);
-            checky = (int)floorf(uy);
-            if ((unsigned)checkx >= MAPSIZE || (unsigned)checky >= MAPSIZE) {
-                continue;
-            }
-            if ((g_level.tilemap[checkx][checky] & TILE_WALL_MASK) != 0 &&
-                g_level.objmap[checkx][checky] == PUSHABLETILE) {
-                if (try_push_wall(checkx, checky, dir)) {
-                    return;
-                }
-            }
-        }
-    }
-
     SD_PlaySound(DONOTHINGSND);
 }
+
 
 static void update_pickups(void)
 {
