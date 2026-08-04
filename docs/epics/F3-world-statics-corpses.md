@@ -45,3 +45,6 @@ Any% may show **distant living guards with SCORE still 0** — do not require mo
 
 ## Status
 **Done** — VSWAP statics/enemies/corpses via `wl_sprite.c` + textured billboards; closes #73 class.
+
+## Authentic projection (post-F3)
+World sprites use one depth→height path (wall `WALL_HEIGHT_MUL` family), centered ScaleShape-style draw, and original-like `mindist` cull — not per-type scale multipliers. See plan `.hermes/plans/2026-08-04_065054-authentic-sprite-projection.md`.
