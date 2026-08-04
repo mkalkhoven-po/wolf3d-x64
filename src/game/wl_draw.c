@@ -135,7 +135,7 @@ static void draw_shape_billboard(float ex, float ey, int shapenum)
     int stripe, y;
     float plane_x, plane_y;
     byte tex[64 * 64];
-    int scale; /* ScaleShape: height>>3 */
+    int half;
 
     if (shapenum < 0) {
         return;
@@ -163,40 +163,27 @@ static void draw_shape_billboard(float ex, float ey, int shapenum)
     sprite_screen_x = (int)((SCREENWIDTH / 2) * (1.0f + transform_x / transform_y));
 
     /*
-     * Same projection family as walls:
-     *   line_h = VIEW_HEIGHT * WALL_HEIGHT_MUL / perp_dist
-     * Full-tile sprite at that depth matches wall strip height.
+     * Pixel height = same family as walls (line_h).
+     * Do NOT apply original height>>3 here: that fixed-point step was for the
+     * DOS height word, not for values already in screen pixels. Doing >>3 then
+     * *2 shrank every prop/enemy to ~1/4 wall size (#108 regression).
      */
     sprite_h = (int)fabsf((float)VIEW_HEIGHT * WALL_HEIGHT_MUL / transform_y);
     if (sprite_h < 1) {
         return;
     }
-
-    /*
-     * ScaleShape world path: scale = height>>3; if !scale || scale>maxscale return.
-     * SetupScaling(viewwidth*1.5) -> maxscale ~ related to 480; use VIEW_HEIGHT*2 cap.
-     */
-    scale = sprite_h >> 3;
-    if (scale < 1) {
-        return;
-    }
     {
-        const int maxscale = (VIEW_HEIGHT * 3) / 2; /* ~240, order of original maxscale */
-        if (scale > maxscale) {
-            scale = maxscale;
-            sprite_h = scale << 3;
+        /* Soft near cap ~ full view (original maxscale order). */
+        const int max_h = VIEW_HEIGHT * 2;
+        if (sprite_h > max_h) {
+            sprite_h = max_h;
         }
     }
+    sprite_w = sprite_h;
+    half = sprite_h / 2;
 
-    /*
-     * Chocolate ScaleShape with SPRITESCALEFACTOR=2:
-     *   pixheight = scale*2; 64 tex rows -> screen span 2*scale
-     * upperedge = viewheight/2 - scale  => centered block of height 2*scale
-     */
-    sprite_h = scale * 2;
-    sprite_w = sprite_h; /* full 0..63 square; transparent posts skipped */
-
-    draw_start_y = VIEW_HEIGHT / 2 - scale; /* upperedge */
+    /* Centered in play view (ScaleShape upperedge = viewheight/2 - half). */
+    draw_start_y = VIEW_HEIGHT / 2 - half;
     draw_end_y = draw_start_y + sprite_h;
     if (draw_start_y < 0) {
         draw_start_y = 0;
@@ -208,7 +195,7 @@ static void draw_shape_billboard(float ex, float ey, int shapenum)
         return;
     }
 
-    draw_start_x = sprite_screen_x - scale; /* actx = xcenter - scale */
+    draw_start_x = sprite_screen_x - half;
     draw_end_x = draw_start_x + sprite_w;
 
     for (stripe = draw_start_x; stripe < draw_end_x; ++stripe) {
@@ -218,7 +205,6 @@ static void draw_shape_billboard(float ex, float ey, int shapenum)
         if ((unsigned)stripe >= (unsigned)SCREENWIDTH) {
             continue;
         }
-        /* Nearer than wall (zbuffer = perp dist). */
         if (transform_y >= zbuffer[stripe]) {
             continue;
         }
@@ -480,6 +466,37 @@ void Wolf_DrawWorld(void)
         tex_x = (int)(wall_x * (float)TEX_SIZE);
         if ((side == 0 && ray_dir_x > 0) || (side == 1 && ray_dir_y < 0)) {
             tex_x = TEX_SIZE - tex_x - 1;
+        }
+
+        /*
+         * Pushwall slide: original offsets wall u by pwallpos (0..63) while moving.
+         * Apply on the moving column (flagged 0xC0) and the leading dest cell.
+         */
+        if (door_hit < 0 && g_level.pwall_state > 0) {
+            int pwx = g_level.pwall_x;
+            int pwy = g_level.pwall_y;
+            int ox = 0, oy = 0;
+            int leading_x, leading_y;
+            switch (g_level.pwall_dir) {
+            case 0: oy = -1; break; /* DI_NORTH */
+            case 1: ox = 1; break;  /* DI_EAST */
+            case 2: oy = 1; break;  /* DI_SOUTH */
+            case 3: ox = -1; break; /* DI_WEST */
+            default: break;
+            }
+            leading_x = pwx + ox;
+            leading_y = pwy + oy;
+            if ((map_x == pwx && map_y == pwy) ||
+                (map_x == leading_x && map_y == leading_y)) {
+                int pos = g_level.pwall_pos & 63;
+                /* Move texture with the wall so the face slides instead of teleporting. */
+                if (g_level.pwall_dir == 1 || g_level.pwall_dir == 3) {
+                    /* east/west push — shift along ray u */
+                    tex_x = (tex_x + pos) & 63;
+                } else {
+                    tex_x = (tex_x + pos) & 63;
+                }
+            }
         }
 
         if (door_hit >= 0) {
