@@ -127,6 +127,10 @@ static int run_smoke_suite(void)
         fprintf(stderr, "Sprite smoke verify failed\n");
         return 22;
     }
+    if (!Wolf_PushwallSmokeVerify()) {
+        fprintf(stderr, "Pushwall smoke verify failed\n");
+        return 23;
+    }
 
     if (!Wolf_PresentCreate(&pr, "Wolf3D present smoke", g_config.scale, 0)) {
         fprintf(stderr, "Present create failed\n");
@@ -186,6 +190,7 @@ int main(int argc, char *argv[])
     if (!resolve_data_or_die(argc, argv, &data_dir, smoke_only)) {
             return 2;
         }
+
         if (!Wolf_CheckRequiredFiles(&data_dir)) {
             if (!smoke_only) {
                 Wolf_ShowDataError(

@@ -5,6 +5,9 @@
 #define MAPSIZE 64
 #define AREATILE 107
 #define ELEVATORTILE 21
+#define PUSHABLETILE 98 /* plane1 secret marker (original) */
+#define TILE_PWALL_MASK 0xC0 /* in-motion pushwall flag bits */
+#define TILE_WALL_MASK 0x3F /* wall texture id while pushing */
 #define MAX_DOORS 64
 #define MAX_ENEMIES 128
 #define MAX_PICKUPS 256
@@ -26,6 +29,13 @@ typedef enum {
     ST_CHASE,
     ST_ATTACK
 } enemy_state_t;
+
+typedef enum {
+    DI_NORTH = 0,
+    DI_EAST,
+    DI_SOUTH,
+    DI_WEST
+} dir4_t;
 
 typedef enum {
     PK_NONE = 0,
@@ -115,6 +125,16 @@ typedef struct {
     boolean elevator_ready;
     int kill_count;
     int pickup_got;
+    int secret_count; /* secrets found this level */
+    int secret_total; /* PUSHABLETILE count at load */
+    /* Active pushwall (one at a time, original). */
+    int pwall_state; /* 0 idle; else tic accumulator */
+    int pwall_pos; /* 0..63 sub-tile */
+    int pwall_x, pwall_y;
+    int pwall_dir; /* dir4_t */
+    byte pwall_tile; /* wall tex id being moved */
+    /* Object plane snapshot (push markers live here until used). */
+    unsigned short objmap[MAPSIZE][MAPSIZE];
 } level_t;
 
 extern level_t g_level;
@@ -127,5 +147,6 @@ boolean Wolf_SolidAt(float x, float y);
 byte Wolf_WallTile(int tx, int ty);
 void Wolf_ResetPlayerStats(void);
 boolean Wolf_CombatSmokeVerify(void);
+boolean Wolf_PushwallSmokeVerify(void);
 
 /* keys[]: 0 fwd 1 back 2 turnL 3 turnR 4 strafeL 5 strafeR 6 shoot held */
