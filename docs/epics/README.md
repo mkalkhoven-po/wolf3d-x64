@@ -33,7 +33,7 @@ Docs: [`docs/qa/`](../qa/README.md).
 Labels: `type:epic` / `type:story` / `type:bug` / `type:test` · `area:qa` · `severity:*`.  
 Bug workflow: [BUG_TRIAGE.md](../qa/BUG_TRIAGE.md).
 
-## Visual fidelity (F1–F3) + original weapons (F4)
+## Visual fidelity (F1–F4)
 
 Post-MVP ladder driven by player reference screenshots (official/DOS often used as look-target).  
 Board: [Project #1 delivery](https://github.com/users/mkalkhoven-po/projects/1) (implementation) + QA Project #2 for residual bugs.
@@ -41,14 +41,22 @@ Board: [Project #1 delivery](https://github.com/users/mkalkhoven-po/projects/1) 
 | Milestone | Epic brief | Focus |
 |-----------|------------|--------|
 | F1 | [Status HUD & Get Psyched!](F1-status-hud-get-psyched.md) · #76 | `GETPSYCHEDPIC`, `STATUSBARPIC`, digits/face/weapon icon · **Done #95** |
-| F2 | [First-person weapon view](F2-weapon-view.md) · #77 | Hands+gun overlay, fire frames, 1–4 switch · **Done** · prereq F4 |
-| F3 | [World statics & corpses](F3-world-statics-corpses.md) · #78 | VSWAP props/enemies/bodies · **Done** (closes #73) |
-| F4 | [Dual pistols / akimbo](F4-dual-pistols.md) · #96 | Optional original: mirror pistol pair, alt-fire, same dmg/shot |
+| F2 | [First-person weapon view](F2-weapon-view.md) · #77 | Hands+gun overlay, fire frames, 1–4 switch · **Done #103** |
+| F3 | [World statics & corpses](F3-world-statics-corpses.md) · #78 | VSWAP props/enemies/bodies · **Done #104** · authentic projection **#108** |
+| F4 | [Dual pistols / akimbo](F4-dual-pistols.md) · #96 | Optional original: mirror pistol pair, alt-fire, same dmg/shot · **planned** |
 
 References: `docs/product/references/fidelity/ref-f{1,2,3}.png`.  
 In-motion E1M1 any% flow (doors → elevator, HUD/gun/enemy glance): [`docs/qa/E1M1_ANYPERCENT_REFERENCE.md`](../qa/E1M1_ANYPERCENT_REFERENCE.md).  
 Runtime pack = WL6 under `Wolf3dgame/` (not `assets/` PNG sheets) — [`docs/product/LOCAL_ASSETS.md`](../product/LOCAL_ASSETS.md).
 
-## Level geometry authenticity (planned)
+## Level geometry authenticity (L1)
 
-Pushwalls/secrets, wall projection, floor/ceiling — **not a live epic yet**. Gap index: [LEVEL_GEOMETRY_AUTHENTICITY.md](LEVEL_GEOMETRY_AUTHENTICITY.md).
+**Planned epic** — maps/shell feel: pushwalls/secrets, wall projection, floor/ceiling, texture audit.
+
+| Milestone | Epic brief | Focus |
+|-----------|------------|--------|
+| L1 | [Level geometry & secrets](L1-level-geometry-secrets.md) · **#109** | Pushwalls #110 · projection #111 · floor/ceil #112 · textures #113 · matrix #114 |
+
+**Recommended order among open work** (see L1 brief): playtest residuals → **L1.1 pushwalls** → L1.2 projection → L1.3–4 shell → **F4** dual pistols → **Q4** audio → L1.5 + **Q5**.
+
+Gap seed (historical): [LEVEL_GEOMETRY_AUTHENTICITY.md](LEVEL_GEOMETRY_AUTHENTICITY.md) (points at L1).

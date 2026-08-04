@@ -49,7 +49,7 @@ IDs are referenced from GitHub user stories.
 | FR-GAME-001 | Title/demo/menu loop reachable at startup when data present. |
 | FR-GAME-002 | User can start a new shareware game from the menu. |
 | FR-GAME-003 | Player can move and collide with walls on level geometry loaded from data. |
-| FR-GAME-004 | Doors and pushwalls behave per original rules for loaded maps. |
+| FR-GAME-004 | Doors **and pushwalls/secrets** behave per original rules for loaded maps (push motion, blocking, secret tally). |
 | FR-GAME-005 | Static pickups (ammo, keys, health, treasures) function. |
 | FR-GAME-006 | Enemies spawn, chase/attack, and can be killed. |
 | FR-GAME-007 | Weapons and hitscan/melee match original campaign expectations for WL1. |
@@ -104,3 +104,13 @@ Player-directed **mod-original** features. Require stock weapon view (F2) before
 |----|-------------|
 | FR-FID-030 | Dual-pistol first-person view shows **two** VSWAP pistol barrels (one mirrored), centered as a pair above the status bar when duals are equipped. |
 | FR-GAME-010 | Dual pistols: **alternate** barrel fire; **damage per shot equals** single pistol; cadence **slightly faster** than single (DPS up via rate only); **one ammo** per shot; one gunshot SFX per shot (no double-stack). |
+
+## Level geometry authenticity (L1)
+
+| ID | Requirement |
+|----|-------------|
+| FR-FID-040 | Wall strip height uses documented projection constants shared with world sprites (`CalcProjection` / `SetupScaling` family). |
+| FR-FID-041 | Floor and ceiling fills use original solid palette indices (textured floors out of scope unless noted Partial). |
+| FR-FID-042 | Wall and door VSWAP pages match map tile kinds on E1 smoke path (no wrong lock/elev art). |
+| FR-GAME-011 | Pushwalls/secrets: player can activate, wall slides per original rules, score/tally updates if applicable. |
+
