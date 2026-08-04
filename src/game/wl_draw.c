@@ -216,12 +216,8 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
         transform_x = inv_det * (dir_y * dx - dir_x * dy);
         transform_y = inv_det * (-plane_y * dx + plane_x * dy);
     }
-    /* Near-camera clamp: stop extreme fisheye stretch when walking into an actor. */
-    if (transform_y < 0.55f) {
-        if (transform_y <= 0.08f) {
-            return;
-        }
-        transform_y = 0.55f;
+    if (transform_y <= 0.12f) {
+        return;
     }
 
     sprite_screen_x = (int)((SCREENWIDTH / 2) * (1.0f + transform_x / transform_y));
@@ -238,6 +234,29 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
     sprite_w = (int)((float)sprite_h * ((float)op_w / (float)op_h));
     if (sprite_w < 1) {
         sprite_w = 1;
+    }
+    /*
+     * Hard pixel caps — 1/dist alone grows past the whole view when close
+     * (armor "fills the screen" / corpses stretch). Classic Wolf also limits
+     * near scale via the compiled scaler height table.
+     */
+    {
+        const int max_h = (VIEW_HEIGHT * 7) / 8; /* ~140 of 160 */
+        const int max_w = (SCREENWIDTH * 3) / 4; /* ~240 of 320 */
+        if (sprite_h > max_h) {
+            sprite_w = sprite_w * max_h / sprite_h;
+            if (sprite_w < 1) {
+                sprite_w = 1;
+            }
+            sprite_h = max_h;
+        }
+        if (sprite_w > max_w) {
+            sprite_h = sprite_h * max_w / sprite_w;
+            if (sprite_h < 1) {
+                sprite_h = 1;
+            }
+            sprite_w = max_w;
+        }
     }
 
     v_mid = VIEW_HEIGHT / 2;
@@ -439,10 +458,54 @@ void Wolf_DrawWorld(void)
             }
             if (g_level.door_id[map_x][map_y] >= 0) {
                 int did = g_level.door_id[map_x][map_y];
-                if (g_level.doors[did].open < 0.9f) {
-                    hit = 1;
-                    door_hit = did;
-                    wall_tile = 90;
+                door_t *dd = &g_level.doors[did];
+                float openf = dd->open;
+                float door_dist;
+                float door_x;
+                int door_tex;
+                int remain;
+                int in_gap;
+
+                if (openf >= 0.99f) {
+                    /* Fully open — walk-through, keep casting. */
+                } else {
+                    /* Distance to door plane at center of this cell. */
+                    if (side == 0) {
+                        door_dist = (map_x - p->x + (1 - step_x) * 0.5f) / ray_dir_x;
+                    } else {
+                        door_dist = (map_y - p->y + (1 - step_y) * 0.5f) / ray_dir_y;
+                    }
+                    if (door_dist < 0.05f) {
+                        door_dist = 0.05f;
+                    }
+                    if (side == 0) {
+                        door_x = p->y + door_dist * ray_dir_y;
+                    } else {
+                        door_x = p->x + door_dist * ray_dir_x;
+                    }
+                    door_x -= floorf(door_x);
+                    door_tex = (int)(door_x * (float)TEX_SIZE);
+                    if ((side == 0 && ray_dir_x > 0) || (side == 1 && ray_dir_y < 0)) {
+                        door_tex = TEX_SIZE - door_tex - 1;
+                    }
+                    if (door_tex < 0) {
+                        door_tex = 0;
+                    }
+                    if (door_tex >= TEX_SIZE) {
+                        door_tex = TEX_SIZE - 1;
+                    }
+                    if (openf < 0.0f) {
+                        openf = 0.0f;
+                    }
+                    remain = (int)((1.0f - openf) * (float)TEX_SIZE + 0.5f);
+                    /* Gap = low U; remaining slab = high U (matches draw path). */
+                    in_gap = (remain <= 0) || (door_tex < (TEX_SIZE - remain));
+                    if (!in_gap) {
+                        hit = 1;
+                        door_hit = did;
+                        wall_tile = 90;
+                    }
+                    /* else: open gap — continue DDA to walls beyond (no grey void) */
                 }
             } else if (g_level.tilemap[map_x][map_y] > 0 &&
                        g_level.tilemap[map_x][map_y] != ELEVATORTILE) {
@@ -487,15 +550,12 @@ void Wolf_DrawWorld(void)
         }
 
         if (door_hit >= 0) {
-            /*
-             * Sliding open: remaining slab is HIGH tex U (flip from previous side).
-             * Only the open gap clears z — the remaining slab keeps wall depth so
-             * sprites do not paint through the door face.
-             */
+            /* Ray only hits remaining slab (gap continues DDA past door). */
             door_t *dd = &g_level.doors[door_hit];
             float openf = dd->open;
             int remain;
-            int in_gap;
+            int u;
+            int sample_u;
             if (openf < 0.0f) {
                 openf = 0.0f;
             }
@@ -503,31 +563,22 @@ void Wolf_DrawWorld(void)
                 openf = 1.0f;
             }
             remain = (int)((1.0f - openf) * (float)TEX_SIZE + 0.5f);
-            /* Keep columns with tex_x in [TEX_SIZE - remain, TEX_SIZE). */
-            in_gap = (remain <= 0) || (tex_x < (TEX_SIZE - remain));
-            if (!in_gap) {
-                int u = tex_x - (TEX_SIZE - remain);
-                int sample_u;
-                if (u < 0) {
-                    u = 0;
-                }
-                sample_u = (remain > 0) ? (u * TEX_SIZE / remain) : tex_x;
-                if (sample_u >= TEX_SIZE) {
-                    sample_u = TEX_SIZE - 1;
-                }
-                for (y = draw_start; y <= draw_end; ++y) {
-                    int d = y * 256 - view_h * 128 + line_h * 128;
-                    int tex_y = ((d * TEX_SIZE) / line_h) / 256;
-                    byte c = sample_door(dd->lock, sample_u, tex_y);
-                    framebuffer[y * SCREENWIDTH + x] = c;
-                }
-                /* slab keeps existing wall-depth zbuffer */
-            } else {
-                /*
-                 * Open gap: leave floor/ceil (no door tex). Keep z at door plane so
-                 * sprites in other rooms don't paint through the doorway mid-slide.
-                 */
-                (void)0;
+            if (remain < 1) {
+                remain = 1;
+            }
+            u = tex_x - (TEX_SIZE - remain);
+            if (u < 0) {
+                u = 0;
+            }
+            sample_u = u * TEX_SIZE / remain;
+            if (sample_u >= TEX_SIZE) {
+                sample_u = TEX_SIZE - 1;
+            }
+            for (y = draw_start; y <= draw_end; ++y) {
+                int d = y * 256 - view_h * 128 + line_h * 128;
+                int tex_y = ((d * TEX_SIZE) / line_h) / 256;
+                byte c = sample_door(dd->lock, sample_u, tex_y);
+                framebuffer[y * SCREENWIDTH + x] = c;
             }
         } else {
             for (y = draw_start; y <= draw_end; ++y) {
@@ -546,7 +597,8 @@ void Wolf_DrawWorld(void)
         if (g_level.decor[i].active) {
             int place = is_ceiling_stat(g_level.decor[i].shapenum) ? SPR_PLACE_CEIL
                                                                     : SPR_PLACE_FLOOR;
-            float sc = is_ceiling_stat(g_level.decor[i].shapenum) ? 0.55f : 1.15f;
+            /* Ceiling lamps: tiny op_h (~15/64); boost so fixture is readable. */
+            float sc = is_ceiling_stat(g_level.decor[i].shapenum) ? 2.40f : 1.15f;
             draw_shape_billboard(g_level.decor[i].x, g_level.decor[i].y,
                                  g_level.decor[i].shapenum, sc, place);
         }
