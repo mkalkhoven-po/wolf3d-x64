@@ -86,7 +86,8 @@ Asserted by `scripts/smoke_wl6.sh` (must all appear in combined stdout/stderr):
 | `Status smoke:` |
 | `Get Psyched:` |
 | `Weapon smoke:` |
-| `Sprite smoke:` |
+| `Sprite smoke:
+- `Pushwall smoke:` — L1 secret tile count on map 0` |
 | `Present smoke:` |
 | `logical=320x200` |
 | `windowed_client=` |

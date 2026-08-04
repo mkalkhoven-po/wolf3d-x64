@@ -18,13 +18,26 @@
 /* Playview is 160px with 40px status strip (classic STATUSLINES). */
 #define VIEW_HEIGHT 160
 /*
- * Original seales with SetupScaling(viewwidth*1.5). A pure 1/dist
- * line height looks too squat; multiply project height toward that.
+ * L1.2 / #108 shared projection family (original CalcProjection intent):
+ * - Walls: line_h = VIEW_HEIGHT * WALL_HEIGHT_MUL / perp_dist
+ * - World sprites: same WALL_HEIGHT_MUL then ScaleShape-style center (#108)
+ * - SetupScaling(viewwidth*1.5) → mul ~1.45 vs naive 1/dist (not per-sprite muls)
+ * Tune here only — do not fork a second height path for props.
  */
 #define WALL_HEIGHT_MUL 1.45f
 /* Match wall ray FOV with billboard camera plane (tan(fov/2)). */
 #define FOV_RAD ((float)(M_PI * 50.0 / 180.0))
 #define CAMERA_PLANE ((float)(0.46630765815)) /* tan(25°) */
+
+/*
+ * Original vgaCeiling[] (WL_DRAW.C) — episode*10+mapon, low byte = color.
+ * Floor fill uses classic VGA pair 0x19 (see VGAClearScreen floor mov).
+ * Shareware E1 maps 0..9.
+ */
+static const byte vga_ceiling_e1[10] = {
+    0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0xbf
+};
+#define VGA_FLOOR_COLOR 0x19
 
 static float zbuffer[SCREENWIDTH];
 
@@ -68,6 +81,8 @@ static byte sample_wall(int wall_id, int tex_x, int tex_y, int side)
 {
     int page;
 
+    /* L1.4: strip pushwall 0xC0 flags; wall pages from low 6 bits only. */
+    wall_id &= 63;
     if (wall_id <= 0) {
         wall_id = 1;
     }
@@ -292,11 +307,24 @@ void Wolf_DrawWorld(void)
         return;
     }
 
-    for (y = 0; y < view_h / 2; ++y) {
-        memset(framebuffer + y * SCREENWIDTH, 0x19, SCREENWIDTH);
-    }
-    for (y = view_h / 2; y < view_h; ++y) {
-        memset(framebuffer + y * SCREENWIDTH, 0x18, SCREENWIDTH);
+    {
+        /* L1.3: original solid ceiling from vgaCeiling[map]; floor 0x19. */
+        byte ceil_c = 0x1d;
+        byte floor_c = (byte)VGA_FLOOR_COLOR;
+        int mi = g_level.mapnum;
+        if (mi < 0) {
+            mi = 0;
+        }
+        if (mi > 9) {
+            mi = 9; /* E2+ tables later; clamp shareware-style */
+        }
+        ceil_c = vga_ceiling_e1[mi];
+        for (y = 0; y < view_h / 2; ++y) {
+            memset(framebuffer + y * SCREENWIDTH, ceil_c, SCREENWIDTH);
+        }
+        for (y = view_h / 2; y < view_h; ++y) {
+            memset(framebuffer + y * SCREENWIDTH, floor_c, SCREENWIDTH);
+        }
     }
     for (y = view_h; y < SCREENHEIGHT; ++y) {
         byte bar = p->hurt_flash > 0 ? (byte)0x28 : (byte)0x10;
@@ -415,10 +443,10 @@ void Wolf_DrawWorld(void)
             } else if (g_level.tilemap[map_x][map_y] > 0 &&
                        g_level.tilemap[map_x][map_y] != ELEVATORTILE) {
                 hit = 1;
-                wall_tile = g_level.tilemap[map_x][map_y];
+                wall_tile = (byte)(g_level.tilemap[map_x][map_y] & 63);
             } else if (g_level.tilemap[map_x][map_y] == ELEVATORTILE) {
                 hit = 1;
-                wall_tile = ELEVATORTILE;
+                wall_tile = ELEVATORTILE; /* already < 64 */
             }
         }
 

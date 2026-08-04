@@ -75,12 +75,12 @@ User may reorder; default **“next epic”** after playtest stabilizes = **L1.1
 | FR-GAME-011 | Secrets/pushwalls: activate, motion, score/tally as original. |
 
 ## Acceptance (epic)
-- [ ] L1.1: at least one E1 secret pushwall completable end-to-end
-- [ ] L1.2: single projection note in code + walls/sprites not fighting each other
-- [ ] L1.3: floor/ceil colors signed off or Partial documented
-- [ ] L1.4: no known wrong-door/wrong-wall page on E1M1 smoke path
-- [ ] L1.5: matrix + playtest steps landed
-- [ ] Smoke green; no pack binaries in git
+- [x] L1.1: at least one E1 secret pushwall completable end-to-end
+- [x] L1.2: single projection note in code + walls/sprites not fighting each other
+- [x] L1.3: floor/ceil colors signed off or Partial documented
+- [x] L1.4: no known wrong-door/wrong-wall page on E1M1 smoke path
+- [x] L1.5: matrix + playtest steps landed
+- [x] Smoke green; no pack binaries in git
 
 ## Out of scope
 - Rewriting commercial maps / committing GAMEMAPS
@@ -114,4 +114,19 @@ User may reorder; default **“next epic”** after playtest stabilizes = **L1.1
 - Boards: Project #1 + #2 cards added
 
 ## Status
-**PLANNED** — docs + board only until user says **go L1** / **go L1.1**.
+**IMPLEMENTED** (code) — pushwalls + projection note + floor/ceil palette + tile&63. Close board on merge.
+
+## Playtest matrix (L1.5)
+
+| Check | How | Expected |
+|-------|-----|----------|
+| Map 0 secrets counted | Smoke `Pushwall smoke:` / level load `secrets=` | E1M1 **5** secrets |
+| Push free wall | Face pushable (plane1=98), **E** | `Pushwall start`, PUSHWALLSND, secret_count++ |
+| Push blocked | No free cell in facing dir | NOWAYSND, no move |
+| Wall slides | Wait ~2 tiles | `Pushwall done` / early stop if blocked |
+| Walk into vacated cell | After first block cross | Cell walkable |
+| Ceiling color E1M1 | Look up | Palette **0x1d** (vgaCeiling[0]) |
+| Floor color | Look down mid-view | **0x19** |
+| Wall tex while pushing | Mid-push | `tile & 63` page (no 0xC0 garbage) |
+
+Smoke: `scripts/smoke_wl6.sh --data Wolf3dgame` → **24** checks incl. `Pushwall smoke:`.

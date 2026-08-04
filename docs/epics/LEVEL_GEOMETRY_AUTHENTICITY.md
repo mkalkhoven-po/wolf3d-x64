@@ -13,8 +13,10 @@
 | Door slide open + gap shows walls | #105–#107 | Improving |
 | Wall height mul ~1.45 + FOV | #67 | Partial vs original `SetupScaling` |
 | Floor/ceiling **solid colors** | `wl_draw.c` sky/floor fills `0x19`/`0x18` | MVP only |
-| Pushwalls / secrets | FR-GAME-004 Partial → **L1.1** | **Not done** |
-| Sprite world projection | F3 + **#108** authentic projection | Met (path) |
+| Pushwalls / secrets | FR-GAME-004 Partial → **L1.1** | **Done** (L1 implement) |
+| Sprite world projection | F3 + **#108** authentic projection | Met |
+| Pushwalls / secrets | L1.1 | Met |
+| Floor/ceil palette | L1.3 vgaCeiling E1 | Met |
 
 ## Live epic
 
