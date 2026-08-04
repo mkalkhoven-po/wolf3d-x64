@@ -155,26 +155,29 @@ static void draw_shape_billboard(float ex, float ey, int shapenum)
         transform_y = inv_det * (-plane_y * dx + plane_x * dy);
     }
 
-    /* Original: nx < mindist -> viewheight = 0 (skip). */
+    /* Original: nx < mindist -> hide (no infinite close-up stretch). */
     if (transform_y < MINDIST_TILES) {
         return;
     }
 
-    sprite_screen_x = (int)((SCREENWIDTH / 2) * (1.0f + transform_x / transform_y));
-
     /*
-     * Pixel height = same family as walls (line_h).
-     * Do NOT apply original height>>3 here: that fixed-point step was for the
-     * DOS height word, not for values already in screen pixels. Doing >>3 then
-     * *2 shrank every prop/enemy to ~1/4 wall size (#108 regression).
+     * Size uses a floored depth so walking into a prop does not fisheye.
+     * Screen X still uses true transform for lateral position.
+     * Cap height to play view (original maxscale-ish).
      */
-    sprite_h = (int)fabsf((float)VIEW_HEIGHT * WALL_HEIGHT_MUL / transform_y);
+    {
+        float depth_sz = transform_y;
+        if (depth_sz < 0.90f) {
+            depth_sz = 0.90f;
+        }
+        sprite_screen_x = (int)((SCREENWIDTH / 2) * (1.0f + transform_x / transform_y));
+        sprite_h = (int)fabsf((float)VIEW_HEIGHT * WALL_HEIGHT_MUL / depth_sz);
+    }
     if (sprite_h < 1) {
         return;
     }
     {
-        /* Soft near cap ~ full view (original maxscale order). */
-        const int max_h = VIEW_HEIGHT * 2;
+        const int max_h = VIEW_HEIGHT; /* never taller than the 3D view */
         if (sprite_h > max_h) {
             sprite_h = max_h;
         }
@@ -267,6 +270,28 @@ static int enemy_live_shape(const enemy_t *e)
 
 static int enemy_dead_shape(const enemy_t *e)
 {
+    int frame;
+
+    /* die_t 0..0.45 → DIE_1..3, then hold DEAD (pack frames present now). */
+    if (e->die_t < 0.45f) {
+        frame = (int)(e->die_t / 0.15f);
+        if (frame > 2) {
+            frame = 2;
+        }
+        switch (e->kind) {
+        case EN_DOG:
+            return SPR_DOG_DIE_1 + frame;
+        case EN_SS:
+            return SPR_SS_DIE_1 + frame;
+        case EN_OFFICER:
+            return SPR_OFC_DIE_1 + frame;
+        case EN_BOSS:
+            return SPR_BOSS_DEAD; /* boss die strip differs; hold dead for now */
+        case EN_GUARD:
+        default:
+            return SPR_GRD_DIE_1 + frame;
+        }
+    }
     switch (e->kind) {
     case EN_DOG:
         return SPR_DOG_DEAD;
