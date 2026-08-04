@@ -48,3 +48,7 @@ Board: [Project #1 delivery](https://github.com/users/mkalkhoven-po/projects/1) 
 References: `docs/product/references/fidelity/ref-f{1,2,3}.png`.  
 In-motion E1M1 any% flow (doors → elevator, HUD/gun/enemy glance): [`docs/qa/E1M1_ANYPERCENT_REFERENCE.md`](../qa/E1M1_ANYPERCENT_REFERENCE.md).  
 Runtime pack = WL6 under `Wolf3dgame/` (not `assets/` PNG sheets) — [`docs/product/LOCAL_ASSETS.md`](../product/LOCAL_ASSETS.md).
+
+## Level geometry authenticity (planned)
+
+Pushwalls/secrets, wall projection, floor/ceiling — **not a live epic yet**. Gap index: [LEVEL_GEOMETRY_AUTHENTICITY.md](LEVEL_GEOMETRY_AUTHENTICITY.md).

@@ -98,15 +98,18 @@ static byte sample_door(int lock, int tex_x, int tex_y)
     return sample_page(page, tex_x, tex_y);
 }
 
-#define SPR_PLACE_FLOOR 0
-#define SPR_PLACE_CEIL 1
-
 /*
- * Textured billboard. Height tracks wall projection so scale matches walls.
- * Floor: feet on wall-bottom. Ceiling fixtures: hang from wall-top.
+ * Authentic world-sprite projection (original Transform* + ScaleShape intent):
+ * - One depth->height for all world sprites (same WALL_HEIGHT_MUL family as walls)
+ * - Vertically centered in the play view (art posts encode floor vs ceiling)
+ * - mindist: too close -> do not draw (original MINDIST ~0.34 tile)
+ * - No per-type scale_mul / floor-seat hacks
+ *
+ * Refs: WL_DRAW.C TransformActor/Tile, WL_SCALE.C ScaleShape, WL_MAIN CalcProjection
  */
-static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_mul,
-                                 int placement)
+#define MINDIST_TILES 0.34375f /* original MINDIST 0x5800 / TILEGLOBAL */
+
+static void draw_shape_billboard(float ex, float ey, int shapenum)
 {
     player_t *p = &g_level.player;
     float dx = ex - p->x;
@@ -117,93 +120,13 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
     int stripe, y;
     float plane_x, plane_y;
     byte tex[64 * 64];
-    int v_mid;
-    int wall_h;
-    int top_op, bot_op, op_h;
-    int left_op, right_op, op_w;
+    int scale; /* ScaleShape: height>>3 */
 
     if (shapenum < 0) {
         return;
     }
     if (!Wolf_SpriteExpand(shapenum, tex)) {
         return;
-    }
-
-    /* Opaque bounds: floor lamps live in lower rows; full-64 stretch made them tiny. */
-    top_op = 0;
-    bot_op = 63;
-    left_op = 0;
-    right_op = 63;
-    {
-        int yy, xx, found;
-        found = 0;
-        for (yy = 0; yy < 64; ++yy) {
-            for (xx = 0; xx < 64; ++xx) {
-                if (tex[yy * 64 + xx] != 0xFF) {
-                    top_op = yy;
-                    found = 1;
-                    break;
-                }
-            }
-            if (found) {
-                break;
-            }
-        }
-        found = 0;
-        for (yy = 63; yy >= 0; --yy) {
-            for (xx = 0; xx < 64; ++xx) {
-                if (tex[yy * 64 + xx] != 0xFF) {
-                    bot_op = yy;
-                    found = 1;
-                    break;
-                }
-            }
-            if (found) {
-                break;
-            }
-        }
-        found = 0;
-        for (xx = 0; xx < 64; ++xx) {
-            for (yy = 0; yy < 64; ++yy) {
-                if (tex[yy * 64 + xx] != 0xFF) {
-                    left_op = xx;
-                    found = 1;
-                    break;
-                }
-            }
-            if (found) {
-                break;
-            }
-        }
-        found = 0;
-        for (xx = 63; xx >= 0; --xx) {
-            for (yy = 0; yy < 64; ++yy) {
-                if (tex[yy * 64 + xx] != 0xFF) {
-                    right_op = xx;
-                    found = 1;
-                    break;
-                }
-            }
-            if (found) {
-                break;
-            }
-        }
-        if (bot_op < top_op) {
-            top_op = 0;
-            bot_op = 63;
-        }
-        if (right_op < left_op) {
-            left_op = 0;
-            right_op = 63;
-        }
-    }
-    op_h = bot_op - top_op + 1;
-    op_w = right_op - left_op + 1;
-    if (op_h < 1) {
-        op_h = 1;
-    }
-    if (op_w < 1) {
-        op_w = 1;
     }
 
     plane_x = cosf(p->angle - (float)(M_PI * 0.5)) * CAMERA_PLANE;
@@ -216,99 +139,86 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
         transform_x = inv_det * (dir_y * dx - dir_x * dy);
         transform_y = inv_det * (-plane_y * dx + plane_x * dy);
     }
-    if (transform_y <= 0.12f) {
+
+    /* Original: nx < mindist -> viewheight = 0 (skip). */
+    if (transform_y < MINDIST_TILES) {
         return;
     }
 
     sprite_screen_x = (int)((SCREENWIDTH / 2) * (1.0f + transform_x / transform_y));
-    wall_h = (int)fabsf((float)VIEW_HEIGHT * WALL_HEIGHT_MUL / transform_y);
-    if (wall_h < 1) {
-        wall_h = 1;
-    }
-    /* Project opaque height only (fraction of wall height * scale_mul). */
-    sprite_h = (int)((float)wall_h * scale_mul * ((float)op_h / 64.0f));
+
+    /*
+     * Same projection family as walls:
+     *   line_h = VIEW_HEIGHT * WALL_HEIGHT_MUL / perp_dist
+     * Full-tile sprite at that depth matches wall strip height.
+     */
+    sprite_h = (int)fabsf((float)VIEW_HEIGHT * WALL_HEIGHT_MUL / transform_y);
     if (sprite_h < 1) {
         return;
     }
-    /* Keep aspect from opaque bounds (not forced square). */
-    sprite_w = (int)((float)sprite_h * ((float)op_w / (float)op_h));
-    if (sprite_w < 1) {
-        sprite_w = 1;
-    }
+
     /*
-     * Hard pixel caps — 1/dist alone grows past the whole view when close
-     * (armor "fills the screen" / corpses stretch). Classic Wolf also limits
-     * near scale via the compiled scaler height table.
+     * ScaleShape world path: scale = height>>3; if !scale || scale>maxscale return.
+     * SetupScaling(viewwidth*1.5) -> maxscale ~ related to 480; use VIEW_HEIGHT*2 cap.
      */
+    scale = sprite_h >> 3;
+    if (scale < 1) {
+        return;
+    }
     {
-        const int max_h = (VIEW_HEIGHT * 7) / 8; /* ~140 of 160 */
-        const int max_w = (SCREENWIDTH * 3) / 4; /* ~240 of 320 */
-        if (sprite_h > max_h) {
-            sprite_w = sprite_w * max_h / sprite_h;
-            if (sprite_w < 1) {
-                sprite_w = 1;
-            }
-            sprite_h = max_h;
-        }
-        if (sprite_w > max_w) {
-            sprite_h = sprite_h * max_w / sprite_w;
-            if (sprite_h < 1) {
-                sprite_h = 1;
-            }
-            sprite_w = max_w;
+        const int maxscale = (VIEW_HEIGHT * 3) / 2; /* ~240, order of original maxscale */
+        if (scale > maxscale) {
+            scale = maxscale;
+            sprite_h = scale << 3;
         }
     }
 
-    v_mid = VIEW_HEIGHT / 2;
-    if (placement == SPR_PLACE_CEIL) {
-        /* Opaque TOP sits on wall-top / ceiling line. */
-        draw_start_y = v_mid - wall_h / 2;
-        draw_end_y = draw_start_y + sprite_h;
-    } else {
-        /* Opaque BOTTOM (feet) sits on wall-bottom / floor line. */
-        draw_end_y = v_mid + wall_h / 2;
-        draw_start_y = draw_end_y - sprite_h;
-    }
+    /*
+     * Chocolate ScaleShape with SPRITESCALEFACTOR=2:
+     *   pixheight = scale*2; 64 tex rows -> screen span 2*scale
+     * upperedge = viewheight/2 - scale  => centered block of height 2*scale
+     */
+    sprite_h = scale * 2;
+    sprite_w = sprite_h; /* full 0..63 square; transparent posts skipped */
+
+    draw_start_y = VIEW_HEIGHT / 2 - scale; /* upperedge */
+    draw_end_y = draw_start_y + sprite_h;
     if (draw_start_y < 0) {
         draw_start_y = 0;
     }
-    if (draw_end_y >= VIEW_HEIGHT) {
-        draw_end_y = VIEW_HEIGHT - 1;
+    if (draw_end_y > VIEW_HEIGHT) {
+        draw_end_y = VIEW_HEIGHT;
     }
     if (draw_end_y <= draw_start_y) {
         return;
     }
-    draw_start_x = -sprite_w / 2 + sprite_screen_x;
-    draw_end_x = sprite_w / 2 + sprite_screen_x;
+
+    draw_start_x = sprite_screen_x - scale; /* actx = xcenter - scale */
+    draw_end_x = draw_start_x + sprite_w;
 
     for (stripe = draw_start_x; stripe < draw_end_x; ++stripe) {
         int tex_x;
-        int span_h = draw_end_y - draw_start_y + 1;
+        int span_h = draw_end_y - draw_start_y;
         int span_w = draw_end_x - draw_start_x;
         if ((unsigned)stripe >= (unsigned)SCREENWIDTH) {
             continue;
         }
+        /* Nearer than wall (zbuffer = perp dist). */
         if (transform_y >= zbuffer[stripe]) {
             continue;
         }
-        if (span_w < 1) {
+        if (span_w < 1 || span_h < 1) {
             continue;
         }
-        tex_x = left_op + ((stripe - draw_start_x) * op_w) / span_w;
-        if (tex_x < left_op) {
-            tex_x = left_op;
+        tex_x = ((stripe - draw_start_x) * 64) / span_w;
+        if ((unsigned)tex_x >= 64u) {
+            continue;
         }
-        if (tex_x > right_op) {
-            tex_x = right_op;
-        }
-        for (y = draw_start_y; y <= draw_end_y; ++y) {
-            int tex_y = top_op + ((y - draw_start_y) * op_h) / span_h;
+        for (y = draw_start_y; y < draw_end_y; ++y) {
+            int tex_y = ((y - draw_start_y) * 64) / span_h;
             byte c;
-            if (tex_y < top_op) {
-                tex_y = top_op;
-            }
-            if (tex_y > bot_op) {
-                tex_y = bot_op;
+            if ((unsigned)tex_y >= 64u) {
+                continue;
             }
             c = tex[tex_y * 64 + tex_x];
             if (c == 0xFF) {
@@ -317,11 +227,6 @@ static void draw_shape_billboard(float ex, float ey, int shapenum, float scale_m
             framebuffer[y * SCREENWIDTH + stripe] = c;
         }
     }
-}
-
-static int is_ceiling_stat(int shapenum)
-{
-    return shapenum == (SPR_STAT_BASE + 4) || shapenum == (SPR_STAT_BASE + 14);
 }
 
 static int enemy_live_shape(const enemy_t *e)
@@ -592,42 +497,35 @@ void Wolf_DrawWorld(void)
     }
     } /* dir/plane scope */
 
-    /* Decorative statics (lamps, plants, furniture, ...) */
+    /* Decorative statics — same projection as actors (authentic). */
     for (i = 0; i < g_level.decor_count; ++i) {
         if (g_level.decor[i].active) {
-            int place = is_ceiling_stat(g_level.decor[i].shapenum) ? SPR_PLACE_CEIL
-                                                                    : SPR_PLACE_FLOOR;
-            /* Ceiling lamps: tiny op_h (~15/64); boost so fixture is readable. */
-            float sc = is_ceiling_stat(g_level.decor[i].shapenum) ? 2.40f : 1.15f;
             draw_shape_billboard(g_level.decor[i].x, g_level.decor[i].y,
-                                 g_level.decor[i].shapenum, sc, place);
+                                 g_level.decor[i].shapenum);
         }
     }
 
-    /* Pickups on the floor */
+    /* Pickups */
     for (i = 0; i < g_level.pickup_count; ++i) {
         if (g_level.pickups[i].active) {
             draw_shape_billboard(g_level.pickups[i].x, g_level.pickups[i].y,
-                                 g_level.pickups[i].shapenum, 0.50f, SPR_PLACE_FLOOR);
+                                 g_level.pickups[i].shapenum);
         }
     }
 
-    /* Living enemies + corpses (grounded) */
+    /* Living enemies + corpses */
     for (i = 0; i < g_level.enemy_count; ++i) {
         enemy_t *e = &g_level.enemies[i];
         int shape;
-        float sc;
         if (!e->active) {
             continue;
         }
         if (e->state == ST_DEAD) {
             shape = enemy_dead_shape(e);
-            sc = 0.85f;
         } else {
             shape = enemy_live_shape(e);
-            sc = (e->kind == EN_DOG) ? 0.80f : 1.05f;
         }
-        draw_shape_billboard(e->x, e->y, shape, sc, SPR_PLACE_FLOOR);
+        draw_shape_billboard(e->x, e->y, shape);
     }
 
     /* Kill flash */
