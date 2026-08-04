@@ -547,6 +547,7 @@ void Wolf_TryShoot(void)
             e->health -= dmg;
             if (e->health <= 0) {
                 e->state = ST_DEAD;
+                e->die_t = 0.0f;
                 /* keep active so corpse billboard draws (combat AI skips ST_DEAD). */
                 g_level.enemies_alive--;
                 g_level.kill_count++;
@@ -594,6 +595,7 @@ void Wolf_TryShoot(void)
         e->state = ST_CHASE;
         if (e->health <= 0) {
             e->state = ST_DEAD;
+            e->die_t = 0.0f;
             /* keep active for corpse draw */
             g_level.enemies_alive--;
             g_level.kill_count++;
@@ -782,65 +784,110 @@ void Wolf_TryUse(void)
     float c = cosf(p->angle);
     float s = sinf(p->angle);
     int did = -1;
-    int i;
-    int checkx, checky;
+    int i, k;
     int elev_x = -1, elev_y = -1;
     int dir;
     int ptx, pty;
+    int tried_push = 0;
 
     if (p->dead) {
         return;
     }
 
     /*
-     * Original Cmd_Use: one tile in cardinal facing dir (not a multi-step ray).
-     * Order: PUSHABLETILE first, then elevator, then doors — so secrets never
-     * steal OPENDOORSND from a door behind/beside the wall.
+     * Original Cmd_Use faces one cardinal tile. We also probe a short ray and
+     * all four neighbors so secrets still work when slightly off-axis.
+     * Order: pushwall first (never steal OPENDOORSND).
      */
     dir = dir_from_player();
     ptx = (int)floorf(p->x);
     pty = (int)floorf(p->y);
+
+    /* 1) Pushwalls — facing tile, then other neighbors, then short ray. */
     {
+        int order[4];
         int ox, oy;
-        dir_delta(dir, &ox, &oy);
-        checkx = ptx + ox;
-        checky = pty + oy;
-    }
-
-    if ((unsigned)checkx < MAPSIZE && (unsigned)checky < MAPSIZE) {
-        /* 1) Pushwall */
-        if (g_level.objmap[checkx][checky] == PUSHABLETILE &&
-            (g_level.tilemap[checkx][checky] & TILE_WALL_MASK) != 0) {
-            if (try_push_wall(checkx, checky, dir)) {
-                return;
+        order[0] = dir;
+        order[1] = (dir + 1) & 3;
+        order[2] = (dir + 3) & 3;
+        order[3] = (dir + 2) & 3;
+        for (k = 0; k < 4; ++k) {
+            int d = order[k];
+            int tx, ty;
+            dir_delta(d, &ox, &oy);
+            tx = ptx + ox;
+            ty = pty + oy;
+            if ((unsigned)tx >= MAPSIZE || (unsigned)ty >= MAPSIZE) {
+                continue;
             }
-        }
-
-        /* 2) Elevator switch on facing tile (or orthogonal neighbor). */
-        if ((g_level.tilemap[checkx][checky] & TILE_WALL_MASK) == ELEVATORTILE) {
-            elev_x = checkx;
-            elev_y = checky;
-        } else {
-            static const int ax4[4] = {1, -1, 0, 0};
-            static const int ay4[4] = {0, 0, 1, -1};
-            for (i = 0; i < 4; ++i) {
-                int ax = checkx + ax4[i];
-                int ay = checky + ay4[i];
-                if ((unsigned)ax < MAPSIZE && (unsigned)ay < MAPSIZE &&
-                    (g_level.tilemap[ax][ay] & TILE_WALL_MASK) == ELEVATORTILE) {
-                    elev_x = ax;
-                    elev_y = ay;
-                    break;
+            if (g_level.objmap[tx][ty] == PUSHABLETILE &&
+                (g_level.tilemap[tx][ty] & TILE_WALL_MASK) != 0) {
+                tried_push = 1;
+                /* Push direction = into the wall from the player (d). */
+                if (try_push_wall(tx, ty, d)) {
+                    return;
                 }
             }
         }
-
-        /* 3) Door on facing tile */
-        did = door_at(checkx, checky);
+        for (i = 1; i <= 4; ++i) {
+            float ux = p->x + c * (0.35f * (float)i);
+            float uy = p->y - s * (0.35f * (float)i);
+            int tx = (int)floorf(ux);
+            int ty = (int)floorf(uy);
+            if ((unsigned)tx >= MAPSIZE || (unsigned)ty >= MAPSIZE) {
+                continue;
+            }
+            if (tx == ptx && ty == pty) {
+                continue;
+            }
+            if (g_level.objmap[tx][ty] == PUSHABLETILE &&
+                (g_level.tilemap[tx][ty] & TILE_WALL_MASK) != 0) {
+                int dpush = dir;
+                int dx = tx - ptx;
+                int dy = ty - pty;
+                if (abs(dx) >= abs(dy)) {
+                    dpush = (dx >= 0) ? DI_EAST : DI_WEST;
+                } else {
+                    dpush = (dy >= 0) ? DI_SOUTH : DI_NORTH;
+                }
+                tried_push = 1;
+                if (try_push_wall(tx, ty, dpush)) {
+                    return;
+                }
+            }
+        }
     }
 
-    /* Fallback: short ray for doors only if facing tile missed (diagonal stand). */
-    if (did < 0 && elev_x < 0) {
+    /* 2) Elevator on facing cardinal tile */
+    {
+        int ox, oy, checkx, checky;
+        dir_delta(dir, &ox, &oy);
+        checkx = ptx + ox;
+        checky = pty + oy;
+        if ((unsigned)checkx < MAPSIZE && (unsigned)checky < MAPSIZE) {
+            if ((g_level.tilemap[checkx][checky] & TILE_WALL_MASK) == ELEVATORTILE) {
+                elev_x = checkx;
+                elev_y = checky;
+            } else {
+                static const int ax4[4] = {1, -1, 0, 0};
+                static const int ay4[4] = {0, 0, 1, -1};
+                for (i = 0; i < 4; ++i) {
+                    int ax = checkx + ax4[i];
+                    int ay = checky + ay4[i];
+                    if ((unsigned)ax < MAPSIZE && (unsigned)ay < MAPSIZE &&
+                        (g_level.tilemap[ax][ay] & TILE_WALL_MASK) == ELEVATORTILE) {
+                        elev_x = ax;
+                        elev_y = ay;
+                        break;
+                    }
+                }
+            }
+            did = door_at(checkx, checky);
+        }
+    }
+
+    /* 3) Door ray fallback */
+    if (did < 0) {
         for (i = 1; i <= 3; ++i) {
             float ux = p->x + c * (0.40f * (float)i);
             float uy = p->y - s * (0.40f * (float)i);
@@ -848,12 +895,6 @@ void Wolf_TryUse(void)
             int ty = (int)floorf(uy);
             if ((unsigned)tx >= MAPSIZE || (unsigned)ty >= MAPSIZE) {
                 continue;
-            }
-            if (g_level.objmap[tx][ty] == PUSHABLETILE &&
-                (g_level.tilemap[tx][ty] & TILE_WALL_MASK) != 0) {
-                if (try_push_wall(tx, ty, dir)) {
-                    return;
-                }
             }
             did = door_at(tx, ty);
             if (did >= 0) {
@@ -895,6 +936,10 @@ void Wolf_TryUse(void)
         return;
     }
 
+    if (tried_push) {
+        /* Found secret wall but could not push (blocked / already moving). */
+        return;
+    }
     SD_PlaySound(DONOTHINGSND);
 }
 
@@ -998,7 +1043,14 @@ static void update_enemies(float dt)
     for (i = 0; i < g_level.enemy_count; ++i) {
         enemy_t *e = &g_level.enemies[i];
         float dx, dy, dist, ang, c, s, nx, ny;
-        if (!e->active || e->state == ST_DEAD || pl->dead) {
+        if (!e->active || pl->dead) {
+            continue;
+        }
+        if (e->state == ST_DEAD) {
+            /* Death sequence ~0.45s through DIE_1..3 then hold DEAD. */
+            if (e->die_t < 0.50f) {
+                e->die_t += dt;
+            }
             continue;
         }
 
@@ -1303,9 +1355,10 @@ boolean Wolf_PushwallSmokeVerify(void)
         fprintf(stderr, "Pushwall smoke: objmap count mismatch\n");
         return false;
     }
-    /* Find one pushable with free cell north/east/south/west and dry-run block check. */
+    /* Find pushable + free cell, stand opposite, TryUse, advance motion. */
     {
         int found = 0;
+        int sx = 0, sy = 0, sd = 0;
         for (y = 1; y < MAPSIZE - 1 && !found; ++y) {
             for (x = 1; x < MAPSIZE - 1; ++x) {
                 int d;
@@ -1320,6 +1373,9 @@ boolean Wolf_PushwallSmokeVerify(void)
                     dir_delta(d, &ox, &oy);
                     if (!cell_blocked(x + ox, y + oy)) {
                         found = 1;
+                        sx = x;
+                        sy = y;
+                        sd = d;
                         printf("Pushwall smoke: sample_pushable=%d,%d free_dir=%d wall=%d\n",
                                x, y, d, g_level.tilemap[x][y] & TILE_WALL_MASK);
                         break;
@@ -1328,7 +1384,46 @@ boolean Wolf_PushwallSmokeVerify(void)
             }
         }
         if (!found) {
-            fprintf(stderr, "Pushwall smoke: no free-adjacent pushable (still OK if total>0)\n");
+            fprintf(stderr, "Pushwall smoke: no free-adjacent pushable\n");
+            return false;
+        }
+        {
+            int ox, oy;
+            float ang;
+            dir_delta(sd, &ox, &oy);
+            g_level.player.x = (float)(sx - ox) + 0.5f;
+            g_level.player.y = (float)(sy - oy) + 0.5f;
+            switch (sd) {
+            case DI_NORTH:
+                ang = (float)(M_PI * 0.5);
+                break;
+            case DI_EAST:
+                ang = 0.0f;
+                break;
+            case DI_SOUTH:
+                ang = (float)(-M_PI * 0.5);
+                break;
+            default:
+                ang = (float)M_PI;
+                break;
+            }
+            g_level.player.angle = ang;
+            Wolf_TryUse();
+            if (g_level.pwall_state <= 0) {
+                fprintf(stderr, "Pushwall smoke: TryUse failed state=%d at %d,%d dir=%d\n",
+                        g_level.pwall_state, sx, sy, sd);
+                return false;
+            }
+            printf("Pushwall smoke: activated state=%d secrets=%d\n", g_level.pwall_state,
+                   g_level.secret_count);
+            {
+                int step;
+                for (step = 0; step < 50; ++step) {
+                    move_pwalls(1.0f / 70.0f);
+                }
+            }
+            printf("Pushwall smoke: after_move state=%d anchor=%d,%d\n", g_level.pwall_state,
+                   g_level.pwall_x, g_level.pwall_y);
         }
     }
     printf("Pushwall smoke: OK\n");

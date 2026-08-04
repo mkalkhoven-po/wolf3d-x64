@@ -88,6 +88,7 @@ typedef struct {
     float attack_cd;
     float speed;
     float anim_t; /* walk-cycle timer */
+    float die_t; /* death anim 0..done when ST_DEAD */
     int score_value;
 } enemy_t;
 
