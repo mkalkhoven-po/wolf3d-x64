@@ -772,6 +772,8 @@ static int try_push_wall(int checkx, int checky, int dir)
     g_level.objmap[checkx][checky] = 0;
     g_level.pwall_x = checkx;
     g_level.pwall_y = checky;
+    g_level.pwall_start_x = checkx;
+    g_level.pwall_start_y = checky;
     g_level.pwall_dir = dir;
     g_level.pwall_state = 1;
     g_level.pwall_pos = 0;
@@ -780,6 +782,8 @@ static int try_push_wall(int checkx, int checky, int dir)
     SD_PlaySound(PUSHWALLSND);
     printf("Pushwall start %d,%d -> %d,%d dir=%d secrets=%d/%d\n", checkx, checky, nx,
            ny, dir, g_level.secret_count, g_level.secret_total);
+    printf("Pushwall view: player=(%.2f,%.2f) ang=%.2f draw=HitPWall\n",
+           g_level.player.x, g_level.player.y, g_level.player.angle);
     if (best_away < 0.5f) {
         printf("Pushwall: opens SIDEWAYS. Walk FORWARD into empty cell, then turn.\n");
     } else {
@@ -821,7 +825,9 @@ static void move_pwalls(float dt)
     if (g_level.pwall_state > 256) {
         g_level.pwall_state = 0;
         g_level.pwall_pos = 0;
-        printf("Pushwall done — walk into opened cell (wall parked ahead)\n");
+        printf("Pushwall done start=%d,%d t30_22=%d solid30=%d\n",
+               g_level.pwall_start_x, g_level.pwall_start_y,
+               g_level.tilemap[30][22], Wolf_SolidAt(30.5f, 22.5f) ? 1 : 0);
         return;
     }
 
@@ -835,8 +841,25 @@ static void move_pwalls(float dt)
         g_level.tilemap[g_level.pwall_x][g_level.pwall_y] = oldtile;
         g_level.pwall_state = 0;
         g_level.pwall_pos = 0;
-        printf("Pushwall rest at %d,%d — walk into opened cells behind\n",
-               g_level.pwall_x, g_level.pwall_y);
+        /* scrub pwall flags */
+        {
+            int cx, cy;
+            for (cy = 0; cy < MAPSIZE; ++cy) {
+                for (cx = 0; cx < MAPSIZE; ++cx) {
+                    if ((g_level.tilemap[cx][cy] & TILE_PWALL_MASK) ==
+                        TILE_PWALL_MASK) {
+                        g_level.tilemap[cx][cy] = 0;
+                    }
+                }
+            }
+        }
+        printf("Pushwall rest at %d,%d start=%d,%d t30_22=%d t29_22=%d t28_22=%d solid30=%d\n",
+               g_level.pwall_x, g_level.pwall_y,
+               g_level.pwall_start_x, g_level.pwall_start_y,
+               g_level.tilemap[30][22], g_level.tilemap[29][22],
+               g_level.tilemap[28][22],
+               Wolf_SolidAt(30.5f, 22.5f) ? 1 : 0);
+        printf("Pushwall: walk into emptied cells behind the moving face\n");
         return;
     }
 

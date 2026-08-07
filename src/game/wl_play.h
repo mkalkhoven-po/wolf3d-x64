@@ -132,6 +132,7 @@ typedef struct {
     int pwall_state; /* 0 idle; else tic accumulator */
     int pwall_pos; /* 0..63 sub-tile */
     int pwall_x, pwall_y;
+    int pwall_start_x, pwall_start_y; /* secret cell where push began */
     int pwall_dir; /* dir4_t */
     byte pwall_tile; /* wall tex id being moved */
     /* Object plane snapshot (push markers live here until used). */
