@@ -44,7 +44,14 @@ boolean Wolf_SolidAt(float x, float y)
     if ((tile & TILE_WALL_MASK) == ELEVATORTILE) {
         return true;
     }
-    /* Nonzero wall id (ignore in-motion 0xC0 flag bits). */
+    /*
+     * In-motion pushwall origin (tex | 0xC0): treat as walkable so the player can
+     * enter the opening while the face slides into the next cell. Leading cell
+     * still holds a normal solid wall tile.
+     */
+    if ((tile & TILE_PWALL_MASK) == TILE_PWALL_MASK) {
+        return false;
+    }
     return (tile & TILE_WALL_MASK) != 0;
 }
 
@@ -760,7 +767,6 @@ static void move_pwalls(float dt)
         return;
     }
     oldblock = g_level.pwall_state / 128;
-    /* Cap tics so a hitch cannot skip whole push; still allow steady progress. */
     add = (int)(dt * 70.0f + 0.5f);
     if (add < 1) {
         add = 1;
@@ -769,26 +775,27 @@ static void move_pwalls(float dt)
         add = 6;
     }
     g_level.pwall_state += add;
-    /* Original updates pwallpos every frame from state. */
+    /* Sub-tile slide 0..63 within the current block. */
     g_level.pwall_pos = (g_level.pwall_state / 2) & 63;
     newblock = g_level.pwall_state / 128;
     if (newblock == oldblock) {
         return;
     }
 
-    /*
-     * Block crossed — match WL_ACT1 MovePWalls:
-     * 1) vacate current anchor (walkable)
-     * 2) if state>256 finish (leading tile already holds the wall)
-     * 3) else step anchor forward, clone into next free cell, mark anchor 0xC0
-     */
     oldtile = g_level.pwall_tile;
+    /* Vacate anchor — player can walk here. */
     g_level.tilemap[g_level.pwall_x][g_level.pwall_y] = 0;
 
-    if (g_level.pwall_state > 256) {
+    /*
+     * Two tiles total: blocks 0->1 and 1->2. Finish when entering block index >= 2
+     * (state >= 256). Using only >256 allowed state==256 to attempt a 3rd tile and
+     * print "stopped early at 28,22" while the wood face still looked sealed from
+     * the south (opening is sideways).
+     */
+    if (g_level.pwall_state >= 256) {
         g_level.pwall_state = 0;
         g_level.pwall_pos = 0;
-        printf("Pushwall done; walk through opened cells\n");
+        printf("Pushwall done at %d,%d (opened)\n", g_level.pwall_x, g_level.pwall_y);
         return;
     }
 
@@ -798,13 +805,13 @@ static void move_pwalls(float dt)
     nx = g_level.pwall_x + ox;
     ny = g_level.pwall_y + oy;
 
-    /* Next cell blocked → wall rests on current anchor (already has wall from prior clone). */
     if (cell_blocked(nx, ny)) {
+        /* Rest on current anchor; cells behind are already open. */
         g_level.tilemap[g_level.pwall_x][g_level.pwall_y] = oldtile;
         g_level.pwall_state = 0;
         g_level.pwall_pos = 0;
-        printf("Pushwall stopped early at %d,%d (passage behind is open)\n",
-               g_level.pwall_x, g_level.pwall_y);
+        printf("Pushwall rest at %d,%d (path behind open)\n", g_level.pwall_x,
+               g_level.pwall_y);
         return;
     }
 
@@ -1514,6 +1521,23 @@ boolean Wolf_PushwallSmokeVerify(void)
             return false;
         }
         printf("Pushwall smoke: (30,22) activated dir=%d\n", g_level.pwall_dir);
+        {
+            int step;
+            for (step = 0; step < 300; ++step) {
+                move_pwalls(1.0f / 70.0f);
+            }
+            if ((g_level.tilemap[30][22] & TILE_WALL_MASK) != 0 &&
+                (g_level.tilemap[30][22] & TILE_PWALL_MASK) == 0) {
+                fprintf(stderr, "Pushwall smoke: (30,22) still solid wall after push\n");
+                return false;
+            }
+            /* Must be able to stand in origin (walkable). */
+            if (Wolf_SolidAt(30.5f, 22.5f)) {
+                fprintf(stderr, "Pushwall smoke: (30.5,22.5) still SolidAt after push\n");
+                return false;
+            }
+            printf("Pushwall smoke: (30,22) walkable after push\n");
+        }
         {
             int ei;
             int hp;

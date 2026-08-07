@@ -164,41 +164,75 @@ static void draw_shape_billboard(float ex, float ey, int shapenum)
     }
 
     sprite_screen_x = (int)((SCREENWIDTH / 2) * (1.0f + transform_x / transform_y));
-    sprite_h = (int)fabsf((float)VIEW_HEIGHT * WALL_HEIGHT_MUL / transform_y);
-    if (sprite_h < 1) {
-        return;
-    }
     {
-        /* Cap only extreme near (maxscale-ish); still shrinks with true depth above. */
-        const int max_h = (VIEW_HEIGHT * 7) / 8;
-        if (sprite_h > max_h) {
-            sprite_h = max_h;
-        }
-    }
-    sprite_w = sprite_h;
-    half = sprite_h / 2;
+        int top_op = 0, bot_op = 63, yy, xx, found;
+        int wall_half;
+        int box_y0, box_y1, box_x0;
+        int is_ceil = (shapenum == SPR_STAT_CHANDELIER || shapenum == SPR_STAT_CEIL_LIGHT);
+        int op_h;
+        int wall_mid = VIEW_HEIGHT / 2;
 
-    /*
-     * Centered box may extend past the play view. Map UVs from the *unclamped*
-     * box and only paint visible pixels — clamping the box then remapping 0..63
-     * into the remaining strip stuck lamps to the top and floor props to the
-     * bottom while walking (playtest vids 1 & 3).
-     */
-    {
-        int box_y0 = VIEW_HEIGHT / 2 - half;
-        int box_y1 = box_y0 + sprite_h;
-        int box_x0 = sprite_screen_x - half;
-        int box_x1 = box_x0 + sprite_w;
+        wall_half = (int)fabsf((float)VIEW_HEIGHT * WALL_HEIGHT_MUL / transform_y) / 2;
+        if (wall_half < 1) {
+            wall_half = 1;
+        }
+
+        found = 0;
+        for (yy = 0; yy < 64 && !found; ++yy) {
+            for (xx = 0; xx < 64; ++xx) {
+                if (tex[yy * 64 + xx] != 0xFF) {
+                    top_op = yy;
+                    found = 1;
+                    break;
+                }
+            }
+        }
+        found = 0;
+        for (yy = 63; yy >= 0 && !found; --yy) {
+            for (xx = 0; xx < 64; ++xx) {
+                if (tex[yy * 64 + xx] != 0xFF) {
+                    bot_op = yy;
+                    found = 1;
+                    break;
+                }
+            }
+        }
+        if (bot_op < top_op) {
+            top_op = 0;
+            bot_op = 63;
+        }
+        op_h = bot_op - top_op + 1;
+        if (op_h < 1) {
+            op_h = 1;
+        }
+
+        /* Opaque span scales with wall height (same family as walls). */
+        sprite_h = (int)((float)(wall_half * 2) * ((float)op_h / 64.0f));
+        if (sprite_h < 1) {
+            return;
+        }
+        sprite_w = (int)((float)sprite_h * (64.0f / (float)op_h));
+        if (sprite_w < 1) {
+            sprite_w = 1;
+        }
+        half = sprite_w / 2;
+
+        if (is_ceil) {
+            box_y0 = wall_mid - wall_half;
+            box_y1 = box_y0 + sprite_h;
+        } else {
+            box_y1 = wall_mid + wall_half;
+            box_y0 = box_y1 - sprite_h;
+        }
+        box_x0 = sprite_screen_x - half;
 
         draw_start_y = box_y0 < 0 ? 0 : box_y0;
         draw_end_y = box_y1 > VIEW_HEIGHT ? VIEW_HEIGHT : box_y1;
-        draw_start_x = box_x0;
-        draw_end_x = box_x1;
         if (draw_end_y <= draw_start_y) {
             return;
         }
 
-        for (stripe = draw_start_x; stripe < draw_end_x; ++stripe) {
+        for (stripe = box_x0; stripe < box_x0 + sprite_w; ++stripe) {
             int tex_x;
             if ((unsigned)stripe >= (unsigned)SCREENWIDTH) {
                 continue;
@@ -206,18 +240,18 @@ static void draw_shape_billboard(float ex, float ey, int shapenum)
             if (transform_y >= zbuffer[stripe]) {
                 continue;
             }
-            if (sprite_w < 1) {
-                continue;
-            }
             tex_x = ((stripe - box_x0) * 64) / sprite_w;
             if ((unsigned)tex_x >= 64u) {
                 continue;
             }
             for (y = draw_start_y; y < draw_end_y; ++y) {
-                int tex_y = ((y - box_y0) * 64) / sprite_h;
+                int tex_y = top_op + ((y - box_y0) * op_h) / (sprite_h > 0 ? sprite_h : 1);
                 byte c;
-                if ((unsigned)tex_y >= 64u) {
-                    continue;
+                if (tex_y < top_op) {
+                    tex_y = top_op;
+                }
+                if (tex_y > bot_op) {
+                    tex_y = bot_op;
                 }
                 c = tex[tex_y * 64 + tex_x];
                 if (c == 0xFF) {
@@ -464,33 +498,32 @@ void Wolf_DrawWorld(void)
             } else {
                 byte tm = g_level.tilemap[map_x][map_y];
                 byte tid = (byte)(tm & TILE_WALL_MASK);
-                int is_pwall_origin = (tm & TILE_PWALL_MASK) == TILE_PWALL_MASK;
-                int is_pwall_lead = 0;
+                int is_pwall_cell = 0;
 
                 if (g_level.pwall_state > 0) {
                     int lox = 0, loy = 0;
                     dir_delta_draw(g_level.pwall_dir, &lox, &loy);
-                    if (map_x == g_level.pwall_x + lox && map_y == g_level.pwall_y + loy) {
-                        is_pwall_lead = 1;
+                    /* Hit either origin or leading cell — both form the moving segment. */
+                    if ((map_x == g_level.pwall_x && map_y == g_level.pwall_y) ||
+                        (map_x == g_level.pwall_x + lox &&
+                         map_y == g_level.pwall_y + loy)) {
+                        is_pwall_cell = 1;
                     }
                 }
 
-                /*
-                 * Moving pushwall origin (0xC0): do not ray-hit as a full solid —
-                 * the face is drawn on the leading cell with a sliding plane
-                 * (original Hit*PWall). Lets the passage open visually.
-                 */
-                if (is_pwall_origin) {
-                    /* keep casting */
+                if (is_pwall_cell) {
+                    hit = 1;
+                    wall_tile = g_level.pwall_tile ? g_level.pwall_tile : tid;
+                    if (!wall_tile) {
+                        wall_tile = 1;
+                    }
+                    door_hit = -2; /* sliding pushwall face */
                 } else if (tid == ELEVATORTILE) {
                     hit = 1;
                     wall_tile = ELEVATORTILE;
                 } else if (tid > 0) {
                     hit = 1;
                     wall_tile = tid;
-                    if (is_pwall_lead) {
-                        door_hit = -2; /* reuse as pwall-lead marker (not a door id) */
-                    }
                 }
             }
         }
@@ -502,17 +535,32 @@ void Wolf_DrawWorld(void)
         }
 
         /*
-         * Sliding pushwall plane (original pwallpos offset).
-         * door_hit == -2 marks leading cell of active push.
+         * Sliding face: world position = origin + (block_index + pos/64) along dir.
+         * One continuous plane so the wood panel moves sideways instead of vanishing
+         * into a wall behind the secret cell.
          */
         if (door_hit == -2 && g_level.pwall_state > 0) {
-            float frac = (float)(g_level.pwall_pos & 63) / 64.0f;
+            float moved = (float)(g_level.pwall_state / 2) / 64.0f; /* tiles moved 0..~2 */
+            float fx = (float)g_level.pwall_x + 0.5f;
+            float fy = (float)g_level.pwall_y + 0.5f;
             int pdir = g_level.pwall_dir;
             float plane;
             float dist;
-            /* Face moves from trailing edge of leading cell toward push dir. */
-            if (pdir == 1) { /* EAST: plane x = map_x + frac */
-                plane = (float)map_x + frac;
+            float wx, wy;
+
+            if (pdir == 1) { /* E */
+                fx += moved;
+            } else if (pdir == 3) { /* W */
+                fx -= moved;
+            } else if (pdir == 2) { /* S */
+                fy += moved;
+            } else { /* N */
+                fy -= moved;
+            }
+
+            /* Plane through the moving face, perpendicular to push dir. */
+            if (pdir == 1 || pdir == 3) {
+                plane = fx;
                 if (fabsf(ray_dir_x) > 1e-6f) {
                     dist = (plane - p->x) / ray_dir_x;
                     if (dist > 0.05f) {
@@ -520,26 +568,8 @@ void Wolf_DrawWorld(void)
                         side = 0;
                     }
                 }
-            } else if (pdir == 3) { /* WEST: plane x = map_x + 1 - frac */
-                plane = (float)map_x + 1.0f - frac;
-                if (fabsf(ray_dir_x) > 1e-6f) {
-                    dist = (plane - p->x) / ray_dir_x;
-                    if (dist > 0.05f) {
-                        perp_wall_dist = dist;
-                        side = 0;
-                    }
-                }
-            } else if (pdir == 2) { /* SOUTH: plane y = map_y + frac */
-                plane = (float)map_y + frac;
-                if (fabsf(ray_dir_y) > 1e-6f) {
-                    dist = (plane - p->y) / ray_dir_y;
-                    if (dist > 0.05f) {
-                        perp_wall_dist = dist;
-                        side = 1;
-                    }
-                }
-            } else { /* NORTH: plane y = map_y + 1 - frac */
-                plane = (float)map_y + 1.0f - frac;
+            } else {
+                plane = fy;
                 if (fabsf(ray_dir_y) > 1e-6f) {
                     dist = (plane - p->y) / ray_dir_y;
                     if (dist > 0.05f) {
@@ -549,7 +579,7 @@ void Wolf_DrawWorld(void)
                 }
             }
             wall_tile = g_level.pwall_tile ? g_level.pwall_tile : wall_tile;
-            door_hit = -1; /* draw as wall below */
+            door_hit = -1;
         }
 
         if (perp_wall_dist < 0.05f) {
