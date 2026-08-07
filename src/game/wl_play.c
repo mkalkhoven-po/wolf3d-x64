@@ -778,11 +778,9 @@ static int try_push_wall(int checkx, int checky, int dir)
     printf("Pushwall start %d,%d -> %d,%d dir=%d secrets=%d/%d\n", checkx, checky, nx,
            ny, dir, g_level.secret_count, g_level.secret_total);
     if (best_away < 0.5f) {
-        printf("Pushwall: opens SIDEWAYS. Walk FORWARD into empty cell, then turn left/right.
-");
+        printf("Pushwall: opens SIDEWAYS. Walk FORWARD into empty cell, then turn.\n");
     } else {
-        printf("Pushwall: shoving away — walk into the opening.
-");
+        printf("Pushwall: shoving away - walk into the opening.\n");
     }
     return 1;
 }
