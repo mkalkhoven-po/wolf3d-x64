@@ -377,6 +377,109 @@ static void dir_delta_draw(int dir, int *ox, int *oy)
     }
 }
 
+
+/*
+ * Continuous pushwall unit square in world space.
+ * Returns 1 and sets *dist_out / *side_out / *u_out if ray hits the moving block.
+ */
+static int ray_hit_pwall(float px, float py, float rdx, float rdy,
+                         float *dist_out, int *side_out, float *u_out)
+{
+    float moved, bx, by, minx, maxx, miny, maxy;
+    float tmin = 0.0f, tmax = 1e30f;
+    int side = 0;
+    float u = 0.0f;
+    int pdir;
+
+    if (g_level.pwall_state <= 0) {
+        return 0;
+    }
+    moved = (float)(g_level.pwall_state / 2) / 64.0f;
+    if (moved < 0.0f) {
+        moved = 0.0f;
+    }
+    if (moved > 2.0f) {
+        moved = 2.0f;
+    }
+    pdir = g_level.pwall_dir;
+    bx = (float)g_level.pwall_start_x;
+    by = (float)g_level.pwall_start_y;
+    if (pdir == 1) {
+        bx += moved;
+    } else if (pdir == 3) {
+        bx -= moved;
+    } else if (pdir == 2) {
+        by += moved;
+    } else {
+        by -= moved;
+    }
+    minx = bx;
+    maxx = bx + 1.0f;
+    miny = by;
+    maxy = by + 1.0f;
+
+    /* Slab method ray-AABB */
+    if (fabsf(rdx) < 1e-8f) {
+        if (px < minx || px > maxx) {
+            return 0;
+        }
+    } else {
+        float tx1 = (minx - px) / rdx;
+        float tx2 = (maxx - px) / rdx;
+        float txmin = tx1 < tx2 ? tx1 : tx2;
+        float txmax = tx1 > tx2 ? tx1 : tx2;
+        int sx = (tx1 < tx2) ? 0 : 1; /* 0 = hit minx plane */
+        if (txmin > tmin) {
+            tmin = txmin;
+            side = 0;
+            u = py + tmin * rdy;
+            u -= floorf(u);
+            if (sx) {
+                u = 1.0f - u;
+            }
+        }
+        if (txmax < tmax) {
+            tmax = txmax;
+        }
+        if (tmin > tmax) {
+            return 0;
+        }
+    }
+    if (fabsf(rdy) < 1e-8f) {
+        if (py < miny || py > maxy) {
+            return 0;
+        }
+    } else {
+        float ty1 = (miny - py) / rdy;
+        float ty2 = (maxy - py) / rdy;
+        float tymin = ty1 < ty2 ? ty1 : ty2;
+        float tymax = ty1 > ty2 ? ty1 : ty2;
+        int sy = (ty1 < ty2) ? 0 : 1;
+        if (tymin > tmin) {
+            tmin = tymin;
+            side = 1;
+            u = px + tmin * rdx;
+            u -= floorf(u);
+            if (sy) {
+                u = 1.0f - u;
+            }
+        }
+        if (tymax < tmax) {
+            tmax = tymax;
+        }
+        if (tmin > tmax) {
+            return 0;
+        }
+    }
+    if (tmin < 0.02f || tmin > 1e29f) {
+        return 0;
+    }
+    *dist_out = tmin;
+    *side_out = side;
+    *u_out = u;
+    return 1;
+}
+
 void Wolf_DrawWorld(void)
 {
     int x, y, i;
@@ -525,79 +628,25 @@ void Wolf_DrawWorld(void)
             } else {
                 byte tm = g_level.tilemap[map_x][map_y];
                 byte tid = (byte)(tm & TILE_WALL_MASK);
-                int is_pwall_seg = 0;
-
                 if (g_level.pwall_state > 0) {
                     int lox = 0, loy = 0;
-                    int on_origin, on_lead;
                     dir_delta_draw(g_level.pwall_dir, &lox, &loy);
-                    on_origin = (map_x == g_level.pwall_x && map_y == g_level.pwall_y);
-                    on_lead = (map_x == g_level.pwall_x + lox &&
-                               map_y == g_level.pwall_y + loy);
                     /*
-                     * ORIGIN draws the sliding face (door-style remaining slab).
-                     * LEAD is solid parked wall (destination). Empty fraction of
-                     * origin continues DDA so room beyond appears in the gap.
+                     * Moving block is drawn via ray_hit_pwall AABB — do not let
+                     * stale 0xC0/lead tiles paint a frozen wall in the old cell.
+                     * Origin + lead cells are see-through here; AABB supplies the face.
                      */
-                    if (on_origin) {
-                        is_pwall_seg = 1; /* door-like face on secret cell */
-                    } else if (on_lead) {
-                        /* full solid destination wall */
-                        is_pwall_seg = 0;
-                        tid = g_level.pwall_tile ? g_level.pwall_tile : tid;
-                        if (!tid) {
-                            tid = 1;
-                        }
+                    if ((map_x == g_level.pwall_x && map_y == g_level.pwall_y) ||
+                        (map_x == g_level.pwall_x + lox &&
+                         map_y == g_level.pwall_y + loy) ||
+                        (map_x == g_level.pwall_start_x &&
+                         map_y == g_level.pwall_start_y)) {
+                        tid = 0;
+                        tm = 0;
                     }
                 }
 
-                if (is_pwall_seg) {
-                    /* Partial face like a door: only remaining slab stops the ray. */
-                    float pdist, pu;
-                    int ptex;
-                    int pos = g_level.pwall_pos & 63;
-                    int remain = TEX_SIZE - pos;
-                    int pdir = g_level.pwall_dir;
-                    int in_gap = 0;
-                    if (side == 0) {
-                        pdist = (map_x - p->x + (1 - step_x) * 0.5f) / ray_dir_x;
-                    } else {
-                        pdist = (map_y - p->y + (1 - step_y) * 0.5f) / ray_dir_y;
-                    }
-                    if (pdist < 0.05f) {
-                        pdist = 0.05f;
-                    }
-                    if (side == 0) {
-                        pu = p->y + pdist * ray_dir_y;
-                    } else {
-                        pu = p->x + pdist * ray_dir_x;
-                    }
-                    pu -= floorf(pu);
-                    ptex = (int)(pu * (float)TEX_SIZE);
-                    if ((side == 0 && ray_dir_x > 0) || (side == 1 && ray_dir_y < 0)) {
-                        ptex = TEX_SIZE - ptex - 1;
-                    }
-                    if (ptex < 0) {
-                        ptex = 0;
-                    }
-                    if (ptex >= TEX_SIZE) {
-                        ptex = TEX_SIZE - 1;
-                    }
-                    if (remain <= 0) {
-                        in_gap = 1;
-                    } else if (pdir == 1 || pdir == 2) {
-                        in_gap = (ptex < (TEX_SIZE - remain));
-                    } else {
-                        in_gap = (ptex >= remain);
-                    }
-                    if (!in_gap) {
-                        hit = 1;
-                        wall_tile = g_level.pwall_tile ? g_level.pwall_tile
-                                                       : (tid ? tid : (byte)1);
-                        door_hit = -2;
-                    }
-                    /* else: gap — keep casting (see room beyond, DOS video) */
-                } else if (tid == ELEVATORTILE) {
+                if (tid == ELEVATORTILE) {
                     hit = 1;
                     wall_tile = ELEVATORTILE;
                 } else if (tid > 0) {
@@ -613,11 +662,31 @@ void Wolf_DrawWorld(void)
             perp_wall_dist = (map_y - p->y + (1 - step_y) * 0.5f) / ray_dir_y;
         }
 
-        /* Pushwall face stays on the secret cell plane; open% from pwall_pos. */
-        if (door_hit == -2 && g_level.pwall_state > 0) {
-            wall_tile = g_level.pwall_tile ? g_level.pwall_tile : wall_tile;
-            pwall_draw = 1;
-            /* keep door_hit == -2 until after tex_x so we can apply remain-slab */
+        if (!hit) {
+            perp_wall_dist = 1e30f;
+        }
+        /* Sliding pushwall block (continuous AABB) — takes precedence if closer. */
+        if (g_level.pwall_state > 0) {
+            float pd = 0.0f, pu = 0.0f;
+            int ps = 0;
+            if (ray_hit_pwall(p->x, p->y, ray_dir_x, ray_dir_y, &pd, &ps, &pu)) {
+                if (!hit || pd + 0.001f < perp_wall_dist) {
+                    hit = 1;
+                    perp_wall_dist = pd;
+                    side = ps;
+                    wall_x = pu;
+                    wall_tile = g_level.pwall_tile ? g_level.pwall_tile : (byte)1;
+                    door_hit = -1;
+                    pwall_draw = 1;
+                    tex_x = (int)(wall_x * (float)TEX_SIZE);
+                    if (tex_x < 0) {
+                        tex_x = 0;
+                    }
+                    if (tex_x >= TEX_SIZE) {
+                        tex_x = TEX_SIZE - 1;
+                    }
+                }
+            }
         }
 
         if (perp_wall_dist < 0.05f) {
@@ -635,75 +704,28 @@ void Wolf_DrawWorld(void)
             draw_end = view_h - 1;
         }
 
-        if (side == 0) {
-            wall_x = p->y + perp_wall_dist * ray_dir_y;
-        } else {
-            wall_x = p->x + perp_wall_dist * ray_dir_x;
-        }
-        wall_x -= floorf(wall_x);
-        tex_x = (int)(wall_x * (float)TEX_SIZE);
-        if ((side == 0 && ray_dir_x > 0) || (side == 1 && ray_dir_y < 0)) {
-            tex_x = TEX_SIZE - tex_x - 1;
-        }
-        if (tex_x < 0) {
-            tex_x = 0;
-        }
-        if (tex_x >= TEX_SIZE) {
-            tex_x = TEX_SIZE - 1;
-        }
-        if (door_hit == -2 && pwall_draw && g_level.pwall_state > 0) {
-            /*
-             * Door-style remaining slab on the secret cell face.
-             * open fraction = pwall_pos/64; remaining columns keep wall tex.
-             * Gap columns already continued DDA in the door-like check below —
-             * here we only draw if this column is still on the slab.
-             * Push dir chooses which edge the wall retreats from (away from player
-             * when possible).
-             */
-            int pos = g_level.pwall_pos & 63;
-            int remain = TEX_SIZE - pos;
-            int pdir = g_level.pwall_dir;
-            int on_slab;
-            int sample_u;
-            if (remain < 1) {
-                /* fully open this cell — shouldn't hit; skip draw */
-                door_hit = -1;
-                pwall_draw = 0;
+        if (!pwall_draw) {
+            if (side == 0) {
+                wall_x = p->y + perp_wall_dist * ray_dir_y;
             } else {
-                if (pdir == 1 || pdir == 2) {
-                    /* retreat toward high-U: slab is high tex_x */
-                    on_slab = (tex_x >= (TEX_SIZE - remain));
-                    sample_u = on_slab ? ((tex_x - (TEX_SIZE - remain)) * TEX_SIZE /
-                                          remain)
-                                       : 0;
-                } else {
-                    /* retreat toward low-U: slab is low tex_x */
-                    on_slab = (tex_x < remain);
-                    sample_u = on_slab ? (tex_x * TEX_SIZE / remain) : 0;
-                }
-                if (sample_u < 0) {
-                    sample_u = 0;
-                }
-                if (sample_u >= TEX_SIZE) {
-                    sample_u = TEX_SIZE - 1;
-                }
-                if (on_slab) {
-                    for (y = draw_start; y <= draw_end; ++y) {
-                        int dlt = y * 256 - view_h * 128 + line_h * 128;
-                        int tex_y = ((dlt * TEX_SIZE) / line_h) / 256;
-                        byte c = sample_wall((int)wall_tile, sample_u, tex_y, side);
-                        framebuffer[y * SCREENWIDTH + x] = c;
-                    }
-                }
-                /* If !on_slab we already continued past this cell in DDA — shouldn't be here. */
-                door_hit = -1;
-                pwall_draw = 0;
-                continue; /* next x — wall/door branches skipped */
+                wall_x = p->x + perp_wall_dist * ray_dir_x;
+            }
+            wall_x -= floorf(wall_x);
+            tex_x = (int)(wall_x * (float)TEX_SIZE);
+            if ((side == 0 && ray_dir_x > 0) || (side == 1 && ray_dir_y < 0)) {
+                tex_x = TEX_SIZE - tex_x - 1;
+            }
+            if (tex_x < 0) {
+                tex_x = 0;
+            }
+            if (tex_x >= TEX_SIZE) {
+                tex_x = TEX_SIZE - 1;
             }
         }
 
         if (door_hit >= 0) {
             /* Ray only hits remaining slab (gap continues DDA past door). */
+
             door_t *dd = &g_level.doors[door_hit];
             float openf = dd->open;
             int remain;
