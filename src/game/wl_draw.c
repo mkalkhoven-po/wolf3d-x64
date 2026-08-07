@@ -113,6 +113,32 @@ static byte sample_door(int lock, int tex_x, int tex_y)
     return sample_page(page, tex_x, tex_y);
 }
 
+/* Door jamb / side of door frame (original DOORWALL+2 horiz, +3 vert). */
+static byte sample_door_side(int vert_wall_hit, int tex_x, int tex_y)
+{
+    int base = door_wall_base();
+    /* HitVertWall uses DOORWALL+3; HitHorizWall uses DOORWALL+2. */
+    int page = vert_wall_hit ? (base + 3) : (base + 2);
+    return sample_page(page, tex_x, tex_y);
+}
+
+/* True if a door occupies an adjacent cell in the ray step direction. */
+static int adjacent_door(int map_x, int map_y, int side, int step_x, int step_y)
+{
+    int ax = map_x;
+    int ay = map_y;
+    if (side == 0) {
+        /* Vertical wall face: look one step back along X for door. */
+        ax = map_x - step_x;
+    } else {
+        ay = map_y - step_y;
+    }
+    if ((unsigned)ax >= MAPSIZE || (unsigned)ay >= MAPSIZE) {
+        return 0;
+    }
+    return g_level.door_id[ax][ay] >= 0;
+}
+
 /*
  * Authentic world-sprite projection (original Transform* + ScaleShape intent):
  * - One depth->height for all world sprites (same WALL_HEIGHT_MUL family as walls)
@@ -407,6 +433,7 @@ void Wolf_DrawWorld(void)
         int hit = 0;
         int side = 0;
         int door_hit = -1;
+        int pwall_draw = 0;
         float perp_wall_dist = 1.0f;
         int line_h;
         int draw_start, draw_end;
@@ -502,10 +529,19 @@ void Wolf_DrawWorld(void)
 
                 if (g_level.pwall_state > 0) {
                     int lox = 0, loy = 0;
+                    int on_origin, on_lead;
                     dir_delta_draw(g_level.pwall_dir, &lox, &loy);
-                    if ((map_x == g_level.pwall_x && map_y == g_level.pwall_y) ||
-                        (map_x == g_level.pwall_x + lox &&
-                         map_y == g_level.pwall_y + loy)) {
+                    on_origin = (map_x == g_level.pwall_x && map_y == g_level.pwall_y);
+                    on_lead = (map_x == g_level.pwall_x + lox &&
+                               map_y == g_level.pwall_y + loy);
+                    /*
+                     * Origin is already the opening (walkable / see-through).
+                     * Only the leading cell draws the sliding face (DOS video).
+                     */
+                    if (on_origin) {
+                        is_pwall_seg = 0; /* fall through — treat as empty */
+                        tid = 0;
+                    } else if (on_lead) {
                         is_pwall_seg = 1;
                     }
                 }
@@ -531,45 +567,55 @@ void Wolf_DrawWorld(void)
             perp_wall_dist = (map_y - p->y + (1 - step_y) * 0.5f) / ray_dir_y;
         }
 
-        /* Moving pushwall: face at origin center + (state/2)/64 tiles along dir. */
+        /*
+         * DOS Hit*PWall: offset the hit plane by pwallpos within the tile so the
+         * face slides across the opening (video: wall moves, gap grows, room beyond).
+         * pwall_pos 0..63 → fraction of a tile.
+         */
         if (door_hit == -2 && g_level.pwall_state > 0) {
-            float moved = (float)(g_level.pwall_state / 2) / 64.0f;
-            float fx = (float)g_level.pwall_x + 0.5f;
-            float fy = (float)g_level.pwall_y + 0.5f;
+            float frac = (float)(g_level.pwall_pos & 63) / 64.0f;
             int pdir = g_level.pwall_dir;
-            float dist = 0.0f;
-            int ok = 0;
-
-            if (pdir == 1) {
-                fx += moved;
-            } else if (pdir == 3) {
-                fx -= moved;
-            } else if (pdir == 2) {
-                fy += moved;
-            } else {
-                fy -= moved;
-            }
-
-            if (pdir == 1 || pdir == 3) {
+            float dist;
+            /*
+             * Intersect the moving face: for a wall sliding along its plane normal
+             * (push dir), shift the hit plane from the entry side of the segment.
+             * Use the cell we hit (map_x/y) with offset along push dir.
+             */
+            if (pdir == 1) { /* EAST: plane moves from west edge toward east */
                 if (fabsf(ray_dir_x) > 1e-6f) {
-                    dist = (fx - p->x) / ray_dir_x;
-                    if (dist > 0.05f) {
+                    dist = ((float)map_x + frac - p->x) / ray_dir_x;
+                    if (dist > 0.02f) {
                         perp_wall_dist = dist;
                         side = 0;
-                        ok = 1;
                     }
                 }
-            } else if (fabsf(ray_dir_y) > 1e-6f) {
-                dist = (fy - p->y) / ray_dir_y;
-                if (dist > 0.05f) {
-                    perp_wall_dist = dist;
-                    side = 1;
-                    ok = 1;
+            } else if (pdir == 3) { /* WEST */
+                if (fabsf(ray_dir_x) > 1e-6f) {
+                    dist = ((float)map_x + 1.0f - frac - p->x) / ray_dir_x;
+                    if (dist > 0.02f) {
+                        perp_wall_dist = dist;
+                        side = 0;
+                    }
+                }
+            } else if (pdir == 2) { /* SOUTH */
+                if (fabsf(ray_dir_y) > 1e-6f) {
+                    dist = ((float)map_y + frac - p->y) / ray_dir_y;
+                    if (dist > 0.02f) {
+                        perp_wall_dist = dist;
+                        side = 1;
+                    }
+                }
+            } else { /* NORTH */
+                if (fabsf(ray_dir_y) > 1e-6f) {
+                    dist = ((float)map_y + 1.0f - frac - p->y) / ray_dir_y;
+                    if (dist > 0.02f) {
+                        perp_wall_dist = dist;
+                        side = 1;
+                    }
                 }
             }
-            if (ok) {
-                wall_tile = g_level.pwall_tile ? g_level.pwall_tile : wall_tile;
-            }
+            wall_tile = g_level.pwall_tile ? g_level.pwall_tile : wall_tile;
+            pwall_draw = 1;
             door_hit = -1;
         }
 
@@ -604,6 +650,11 @@ void Wolf_DrawWorld(void)
         if (tex_x >= TEX_SIZE) {
             tex_x = TEX_SIZE - 1;
         }
+        /* DOS pwall texture offset while sliding. */
+        if (pwall_draw && g_level.pwall_state > 0) {
+            int pos = g_level.pwall_pos & 63;
+            tex_x = (tex_x + pos) & 63;
+        }
 
         if (door_hit >= 0) {
             /* Ray only hits remaining slab (gap continues DDA past door). */
@@ -637,11 +688,21 @@ void Wolf_DrawWorld(void)
                 framebuffer[y * SCREENWIDTH + x] = c;
             }
         } else {
+            int use_jamb = 0;
+            /* Original: walls next to doors use DOORWALL side pics (door jamb). */
+            if (door_hit < 0 && wall_tile != ELEVATORTILE &&
+                adjacent_door(map_x, map_y, side, step_x, step_y)) {
+                use_jamb = 1;
+            }
             for (y = draw_start; y <= draw_end; ++y) {
                 int d = y * 256 - view_h * 128 + line_h * 128;
                 int tex_y = ((d * TEX_SIZE) / line_h) / 256;
-                byte c = sample_wall((int)wall_tile, tex_x, tex_y, side);
-                (void)side;
+                byte c;
+                if (use_jamb) {
+                    c = sample_door_side(side == 0, tex_x, tex_y);
+                } else {
+                    c = sample_wall((int)wall_tile, tex_x, tex_y, side);
+                }
                 framebuffer[y * SCREENWIDTH + x] = c;
             }
         }

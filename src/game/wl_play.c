@@ -725,33 +725,36 @@ static int try_push_wall(int checkx, int checky, int dir)
     try_dirs[2] = (dir + 3) & 3;
     try_dirs[3] = (dir + 2) & 3;
 
-    for (ti = 0; ti < 4; ++ti) {
-        int d = try_dirs[ti];
-        float dot;
-        dir_delta(d, &ox, &oy);
-        nx = checkx + ox;
-        ny = checky + oy;
-        if (cell_blocked(nx, ny)) {
-            continue;
+    /* 1) Original: facing direction only if free. */
+    dir_delta(dir, &ox, &oy);
+    nx = checkx + ox;
+    ny = checky + oy;
+    if (!cell_blocked(nx, ny)) {
+        chosen = dir;
+        best_away = 1.0f;
+    } else {
+        /* 2) Else any free dir (map secrets); pick most away-from-player. */
+        for (ti = 0; ti < 4; ++ti) {
+            int d = try_dirs[ti];
+            float dot;
+            dir_delta(d, &ox, &oy);
+            nx = checkx + ox;
+            ny = checky + oy;
+            if (cell_blocked(nx, ny)) {
+                continue;
+            }
+            if (chosen_free_only < 0) {
+                chosen_free_only = d;
+            }
+            dot = (float)ox * away_x + (float)oy * away_y;
+            if (dot > best_away) {
+                best_away = dot;
+                chosen = d;
+            }
         }
-        if (chosen_free_only < 0) {
-            chosen_free_only = d; /* last-resort any free */
+        if (chosen < 0) {
+            chosen = chosen_free_only;
         }
-        dot = (float)ox * away_x + (float)oy * away_y;
-        /* Prefer dirs that shove away from the player (backwards). */
-        if (dot > best_away) {
-            best_away = dot;
-            chosen = d;
-        }
-    }
-
-    /*
-     * If the best "away" dir is actually toward/sideways (dot low) but a free
-     * cell exists, still allow the free dir so map secrets like E1M1 (30,22)
-     * (only free WEST) can open — player must then walk into the vacated cell.
-     */
-    if (chosen < 0 || best_away < 0.15f) {
-        chosen = chosen_free_only;
     }
     if (chosen < 0) {
         SD_PlaySound(NOWAYSND);
@@ -802,7 +805,7 @@ static void move_pwalls(float dt)
         add = 1;
     }
     if (add > 2) {
-        add = 2; /* ~2s per tile so sideways open is visible */
+        add = 2;
     }
     g_level.pwall_state += add;
     g_level.pwall_pos = (g_level.pwall_state / 2) & 63;
