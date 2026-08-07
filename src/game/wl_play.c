@@ -687,9 +687,12 @@ static int try_push_wall(int checkx, int checky, int dir)
     int ox, oy;
     int nx, ny;
     byte oldtile;
+    float away_x, away_y, alen;
     int try_dirs[4];
     int ti;
     int chosen = -1;
+    int chosen_free_only = -1;
+    float best_away = -1.0f;
 
     if (g_level.pwall_state) {
         return 0;
@@ -705,36 +708,62 @@ static int try_push_wall(int checkx, int checky, int dir)
         return 0;
     }
 
-    /*
-     * Prefer facing dir (original), then other free dirs.
-     * E1M1 secret (30,22) only opens WEST — facing the panel from the south
-     * with north-only push always failed and felt like a dead wall.
-     */
+    /* Unit vector from player to wall = "backwards" shove direction. */
+    away_x = ((float)checkx + 0.5f) - g_level.player.x;
+    away_y = ((float)checky + 0.5f) - g_level.player.y;
+    alen = sqrtf(away_x * away_x + away_y * away_y);
+    if (alen < 0.01f) {
+        away_x = cosf(g_level.player.angle);
+        away_y = -sinf(g_level.player.angle);
+        alen = 1.0f;
+    }
+    away_x /= alen;
+    away_y /= alen;
+
     try_dirs[0] = dir;
     try_dirs[1] = (dir + 1) & 3;
     try_dirs[2] = (dir + 3) & 3;
     try_dirs[3] = (dir + 2) & 3;
+
     for (ti = 0; ti < 4; ++ti) {
         int d = try_dirs[ti];
+        float dot;
         dir_delta(d, &ox, &oy);
         nx = checkx + ox;
         ny = checky + oy;
-        if (!cell_blocked(nx, ny)) {
-            chosen = d;
-            break;
+        if (cell_blocked(nx, ny)) {
+            continue;
         }
+        if (chosen_free_only < 0) {
+            chosen_free_only = d; /* last-resort any free */
+        }
+        dot = (float)ox * away_x + (float)oy * away_y;
+        /* Prefer dirs that shove away from the player (backwards). */
+        if (dot > best_away) {
+            best_away = dot;
+            chosen = d;
+        }
+    }
+
+    /*
+     * If the best "away" dir is actually toward/sideways (dot low) but a free
+     * cell exists, still allow the free dir so map secrets like E1M1 (30,22)
+     * (only free WEST) can open — player must then walk into the vacated cell.
+     */
+    if (chosen < 0 || best_away < 0.15f) {
+        chosen = chosen_free_only;
     }
     if (chosen < 0) {
         SD_PlaySound(NOWAYSND);
-        printf("Pushwall blocked all dirs at %d,%d (faced %d)\n", checkx, checky, dir);
-        return 1; /* handled */
+        printf("Pushwall blocked at %d,%d faced=%d\n", checkx, checky, dir);
+        return 1;
     }
+
     dir = chosen;
     dir_delta(dir, &ox, &oy);
     nx = checkx + ox;
     ny = checky + oy;
 
-    /* Destination becomes solid with same wall tex immediately. */
     g_level.tilemap[nx][ny] = oldtile;
     g_level.tilemap[checkx][checky] = (byte)(oldtile | TILE_PWALL_MASK);
     g_level.objmap[checkx][checky] = 0;
@@ -746,15 +775,18 @@ static int try_push_wall(int checkx, int checky, int dir)
     g_level.pwall_tile = oldtile;
     g_level.secret_count++;
     SD_PlaySound(PUSHWALLSND);
-    printf("Pushwall start %d,%d -> %d,%d dir=%d secrets=%d/%d\n", checkx, checky, nx, ny,
-           dir, g_level.secret_count, g_level.secret_total);
+    printf("Pushwall start %d,%d -> %d,%d dir=%d secrets=%d/%d\n", checkx, checky, nx,
+           ny, dir, g_level.secret_count, g_level.secret_total);
+    if (best_away < 0.5f) {
+        printf("Pushwall: opens SIDEWAYS. Walk FORWARD into empty cell, then turn left/right.
+");
+    } else {
+        printf("Pushwall: shoving away — walk into the opening.
+");
+    }
     return 1;
 }
 
-/*
- * MovePWalls: advance ~2 tiles. pwallstate += tics; every 128 tics cross a block.
- * Float dt: 1 tic ~ 1/70 s → state += dt * 70.
- */
 static void move_pwalls(float dt)
 {
     int oldblock, newblock;
@@ -771,11 +803,10 @@ static void move_pwalls(float dt)
     if (add < 1) {
         add = 1;
     }
-    if (add > 6) {
-        add = 6;
+    if (add > 2) {
+        add = 2; /* ~2s per tile so sideways open is visible */
     }
     g_level.pwall_state += add;
-    /* Sub-tile slide 0..63 within the current block. */
     g_level.pwall_pos = (g_level.pwall_state / 2) & 63;
     newblock = g_level.pwall_state / 128;
     if (newblock == oldblock) {
@@ -783,19 +814,13 @@ static void move_pwalls(float dt)
     }
 
     oldtile = g_level.pwall_tile;
-    /* Vacate anchor — player can walk here. */
     g_level.tilemap[g_level.pwall_x][g_level.pwall_y] = 0;
 
-    /*
-     * Two tiles total: blocks 0->1 and 1->2. Finish when entering block index >= 2
-     * (state >= 256). Using only >256 allowed state==256 to attempt a 3rd tile and
-     * print "stopped early at 28,22" while the wood face still looked sealed from
-     * the south (opening is sideways).
-     */
-    if (g_level.pwall_state >= 256) {
+    /* Original stops after two tiles when state exceeds 256. */
+    if (g_level.pwall_state > 256) {
         g_level.pwall_state = 0;
         g_level.pwall_pos = 0;
-        printf("Pushwall done at %d,%d (opened)\n", g_level.pwall_x, g_level.pwall_y);
+        printf("Pushwall done — walk into opened cell (wall parked ahead)\n");
         return;
     }
 
@@ -806,12 +831,11 @@ static void move_pwalls(float dt)
     ny = g_level.pwall_y + oy;
 
     if (cell_blocked(nx, ny)) {
-        /* Rest on current anchor; cells behind are already open. */
         g_level.tilemap[g_level.pwall_x][g_level.pwall_y] = oldtile;
         g_level.pwall_state = 0;
         g_level.pwall_pos = 0;
-        printf("Pushwall rest at %d,%d (path behind open)\n", g_level.pwall_x,
-               g_level.pwall_y);
+        printf("Pushwall rest at %d,%d — walk into opened cells behind\n",
+               g_level.pwall_x, g_level.pwall_y);
         return;
     }
 
@@ -1512,31 +1536,55 @@ boolean Wolf_PushwallSmokeVerify(void)
             fprintf(stderr, "Pushwall smoke: re-setup failed\n");
             return false;
         }
+        /* (30,22) only free WEST — from south, opens sideways; origin must walk in. */
         g_level.player.x = 30.5f;
         g_level.player.y = 23.5f;
         g_level.player.angle = (float)(M_PI * 0.5);
         Wolf_TryUse();
         if (g_level.pwall_state <= 0) {
-            fprintf(stderr, "Pushwall smoke: (30,22) north-face failed\n");
+            fprintf(stderr, "Pushwall smoke: (30,22) failed to start\n");
             return false;
         }
-        printf("Pushwall smoke: (30,22) activated dir=%d\n", g_level.pwall_dir);
         {
             int step;
-            for (step = 0; step < 300; ++step) {
+            for (step = 0; step < 400; ++step) {
                 move_pwalls(1.0f / 70.0f);
             }
-            if ((g_level.tilemap[30][22] & TILE_WALL_MASK) != 0 &&
-                (g_level.tilemap[30][22] & TILE_PWALL_MASK) == 0) {
-                fprintf(stderr, "Pushwall smoke: (30,22) still solid wall after push\n");
-                return false;
-            }
-            /* Must be able to stand in origin (walkable). */
             if (Wolf_SolidAt(30.5f, 22.5f)) {
-                fprintf(stderr, "Pushwall smoke: (30.5,22.5) still SolidAt after push\n");
+                fprintf(stderr, "Pushwall smoke: (30,22) not walkable after open\n");
                 return false;
             }
-            printf("Pushwall smoke: (30,22) walkable after push\n");
+            if ((g_level.tilemap[30][22] & TILE_WALL_MASK) != 0) {
+                fprintf(stderr, "Pushwall smoke: (30,22) tile still wall=%d\n",
+                        g_level.tilemap[30][22]);
+                return false;
+            }
+            printf("Pushwall smoke: (30,22) OPEN walkable tile=%d wall@28=%d\n",
+                   g_level.tilemap[30][22], g_level.tilemap[28][22] & 63);
+        }
+        /* (10,13) true backwards (north) shove */
+        if (!Wolf_SetupLevel(0)) {
+            return false;
+        }
+        g_level.player.x = 10.5f;
+        g_level.player.y = 14.5f;
+        g_level.player.angle = (float)(M_PI * 0.5);
+        Wolf_TryUse();
+        if (g_level.pwall_state <= 0 || g_level.pwall_dir != DI_NORTH) {
+            fprintf(stderr, "Pushwall smoke: (10,13) north failed st=%d dir=%d\n",
+                    g_level.pwall_state, g_level.pwall_dir);
+            return false;
+        }
+        {
+            int step;
+            for (step = 0; step < 400; ++step) {
+                move_pwalls(1.0f / 70.0f);
+            }
+            if (Wolf_SolidAt(10.5f, 13.5f)) {
+                fprintf(stderr, "Pushwall smoke: (10,13) origin solid\n");
+                return false;
+            }
+            printf("Pushwall smoke: (10,13) north shove walkable\n");
         }
         {
             int ei;

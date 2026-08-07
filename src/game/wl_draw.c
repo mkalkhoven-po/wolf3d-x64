@@ -498,26 +498,23 @@ void Wolf_DrawWorld(void)
             } else {
                 byte tm = g_level.tilemap[map_x][map_y];
                 byte tid = (byte)(tm & TILE_WALL_MASK);
-                int is_pwall_cell = 0;
+                int is_pwall_seg = 0;
 
                 if (g_level.pwall_state > 0) {
                     int lox = 0, loy = 0;
                     dir_delta_draw(g_level.pwall_dir, &lox, &loy);
-                    /* Hit either origin or leading cell — both form the moving segment. */
                     if ((map_x == g_level.pwall_x && map_y == g_level.pwall_y) ||
                         (map_x == g_level.pwall_x + lox &&
                          map_y == g_level.pwall_y + loy)) {
-                        is_pwall_cell = 1;
+                        is_pwall_seg = 1;
                     }
                 }
 
-                if (is_pwall_cell) {
+                if (is_pwall_seg) {
                     hit = 1;
-                    wall_tile = g_level.pwall_tile ? g_level.pwall_tile : tid;
-                    if (!wall_tile) {
-                        wall_tile = 1;
-                    }
-                    door_hit = -2; /* sliding pushwall face */
+                    wall_tile = g_level.pwall_tile ? g_level.pwall_tile
+                                                   : (tid ? tid : (byte)1);
+                    door_hit = -2;
                 } else if (tid == ELEVATORTILE) {
                     hit = 1;
                     wall_tile = ELEVATORTILE;
@@ -534,51 +531,45 @@ void Wolf_DrawWorld(void)
             perp_wall_dist = (map_y - p->y + (1 - step_y) * 0.5f) / ray_dir_y;
         }
 
-        /*
-         * Sliding face: world position = origin + (block_index + pos/64) along dir.
-         * One continuous plane so the wood panel moves sideways instead of vanishing
-         * into a wall behind the secret cell.
-         */
+        /* Moving pushwall: face at origin center + (state/2)/64 tiles along dir. */
         if (door_hit == -2 && g_level.pwall_state > 0) {
-            float moved = (float)(g_level.pwall_state / 2) / 64.0f; /* tiles moved 0..~2 */
+            float moved = (float)(g_level.pwall_state / 2) / 64.0f;
             float fx = (float)g_level.pwall_x + 0.5f;
             float fy = (float)g_level.pwall_y + 0.5f;
             int pdir = g_level.pwall_dir;
-            float plane;
-            float dist;
-            float wx, wy;
+            float dist = 0.0f;
+            int ok = 0;
 
-            if (pdir == 1) { /* E */
+            if (pdir == 1) {
                 fx += moved;
-            } else if (pdir == 3) { /* W */
+            } else if (pdir == 3) {
                 fx -= moved;
-            } else if (pdir == 2) { /* S */
+            } else if (pdir == 2) {
                 fy += moved;
-            } else { /* N */
+            } else {
                 fy -= moved;
             }
 
-            /* Plane through the moving face, perpendicular to push dir. */
             if (pdir == 1 || pdir == 3) {
-                plane = fx;
                 if (fabsf(ray_dir_x) > 1e-6f) {
-                    dist = (plane - p->x) / ray_dir_x;
+                    dist = (fx - p->x) / ray_dir_x;
                     if (dist > 0.05f) {
                         perp_wall_dist = dist;
                         side = 0;
+                        ok = 1;
                     }
                 }
-            } else {
-                plane = fy;
-                if (fabsf(ray_dir_y) > 1e-6f) {
-                    dist = (plane - p->y) / ray_dir_y;
-                    if (dist > 0.05f) {
-                        perp_wall_dist = dist;
-                        side = 1;
-                    }
+            } else if (fabsf(ray_dir_y) > 1e-6f) {
+                dist = (fy - p->y) / ray_dir_y;
+                if (dist > 0.05f) {
+                    perp_wall_dist = dist;
+                    side = 1;
+                    ok = 1;
                 }
             }
-            wall_tile = g_level.pwall_tile ? g_level.pwall_tile : wall_tile;
+            if (ok) {
+                wall_tile = g_level.pwall_tile ? g_level.pwall_tile : wall_tile;
+            }
             door_hit = -1;
         }
 
