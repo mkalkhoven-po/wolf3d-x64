@@ -178,50 +178,53 @@ static void draw_shape_billboard(float ex, float ey, int shapenum)
     sprite_w = sprite_h;
     half = sprite_h / 2;
 
-    /* Centered in play view (ScaleShape upperedge = viewheight/2 - half). */
-    draw_start_y = VIEW_HEIGHT / 2 - half;
-    draw_end_y = draw_start_y + sprite_h;
-    if (draw_start_y < 0) {
-        draw_start_y = 0;
-    }
-    if (draw_end_y > VIEW_HEIGHT) {
-        draw_end_y = VIEW_HEIGHT;
-    }
-    if (draw_end_y <= draw_start_y) {
-        return;
-    }
+    /*
+     * Centered box may extend past the play view. Map UVs from the *unclamped*
+     * box and only paint visible pixels — clamping the box then remapping 0..63
+     * into the remaining strip stuck lamps to the top and floor props to the
+     * bottom while walking (playtest vids 1 & 3).
+     */
+    {
+        int box_y0 = VIEW_HEIGHT / 2 - half;
+        int box_y1 = box_y0 + sprite_h;
+        int box_x0 = sprite_screen_x - half;
+        int box_x1 = box_x0 + sprite_w;
 
-    draw_start_x = sprite_screen_x - half;
-    draw_end_x = draw_start_x + sprite_w;
+        draw_start_y = box_y0 < 0 ? 0 : box_y0;
+        draw_end_y = box_y1 > VIEW_HEIGHT ? VIEW_HEIGHT : box_y1;
+        draw_start_x = box_x0;
+        draw_end_x = box_x1;
+        if (draw_end_y <= draw_start_y) {
+            return;
+        }
 
-    for (stripe = draw_start_x; stripe < draw_end_x; ++stripe) {
-        int tex_x;
-        int span_h = draw_end_y - draw_start_y;
-        int span_w = draw_end_x - draw_start_x;
-        if ((unsigned)stripe >= (unsigned)SCREENWIDTH) {
-            continue;
-        }
-        if (transform_y >= zbuffer[stripe]) {
-            continue;
-        }
-        if (span_w < 1 || span_h < 1) {
-            continue;
-        }
-        tex_x = ((stripe - draw_start_x) * 64) / span_w;
-        if ((unsigned)tex_x >= 64u) {
-            continue;
-        }
-        for (y = draw_start_y; y < draw_end_y; ++y) {
-            int tex_y = ((y - draw_start_y) * 64) / span_h;
-            byte c;
-            if ((unsigned)tex_y >= 64u) {
+        for (stripe = draw_start_x; stripe < draw_end_x; ++stripe) {
+            int tex_x;
+            if ((unsigned)stripe >= (unsigned)SCREENWIDTH) {
                 continue;
             }
-            c = tex[tex_y * 64 + tex_x];
-            if (c == 0xFF) {
+            if (transform_y >= zbuffer[stripe]) {
                 continue;
             }
-            framebuffer[y * SCREENWIDTH + stripe] = c;
+            if (sprite_w < 1) {
+                continue;
+            }
+            tex_x = ((stripe - box_x0) * 64) / sprite_w;
+            if ((unsigned)tex_x >= 64u) {
+                continue;
+            }
+            for (y = draw_start_y; y < draw_end_y; ++y) {
+                int tex_y = ((y - box_y0) * 64) / sprite_h;
+                byte c;
+                if ((unsigned)tex_y >= 64u) {
+                    continue;
+                }
+                c = tex[tex_y * 64 + tex_x];
+                if (c == 0xFF) {
+                    continue;
+                }
+                framebuffer[y * SCREENWIDTH + stripe] = c;
+            }
         }
     }
 }

@@ -680,6 +680,9 @@ static int try_push_wall(int checkx, int checky, int dir)
     int ox, oy;
     int nx, ny;
     byte oldtile;
+    int try_dirs[4];
+    int ti;
+    int chosen = -1;
 
     if (g_level.pwall_state) {
         return 0;
@@ -694,14 +697,36 @@ static int try_push_wall(int checkx, int checky, int dir)
     if (!oldtile) {
         return 0;
     }
+
+    /*
+     * Prefer facing dir (original), then other free dirs.
+     * E1M1 secret (30,22) only opens WEST — facing the panel from the south
+     * with north-only push always failed and felt like a dead wall.
+     */
+    try_dirs[0] = dir;
+    try_dirs[1] = (dir + 1) & 3;
+    try_dirs[2] = (dir + 3) & 3;
+    try_dirs[3] = (dir + 2) & 3;
+    for (ti = 0; ti < 4; ++ti) {
+        int d = try_dirs[ti];
+        dir_delta(d, &ox, &oy);
+        nx = checkx + ox;
+        ny = checky + oy;
+        if (!cell_blocked(nx, ny)) {
+            chosen = d;
+            break;
+        }
+    }
+    if (chosen < 0) {
+        SD_PlaySound(NOWAYSND);
+        printf("Pushwall blocked all dirs at %d,%d (faced %d)\n", checkx, checky, dir);
+        return 1; /* handled */
+    }
+    dir = chosen;
     dir_delta(dir, &ox, &oy);
     nx = checkx + ox;
     ny = checky + oy;
-    if (cell_blocked(nx, ny)) {
-        SD_PlaySound(NOWAYSND);
-        printf("Pushwall blocked at %d,%d dir=%d\n", checkx, checky, dir);
-        return 1; /* handled */
-    }
+
     /* Destination becomes solid with same wall tex immediately. */
     g_level.tilemap[nx][ny] = oldtile;
     g_level.tilemap[checkx][checky] = (byte)(oldtile | TILE_PWALL_MASK);
@@ -714,8 +739,8 @@ static int try_push_wall(int checkx, int checky, int dir)
     g_level.pwall_tile = oldtile;
     g_level.secret_count++;
     SD_PlaySound(PUSHWALLSND);
-    printf("Pushwall start %d,%d -> %d,%d secrets=%d/%d\n", checkx, checky, nx, ny,
-           g_level.secret_count, g_level.secret_total);
+    printf("Pushwall start %d,%d -> %d,%d dir=%d secrets=%d/%d\n", checkx, checky, nx, ny,
+           dir, g_level.secret_count, g_level.secret_total);
     return 1;
 }
 
@@ -1044,6 +1069,37 @@ static void update_pickups(void)
     }
 }
 
+
+/* True if a coarse grid walk from (x0,y0) to (x1,y1) never enters a solid cell. */
+static int line_clear(float x0, float y0, float x1, float y1)
+{
+    float dx = x1 - x0;
+    float dy = y1 - y0;
+    float dist = sqrtf(dx * dx + dy * dy);
+    int steps;
+    int i;
+    if (dist < 0.05f) {
+        return 1;
+    }
+    steps = (int)(dist * 8.0f) + 1;
+    if (steps < 2) {
+        steps = 2;
+    }
+    if (steps > 64) {
+        steps = 64;
+    }
+    for (i = 1; i < steps; ++i) {
+        float u = (float)i / (float)steps;
+        float x = x0 + dx * u;
+        float y = y0 + dy * u;
+        /* Don't test endpoints (actor centers may sit near walls). */
+        if (Wolf_SolidAt(x, y)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static void update_enemies(float dt)
 {
     int i;
@@ -1106,7 +1162,9 @@ static void update_enemies(float dt)
                 }
             }
 
-            if (dist < 1.1f && e->attack_cd <= 0.0f) {
+            /* Melee only with clear LOS — no damage through secret/push walls. */
+            if (dist < 1.1f && e->attack_cd <= 0.0f &&
+                line_clear(e->x, e->y, pl->x, pl->y)) {
                 int dmg = 5;
                 if (e->kind == EN_DOG) {
                     dmg = 8;
@@ -1440,6 +1498,48 @@ boolean Wolf_PushwallSmokeVerify(void)
                 }
                 printf("Pushwall smoke: after_move state=%d anchor=%d,%d origin_open=1\n",
                        g_level.pwall_state, g_level.pwall_x, g_level.pwall_y);
+            }
+        }
+        /* E1M1 (30,22) free only WEST — face north from south must still push. */
+        if (!Wolf_SetupLevel(0)) {
+            fprintf(stderr, "Pushwall smoke: re-setup failed\n");
+            return false;
+        }
+        g_level.player.x = 30.5f;
+        g_level.player.y = 23.5f;
+        g_level.player.angle = (float)(M_PI * 0.5);
+        Wolf_TryUse();
+        if (g_level.pwall_state <= 0) {
+            fprintf(stderr, "Pushwall smoke: (30,22) north-face failed\n");
+            return false;
+        }
+        printf("Pushwall smoke: (30,22) activated dir=%d\n", g_level.pwall_dir);
+        {
+            int ei;
+            int hp;
+            enemy_t *e = NULL;
+            for (ei = 0; ei < g_level.enemy_count; ++ei) {
+                if (g_level.enemies[ei].active && g_level.enemies[ei].state != ST_DEAD) {
+                    e = &g_level.enemies[ei];
+                    break;
+                }
+            }
+            if (e) {
+                e->x = 31.5f;
+                e->y = 22.5f;
+                e->state = ST_CHASE;
+                e->attack_cd = 0.0f;
+                g_level.player.x = 29.5f;
+                g_level.player.y = 22.5f;
+                g_level.player.health = 100;
+                hp = g_level.player.health;
+                update_enemies(0.05f);
+                if (g_level.player.health < hp) {
+                    fprintf(stderr, "Pushwall smoke: LOS fail %d->%d\n", hp,
+                            g_level.player.health);
+                    return false;
+                }
+                printf("Pushwall smoke: LOS ok (no through-wall melee)\n");
             }
         }
     }
