@@ -16,15 +16,40 @@ maptype *mapheaderseg[NUMMAPS];
 int mapon = -1;
 uint16_t rlew_tag;
 
+const gfx_layout_t gfx_layout_wl6 = {
+    "WL6", 149, 132, 135, 136,
+    10, 11, 12, 13, 14, 18,
+    86, 87, 88, 89, 90,
+    91, 92, 93, 94,
+    95, 96, 97,
+    98, 99,
+    109, 130,
+    131, 132, 133, 134,
+};
+
+/* Apogee 1.4 shareware; VGAHEAD has 156 chunks. */
+const gfx_layout_t gfx_layout_wl1 = {
+    "WL1", 156, 144, 147, 148,
+    22, 23, 24, 25, 26, 30,
+    98, 99, 100, 101, 102,
+    103, 104, 105, 106,
+    107, 108, 109,
+    110, 111,
+    121, 142,
+    143, 144, 145, 146,
+};
+
+const gfx_layout_t *g_gfx = &gfx_layout_wl6;
+
 static FILE *maphandle;
 static int32_t headeroffsets[MAX_MAP_OFFSETS];
 static wolf_data_dir_t g_map_dir;
 
 /* Graphics (VGAGRAPH) */
 pictabletype *pictable;
-byte *grsegs[NUMCHUNKS];
+byte *grsegs[NUMCHUNKS_MAX];
 static FILE *grhandle;
-static int32_t grstarts[NUMCHUNKS + 1];
+static int32_t grstarts[NUMCHUNKS_MAX + 1];
 typedef struct {
     uint16_t bit0, bit1;
 } huffnode;
@@ -510,7 +535,7 @@ boolean CA_OpenGraphFiles(const wolf_data_dir_t *dir)
 {
     char path[WOLF_PATH_MAX];
     FILE *f;
-    byte headbuf[(NUMCHUNKS + 1) * 3];
+    byte headbuf[(NUMCHUNKS_MAX + 1) * 3];
     int i;
     size_t n;
     byte *compressed = NULL;
@@ -528,6 +553,7 @@ boolean CA_OpenGraphFiles(const wolf_data_dir_t *dir)
         free(pictable);
         pictable = NULL;
     }
+    g_gfx = (strcmp(dir->extension, ".WL1") == 0) ? &gfx_layout_wl1 : &gfx_layout_wl6;
 
     /* Huffman dictionary — 255 nodes * 4 bytes, file is 1024 */
     Wolf_MakeDataPath(dir, "VGADICT", path, sizeof(path));
@@ -552,8 +578,10 @@ boolean CA_OpenGraphFiles(const wolf_data_dir_t *dir)
     }
     n = fread(headbuf, 1, sizeof(headbuf), f);
     fclose(f);
-    if (n < (size_t)(NUMCHUNKS + 1) * 3) {
-        fprintf(stderr, "VGAHEAD too small (%zu)\n", n);
+    if (n != (size_t)(NUMCHUNKS + 1) * 3) {
+        fprintf(stderr, "VGAHEAD size %zu does not match the %s layout (%d bytes): "
+                        "unsupported pack version\n",
+                n, g_gfx->name, (NUMCHUNKS + 1) * 3);
         return false;
     }
     for (i = 0; i <= NUMCHUNKS; ++i) {
@@ -598,9 +626,10 @@ boolean CA_OpenGraphFiles(const wolf_data_dir_t *dir)
         }
         expanded = (long)rd_i32(compressed);
         if (expanded != (long)(NUMPICS * (int)sizeof(pictabletype))) {
-            /* still try */
-            fprintf(stderr, "pictable expanded size %ld (expected %d)\n",
-                    expanded, (int)(NUMPICS * sizeof(pictabletype)));
+            fprintf(stderr, "pictable expanded size %ld (expected %d for %s)\n",
+                    expanded, (int)(NUMPICS * sizeof(pictabletype)), g_gfx->name);
+            free(compressed);
+            return false;
         }
         if (expanded <= 0 || expanded > 64 * 1024) {
             free(compressed);
@@ -623,8 +652,8 @@ boolean CA_OpenGraphFiles(const wolf_data_dir_t *dir)
         }
     }
 
-    printf("VGAGRAPH open: pics=%d (TITLEPIC=%d size %dx%d)\n",
-           NUMPICS, TITLEPIC,
+    printf("VGAGRAPH open: %s layout, pics=%d (TITLEPIC=%d size %dx%d)\n",
+           g_gfx->name, NUMPICS, TITLEPIC,
            pictable[TITLEPIC - STARTPICS].width,
            pictable[TITLEPIC - STARTPICS].height);
     return true;

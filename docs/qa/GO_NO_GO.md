@@ -5,10 +5,10 @@
 | Area | FR band | Result (Go / No-Go / Conditional) | Notes / open bugs |
 |------|---------|-------------------------------------|-------------------|
 | Platform | FR-PLAT-* | Conditional | FR-PLAT-002 (no admin) untested |
-| Data | FR-DATA-* | Conditional | WL6 works; WL1 not supported until P3 (chunk tables are WL6-only) |
+| Data | FR-DATA-* | Go | WL6 and WL1 (Apogee 1.4 shareware) smoke pass; other WL1 versions rejected |
 | Video / present | FR-VID-* | Go | FR-VID-005 alt-tab only informally checked |
 | Input | FR-IN-* | Conditional | Core keys + mouse turn; no Control menu (stub) |
-| Gameplay | FR-GAME-* | No-Go | Enemy AI is a placeholder (melee only); WL1 episode not testable; no demos/intermission |
+| Gameplay | FR-GAME-* | No-Go | Enemy AI is a placeholder (melee only); no demos/intermission |
 | Audio | FR-AUD-* | Conditional | Soft-OPL music is Partial (#74) |
 | Saves / config | FR-SAVE-*, FR-DATA-004 | Go | Own `saveN.w64` format; Load menu entry is a stub |
 | Smoke harness | FR-QA-001 | Go | 18 markers; P1 added unit tests (CTest) and Windows CI |
@@ -30,4 +30,4 @@
 
 ## Residual risk (accepted)
 
-Nothing accepted yet. Known Partial FRs: FR-DATA-001, FR-VID-005, FR-IN-001, FR-IN-002, FR-GAME-006, FR-GAME-007, FR-AUD-003, NFR-001. Known gaps are listed in [`docs/epics/README.md`](../epics/README.md).
+Nothing accepted yet. Known Partial FRs: FR-VID-005, FR-IN-001, FR-IN-002, FR-GAME-006, FR-GAME-007, FR-AUD-003, NFR-001. Known gaps are listed in [`docs/epics/README.md`](../epics/README.md).

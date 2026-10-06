@@ -30,7 +30,7 @@
 ## E4 additions
 | Module | Path | Notes |
 |--------|------|-------|
-| VGA graph IDs | `src/id/gfxv_wl6.h` | TITLEPIC / menu chunk constants |
+| VGA graph IDs | `src/id/gfxv.h` | WL1/WL6 chunk layouts selected at runtime (`g_gfx`) |
 | Huffman + VGAGRAPH | `src/id/id_ca.c` | `CA_OpenGraphFiles`, planar→chunky pics |
 | Framebuffer | `src/id/id_vl.c` | 320×200×8 + game palette |
 | Palette | `src/id/gamepal.c` | 6-bit VGA GAMEPAL |

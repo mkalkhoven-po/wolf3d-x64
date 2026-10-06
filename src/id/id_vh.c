@@ -4,7 +4,7 @@
 
 #include "id_ca.h"
 #include "id_vl.h"
-#include "gfxv_wl6.h"
+#include "gfxv.h"
 
 void VH_Startup(void)
 {

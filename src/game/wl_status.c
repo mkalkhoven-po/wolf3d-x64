@@ -8,7 +8,7 @@
 #endif
 #include <SDL.h>
 
-#include "id/gfxv_wl6.h"
+#include "id/gfxv.h"
 #include "id/id_ca.h"
 #include "id/id_vh.h"
 #include "id/id_vl.h"

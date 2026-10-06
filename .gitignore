@@ -41,6 +41,7 @@ _deps/
 !/data/README.md
 /Wolf3dgame/
 /wolf3dgame/
+/wolf3dsw/
 # PNG lookbook / rips — not runtime, never commit (see docs/product/LOCAL_ASSETS.md)
 /assets/
 /Assets/

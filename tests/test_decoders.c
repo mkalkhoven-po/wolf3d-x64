@@ -107,6 +107,26 @@ static void test_data_paths(void)
     CHECK(!Wolf_CheckRequiredFiles(&dir));
 }
 
+static void check_layout(const gfx_layout_t *l)
+{
+    CHECK(l->numchunks <= NUMCHUNKS_MAX);
+    CHECK(l->numpics == l->getpsychedpic - 2);
+    CHECK(l->starttile8 == l->getpsychedpic + 1);
+    CHECK(l->startexterns > l->starttile8 && l->startexterns < l->numchunks);
+    CHECK(l->gunpic == l->knifepic + 1 && l->machinegunpic == l->knifepic + 2 &&
+          l->gatlinggunpic == l->knifepic + 3);
+    CHECK(l->face8apic == l->face1apic + 21);
+    CHECK(l->gotgatlingpic == l->face8apic + 1 && l->getpsychedpic == l->pausedpic + 1);
+}
+
+static void test_gfx_layouts(void)
+{
+    check_layout(&gfx_layout_wl6);
+    check_layout(&gfx_layout_wl1);
+    CHECK(gfx_layout_wl6.numchunks == 149 && gfx_layout_wl6.numpics == 132);
+    CHECK(gfx_layout_wl1.numchunks == 156 && gfx_layout_wl1.numpics == 144);
+}
+
 int main(void)
 {
     test_carmack_literals();
@@ -117,6 +137,7 @@ int main(void)
     test_rlew();
     test_rlew_rejects_corrupt();
     test_data_paths();
+    test_gfx_layouts();
 
     if (g_failures) {
         fprintf(stderr, "%d check(s) failed\n", g_failures);

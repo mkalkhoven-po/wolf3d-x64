@@ -8,7 +8,7 @@ Direction ([ADR-002](../adr/002-faithful-fixed-point-port.md)): reimplement game
 |-------|-------|--------|
 | P1 | Safety net: warnings, ASan/UBSan option, decoder unit tests + CTest, CI build, script fixes | **Done** |
 | P2 | Honest docs: known gaps, `GO_NO_GO.md` assessment, ADR-002, FR matrix corrections, outdated plan header and WL1/WL6 wording | **Done** |
-| P3 | WL1 data layer: WL1 chunk/sound/map tables selected by extension (today only WL6 tables exist) | Planned |
+| P3 | WL1 data layer: WL1 and WL6 graphics layouts selected by pack extension (`src/id/gfxv.h`); layout is validated against the pack and unsupported versions fail with a clear error | **Done** for the Apogee 1.4 shareware pack (smoke passes on WL1 and WL6); manual WL1 playthrough not yet done |
 | P4 | Engine core: fixed-point + 70 Hz loop, original object/AI/state tables, player code, fixed-point renderer (re-run the L1.5 matrix) | Planned |
 | P5 | Game flow: real menus, intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | Planned |
 | P6 | WL6: all episodes / 60 maps, remaining enemies and chunks | Planned |
@@ -20,7 +20,7 @@ P1 delivered: `-Wall -Wextra -Wpedantic` (`/W4` on MSVC) with zero project warni
 - Enemy AI is a placeholder (straight-line chase, melee only; no ranged attacks, patrol, ambush, door use or difficulty).
 - Float / frame-time gameplay: not deterministic, no demo compatibility.
 - Menus: Sound, Control, Load and View are stubs; no intermission, attract loop, demos or cheats.
-- Chunk and sound enums are WL6-only; WL1 is detected but not supported yet.
+- Only the Apogee 1.4 shareware WL1 layout is supported; other WL1 versions are rejected at startup.
 
 ## Shell delivered (M0–M8)
 

@@ -2,7 +2,7 @@
 
 #include "wl_data.h"
 #include "wl_types.h"
-#include "gfxv_wl6.h"
+#include "gfxv.h"
 
 #define NUMMAPS 60
 #define MAPPLANES 2
@@ -24,7 +24,7 @@ extern int mapon;
 extern uint16_t rlew_tag;
 
 extern pictabletype *pictable;
-extern byte *grsegs[NUMCHUNKS];
+extern byte *grsegs[NUMCHUNKS_MAX];
 
 void CA_Startup(void);
 void CA_Shutdown(void);

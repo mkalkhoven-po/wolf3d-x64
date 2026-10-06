@@ -13,7 +13,7 @@
 #include "game/wl_weapon.h"
 #include "id/wl_sprite.h"
 #include "id/audio_wl6.h"
-#include "id/gfxv_wl6.h"
+#include "id/gfxv.h"
 #include "id/id_ca.h"
 #include "id/id_heads.h"
 #include "id/id_sd.h"
@@ -79,6 +79,15 @@ static int run_smoke_suite(void)
     w = pictable[TITLEPIC - STARTPICS].width;
     h = pictable[TITLEPIC - STARTPICS].height;
     printf("TITLEPIC loaded: %dx%d\n", w, h);
+    /* Guards against a wrong chunk table for this pack. */
+    if (w != 320 || h != 200 ||
+        pictable[STATUSBARPIC - STARTPICS].width != 320 ||
+        pictable[STATUSBARPIC - STARTPICS].height != STATUSLINES) {
+        fprintf(stderr, "Graphics layout check failed (%s): TITLEPIC %dx%d, STATUSBARPIC %dx%d\n",
+                g_gfx->name, w, h, pictable[STATUSBARPIC - STARTPICS].width,
+                pictable[STATUSBARPIC - STARTPICS].height);
+        return 9;
+    }
     VL_ClearScreen(0);
     VL_SetPalette(gamepal);
     VWB_DrawPic(0, 0, TITLEPIC);

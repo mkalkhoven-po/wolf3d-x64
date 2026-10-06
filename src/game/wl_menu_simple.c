@@ -9,7 +9,7 @@
 #include <SDL.h>
 
 #include "id/audio_wl6.h"
-#include "id/gfxv_wl6.h"
+#include "id/gfxv.h"
 #include "id/id_ca.h"
 #include "id/id_sd.h"
 #include "id/id_vh.h"

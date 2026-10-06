@@ -139,4 +139,9 @@ if(WOLF_BUILD_TESTS)
     set_tests_properties(smoke_only PROPERTIES
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
   endif()
+  if(DEFINED ENV{WOLF3D_DATA_WL1})
+    add_test(NAME smoke_only_wl1 COMMAND wolf3d --data "$ENV{WOLF3D_DATA_WL1}" --smoke-only)
+    set_tests_properties(smoke_only_wl1 PROPERTIES
+      ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+  endif()
 endif()
