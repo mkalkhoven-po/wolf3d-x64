@@ -312,7 +312,7 @@ boolean Wolf_SaveGame(int slot)
         return false;
     }
     fclose(f);
-    printf("Saved game slot %d → %s\n", slot, path);
+    printf("Saved game slot %d -> %s\n", slot, path);
     return true;
 }
 

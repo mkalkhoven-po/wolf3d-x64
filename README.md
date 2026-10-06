@@ -91,7 +91,9 @@ Tests and checks:
 ctest --test-dir build --output-on-failure
 cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DWOLF_SANITIZE=ON
 ```
-Unit tests need no game data. Set `WOLF3D_DATA` before configuring to also register the `smoke_only` CTest case. Sanitizers need GCC/Clang with ASan support (not every MinGW build has it).
+Unit tests need no game data. Set `WOLF3D_DATA` before configuring to also register the `smoke_only` CTest case (and `WOLF3D_DATA_WL1` for a WL1 pack). Sanitizers need GCC/Clang with ASan support (not every MinGW build has it).
+
+Troubleshooting: on Windows 11 with **Smart App Control** on, a freshly built unsigned `wolf3d.exe` or `SDL2.dll` can be blocked ("Bad Image", status `0xc0e90002`, or ctest "BAD_COMMAND"). The Code Integrity event log (event 3077) confirms it. It is an OS policy, not a build error; retrying later sometimes passes, otherwise turn Smart App Control off or build on another machine/CI.
 
 Runtime dependency: **`SDL2.dll`** is copied next to `wolf3d.exe` when using the shared SDL build (`FR-PLAT-004`).
 

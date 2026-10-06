@@ -503,15 +503,15 @@ boolean SD_SetupFromData(const wolf_data_dir_t *dir)
     }
 
     if (!load_digi_table()) {
-        fprintf(stderr, "SD: digi table load failed — silent digi\n");
+        fprintf(stderr, "SD: digi table load failed - silent digi\n");
     }
     if (!load_audiot(dir)) {
-        fprintf(stderr, "SD: AUDIOT load failed — no music bank\n");
+        fprintf(stderr, "SD: AUDIOT load failed - no music bank\n");
     }
 
     if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
-            fprintf(stderr, "SD: SDL_INIT_AUDIO failed: %s — silent\n",
+            fprintf(stderr, "SD: SDL_INIT_AUDIO failed: %s - silent\n",
                     SDL_GetError());
             SD_Silent = true;
             sd_started = true;
@@ -529,7 +529,7 @@ boolean SD_SetupFromData(const wolf_data_dir_t *dir)
 
     audio_dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
     if (!audio_dev) {
-        fprintf(stderr, "SD: OpenAudioDevice failed: %s — silent\n", SDL_GetError());
+        fprintf(stderr, "SD: OpenAudioDevice failed: %s - silent\n", SDL_GetError());
         SD_Silent = true;
         DigiMode = sds_Off;
         MusicMode = smm_Off;

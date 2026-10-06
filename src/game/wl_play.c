@@ -1020,7 +1020,7 @@ void Wolf_TryUse(void)
         g_level.level_complete = true;
         g_level.elevator_ready = true;
         SD_PlaySound(LEVELDONESND);
-        printf("Elevator activated at %d,%d → press N for next map\n", elev_x,
+        printf("Elevator activated at %d,%d - press N for next map\n", elev_x,
                elev_y);
         return;
     }
