@@ -32,6 +32,12 @@ void CA_Shutdown(void);
 boolean CA_OpenMapFiles(const wolf_data_dir_t *dir);
 boolean CA_OpenGraphFiles(const wolf_data_dir_t *dir);
 boolean CA_CacheMap(int mapnum);
+
+/* Both return false on corrupt or truncated input instead of overrunning. */
+boolean CAL_CarmackExpand(const byte *source, size_t src_bytes, uint16_t *dest,
+                          unsigned length_bytes);
+boolean CA_RLEWexpand(const uint16_t *source, size_t src_words, uint16_t *dest,
+                      long length_bytes, uint16_t rlewtag);
 void CA_FreeMaps(void);
 int CA_CountValidMaps(void);
 void CA_PrintMapSmoke(int mapnum);

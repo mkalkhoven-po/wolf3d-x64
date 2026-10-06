@@ -39,7 +39,8 @@ static uint16_t rd_u16(const byte *p)
 
 static int32_t rd_i32(const byte *p)
 {
-    return (int32_t)(p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24));
+    return (int32_t)((uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) |
+                     ((uint32_t)p[3] << 24));
 }
 
 static size_t file_size(FILE *f)
@@ -56,73 +57,99 @@ static size_t file_size(FILE *f)
 
 /* ---- decompressors (ports of id Carmack + RLEW expand) ---- */
 
-void CAL_CarmackExpand(const uint16_t *source, uint16_t *dest, unsigned length_bytes)
+/* Near/far operands are byte-packed, so the stream is read bytewise (no unaligned loads). */
+boolean CAL_CarmackExpand(const byte *source, size_t src_bytes, uint16_t *dest,
+                          unsigned length_bytes)
 {
-    unsigned length = length_bytes / 2u;
-    const uint16_t *inptr = source;
-    uint16_t *outptr = dest;
+    const unsigned total = length_bytes / 2u;
+    unsigned out = 0;
+    size_t in = 0;
 
-    while (length) {
-        uint16_t ch = *inptr++;
-        unsigned chhigh = ch >> 8;
-        if (chhigh == NEARTAG) {
-            unsigned count = ch & 0xffu;
-            if (!count) {
-                ch |= *(const uint8_t *)inptr;
-                inptr = (const uint16_t *)((const uint8_t *)inptr + 1);
-                *outptr++ = ch;
-                length--;
-            } else {
-                unsigned offset = *(const uint8_t *)inptr;
-                inptr = (const uint16_t *)((const uint8_t *)inptr + 1);
-                {
-                    const uint16_t *copyptr = outptr - offset;
-                    length -= count;
-                    while (count--) {
-                        *outptr++ = *copyptr++;
-                    }
+    while (out < total) {
+        uint16_t ch;
+        unsigned chhigh;
+        unsigned count;
+
+        if (in + 2 > src_bytes) {
+            return false;
+        }
+        ch = rd_u16(source + in);
+        in += 2;
+        chhigh = ch >> 8;
+        count = ch & 0xffu;
+
+        if ((chhigh != NEARTAG && chhigh != FARTAG) || count == 0) {
+            if (chhigh == NEARTAG || chhigh == FARTAG) {
+                /* Escaped literal: low byte of the word comes from the stream. */
+                if (in + 1 > src_bytes) {
+                    return false;
                 }
+                ch = (uint16_t)(ch | source[in++]);
             }
-        } else if (chhigh == FARTAG) {
-            unsigned count = ch & 0xffu;
-            if (!count) {
-                ch |= *(const uint8_t *)inptr;
-                inptr = (const uint16_t *)((const uint8_t *)inptr + 1);
-                *outptr++ = ch;
-                length--;
-            } else {
-                unsigned offset = *inptr++;
-                {
-                    const uint16_t *copyptr = dest + offset;
-                    length -= count;
-                    while (count--) {
-                        *outptr++ = *copyptr++;
-                    }
-                }
-            }
+            dest[out++] = ch;
         } else {
-            *outptr++ = ch;
-            length--;
+            unsigned offset;
+            if (chhigh == NEARTAG) {
+                if (in + 1 > src_bytes) {
+                    return false;
+                }
+                offset = source[in++];
+                if (offset == 0 || offset > out) {
+                    return false;
+                }
+                offset = out - offset;
+            } else {
+                if (in + 2 > src_bytes) {
+                    return false;
+                }
+                offset = rd_u16(source + in);
+                in += 2;
+                if (offset >= out) {
+                    return false;
+                }
+            }
+            if (count > total - out) {
+                return false;
+            }
+            while (count--) {
+                dest[out++] = dest[offset++];
+            }
         }
     }
+    return true;
 }
 
-void CA_RLEWexpand(const uint16_t *source, uint16_t *dest, long length_bytes,
-                   uint16_t rlewtag)
+boolean CA_RLEWexpand(const uint16_t *source, size_t src_words, uint16_t *dest,
+                      long length_bytes, uint16_t rlewtag)
 {
-    uint16_t *end = dest + (length_bytes / 2);
-    while (dest < end) {
-        uint16_t value = *source++;
+    const size_t total = (size_t)(length_bytes / 2);
+    size_t out = 0;
+    size_t in = 0;
+
+    while (out < total) {
+        uint16_t value;
+        if (in >= src_words) {
+            return false;
+        }
+        value = source[in++];
         if (value != rlewtag) {
-            *dest++ = value;
+            dest[out++] = value;
         } else {
-            uint16_t count = *source++;
-            value = *source++;
+            uint16_t count;
+            if (in + 2 > src_words) {
+                return false;
+            }
+            count = source[in++];
+            value = source[in++];
+            if (count > total - out) {
+                return false;
+            }
             while (count--) {
-                *dest++ = value;
+                dest[out++] = value;
             }
         }
     }
+    return true;
 }
 
 /* ---- lifecycle ---- */
@@ -322,7 +349,7 @@ boolean CA_CacheMap(int mapnum)
         uint16_t expanded;
         uint16_t *buffer2 = NULL;
 
-        if (pos <= 0 || compressed == 0) {
+        if (pos <= 0 || compressed < 4) {
             fprintf(stderr, "Map %d plane %d missing\n", mapnum, plane);
             return false;
         }
@@ -341,7 +368,7 @@ boolean CA_CacheMap(int mapnum)
         /* Carmackized: first word = expanded size of Carmack output */
         src16 = (uint16_t *)source;
         expanded = src16[0];
-        if (expanded < 2 || expanded > 64 * 1024) {
+        if (expanded < 2) {
             fprintf(stderr, "Map %d plane %d bad expanded=%u\n", mapnum, plane,
                     expanded);
             free(source);
@@ -352,9 +379,15 @@ boolean CA_CacheMap(int mapnum)
             free(source);
             return false;
         }
-        CAL_CarmackExpand(src16 + 1, buffer2, expanded);
-        /* RLEW: skip expanded-length word in RLEW stream */
-        CA_RLEWexpand(buffer2 + 1, mapsegs[plane], size, rlew_tag);
+        /* RLEW stream starts after its own expanded-length word. */
+        if (!CAL_CarmackExpand(source + 2, (size_t)compressed - 2, buffer2, expanded) ||
+            !CA_RLEWexpand(buffer2 + 1, (size_t)(expanded / 2u) - 1, mapsegs[plane],
+                           size, rlew_tag)) {
+            fprintf(stderr, "Map %d plane %d corrupt\n", mapnum, plane);
+            free(buffer2);
+            free(source);
+            return false;
+        }
 
         free(buffer2);
         free(source);
@@ -563,8 +596,7 @@ boolean CA_OpenGraphFiles(const wolf_data_dir_t *dir)
             free(compressed);
             return false;
         }
-        expanded = (long)(compressed[0] | (compressed[1] << 8) |
-                          (compressed[2] << 16) | (compressed[3] << 24));
+        expanded = (long)rd_i32(compressed);
         if (expanded != (long)(NUMPICS * (int)sizeof(pictabletype))) {
             /* still try */
             fprintf(stderr, "pictable expanded size %ld (expected %d)\n",
@@ -649,8 +681,7 @@ void CA_CacheGrChunk(int chunk)
         return;
     }
 
-    expanded = (long)(source[0] | (source[1] << 8) | (source[2] << 16) |
-                      (source[3] << 24));
+    expanded = (long)rd_i32(source);
     source_data = source + 4;
     if (expanded <= 0 || expanded > 320 * 200 * 4) {
         free(source);

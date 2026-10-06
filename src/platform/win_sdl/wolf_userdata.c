@@ -55,14 +55,23 @@ boolean Wolf_GetAppDataDir(char *out, size_t out_sz)
 boolean Wolf_GetAppDataPath(const char *filename, char *out, size_t out_sz)
 {
     char dir[WOLF_PATH_MAX];
+    size_t dir_len;
+    size_t name_len;
     if (!Wolf_GetAppDataDir(dir, sizeof(dir))) {
         return false;
     }
+    dir_len = strlen(dir);
+    name_len = strlen(filename);
+    if (dir_len + 1 + name_len + 1 > out_sz) {
+        return false;
+    }
+    memcpy(out, dir, dir_len);
 #ifdef _WIN32
-    snprintf(out, out_sz, "%s\\%s", dir, filename);
+    out[dir_len] = '\\';
 #else
-    snprintf(out, out_sz, "%s/%s", dir, filename);
+    out[dir_len] = '/';
 #endif
+    memcpy(out + dir_len + 1, filename, name_len + 1);
     return true;
 }
 

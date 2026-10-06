@@ -1,0 +1,17 @@
+﻿name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - name: Build
+        run: cmake --build build --config RelWithDebInfo -j
+      - name: Unit tests (no game data)
+        run: ctest --test-dir build -C RelWithDebInfo --output-on-failure

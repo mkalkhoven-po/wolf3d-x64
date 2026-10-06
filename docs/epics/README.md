@@ -1,8 +1,30 @@
 # Epic index
 
-## Delivery (done M0–M8)
+## Faithful port roadmap (current plan)
 
-Epics map 1:1 to milestones **M0–M8**. GitHub Project: [Wolf3D Win64 Port](https://github.com/users/mkalkhoven-po/projects/1).
+Direction (ADR-002 pending): reimplement gameplay from the original `WL_*.C` logic — 16.16 fixed-point, 70 Hz tics, original state tables and `US_RndT` — so behaviour matches the DOS game. **WL1 shareware first, then WL6.** The reference sources in `reference/original/` are the oracle.
+
+| Phase | Scope | Status |
+|-------|-------|--------|
+| P1 | Safety net: warnings, ASan/UBSan option, decoder unit tests + CTest, CI build, script fixes | **In progress** (see below) |
+| P2 | Honest docs: known gaps, fill `GO_NO_GO.md`, ADR-002, fix outdated plan header and WL1/WL6 wording | Planned |
+| P3 | WL1 data layer: WL1 chunk/sound/map tables selected by extension (today only WL6 tables exist) | Planned |
+| P4 | Engine core: fixed-point + 70 Hz loop, original object/AI/state tables, player code, fixed-point renderer (re-run the L1.5 matrix) | Planned |
+| P5 | Game flow: real menus, intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | Planned |
+| P6 | WL6: all episodes / 60 maps, remaining enemies and chunks | Planned |
+| F4 | Dual pistols — optional, **last**, only after P6 | Deferred |
+
+P1 delivered so far: `-Wall -Wextra -Wpedantic` (`/W4` on MSVC), `-DWOLF_SANITIZE=ON`, `tests/test_decoders.c` via CTest, optional `smoke_only` CTest when `WOLF3D_DATA` is set at configure time, Windows CI workflow. Still open: confirm no game data or build output is tracked in git (`git ls-files`).
+
+### Known gaps (why M0–M8 is "shell delivered", not "complete")
+- Enemy AI is a placeholder (straight-line chase, melee only; no ranged attacks, patrol, ambush, door use or difficulty).
+- Float / frame-time gameplay: not deterministic, no demo compatibility.
+- Menus: Sound, Control, Load and View are stubs; no intermission, attract loop, demos or cheats.
+- Chunk and sound enums are WL6-only; WL1 is detected but not supported yet.
+
+## Shell delivered (M0–M8)
+
+Epics map 1:1 to milestones **M0–M8**. GitHub Project: [Wolf3D Win64 Port](https://github.com/users/mkalkhoven-po/projects/1). The platform shell, data loading, renderer and audio path exist; gameplay fidelity is addressed by P3–P5 above.
 
 | Milestone | Epic | Demo exit |
 |-----------|------|-----------|
@@ -43,7 +65,7 @@ Board: [Project #1 delivery](https://github.com/users/mkalkhoven-po/projects/1) 
 | F1 | [Status HUD & Get Psyched!](F1-status-hud-get-psyched.md) · #76 | `GETPSYCHEDPIC`, `STATUSBARPIC`, digits/face/weapon icon · **Done #95** |
 | F2 | [First-person weapon view](F2-weapon-view.md) · #77 | Hands+gun overlay, fire frames, 1–4 switch · **Done #103** |
 | F3 | [World statics & corpses](F3-world-statics-corpses.md) · #78 | VSWAP props/enemies/bodies · **Done #104** · authentic projection **#108** |
-| F4 | [Dual pistols / akimbo](F4-dual-pistols.md) · #96 | Optional original: mirror pistol pair, alt-fire, same dmg/shot · **planned** |
+| F4 | [Dual pistols / akimbo](F4-dual-pistols.md) · #96 | Optional original: mirror pistol pair, alt-fire, same dmg/shot · **deferred — last, after P6** |
 
 References: `docs/product/references/fidelity/ref-f{1,2,3}.png`.  
 In-motion E1M1 any% flow (doors → elevator, HUD/gun/enemy glance): [`docs/qa/E1M1_ANYPERCENT_REFERENCE.md`](../qa/E1M1_ANYPERCENT_REFERENCE.md).  
@@ -51,12 +73,12 @@ Runtime pack = WL6 under `Wolf3dgame/` (not `assets/` PNG sheets) — [`docs/pro
 
 ## Level geometry authenticity (L1)
 
-**Planned epic** — maps/shell feel: pushwalls/secrets, wall projection, floor/ceiling, texture audit.
+**Implemented** on the current float renderer (L1.1–L1.5). P4 replaces that renderer with a fixed-point one and re-runs the L1.5 matrix; the L1 stories stay closed.
 
 | Milestone | Epic brief | Focus |
 |-----------|------------|--------|
 | L1 | [Level geometry & secrets](L1-level-geometry-secrets.md) · **#109** | Pushwalls #110 · projection #111 · floor/ceil #112 · textures #113 · matrix #114 |
 
-**Recommended order among open work** (see L1 brief): playtest residuals → **L1.1 pushwalls** → L1.2 projection → L1.3–4 shell → **F4** dual pistols → **Q4** audio → L1.5 + **Q5**.
+**Recommended order of open work:** P1 → P2 → P3 (WL1) → P4 → P5 (incl. **Q4**, **Q5**) → P6 (WL6) → **F4**. The older L1-first order is superseded.
 
 Gap seed (historical): [LEVEL_GEOMETRY_AUTHENTICITY.md](LEVEL_GEOMETRY_AUTHENTICITY.md) (points at L1).

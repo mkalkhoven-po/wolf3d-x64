@@ -86,6 +86,13 @@ cmake --build build -j
 build\wolf3d.exe --data Wolf3dgame --smoke-only
 ```
 
+Tests and checks:
+```bat
+ctest --test-dir build --output-on-failure
+cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DWOLF_SANITIZE=ON
+```
+Unit tests need no game data. Set `WOLF3D_DATA` before configuring to also register the `smoke_only` CTest case. Sanitizers need GCC/Clang with ASan support (not every MinGW build has it).
+
 Runtime dependency: **`SDL2.dll`** is copied next to `wolf3d.exe` when using the shared SDL build (`FR-PLAT-004`).
 
 ### In-game desktop controls
@@ -99,8 +106,9 @@ Runtime dependency: **`SDL2.dll`** is copied next to `wolf3d.exe` when using the
 
 ## Roadmap
 
-Milestones **M0–M8** = epics **E0–E8**.  
-**M0–M8 implemented** on `main` (shell → data → menus → raycast → combat → audio → Win11 polish).
+Milestones **M0–M8** = epics **E0–E8** — the platform shell, data loading, raycast view, placeholder combat, audio and Win11 polish are on `main`. Gameplay is **not** yet faithful to the original (see *Known gaps* in [docs/epics/README.md](docs/epics/README.md)).
+
+Current plan: a faithful fixed-point port driven by the original sources — P1 safety net → P2 docs → P3 WL1 data → P4 engine core → P5 game flow + QA → P6 WL6 → F4 (dual pistols, optional, last). **WL1 shareware first, then WL6.** Details in [docs/epics/README.md](docs/epics/README.md).
 
 ## Credits
 

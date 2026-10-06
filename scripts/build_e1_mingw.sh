@@ -10,9 +10,9 @@ if [[ ! -x "$CMAKE" ]]; then
   CMAKE="$(command -v cmake)"
 fi
 
-# Prefer WinGet WinLibs package if present
-WINLIBS_ROOT="${WINLIBS_ROOT:-/c/Users/marti/AppData/Local/Microsoft/WinGet/Packages/BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe/mingw64}"
-if [[ -d "$WINLIBS_ROOT/bin" ]]; then
+# Optional: set WINLIBS_ROOT to a WinLibs mingw64 dir; otherwise gcc/ninja come from PATH.
+WINLIBS_ROOT="${WINLIBS_ROOT:-}"
+if [[ -n "$WINLIBS_ROOT" && -d "$WINLIBS_ROOT/bin" ]]; then
   export PATH="$WINLIBS_ROOT/bin:$PATH"
   CC_BIN="$WINLIBS_ROOT/bin/gcc.exe"
   CXX_BIN="$WINLIBS_ROOT/bin/g++.exe"

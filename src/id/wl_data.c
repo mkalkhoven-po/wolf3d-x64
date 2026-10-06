@@ -60,15 +60,19 @@ static void trim_trailing_slash(char *path)
 void Wolf_MakeDataPath(const wolf_data_dir_t *dir, const char *basename,
                        char *dst, size_t dst_sz)
 {
-    snprintf(dst, dst_sz, "%s%c%s%s",
-             dir->path,
+    int n = snprintf(dst, dst_sz, "%s%c%s%s",
+                     dir->path,
 #ifdef _WIN32
-             '\\',
+                     '\\',
 #else
-             '/',
+                     '/',
 #endif
-             basename,
-             dir->extension);
+                     basename,
+                     dir->extension);
+    /* An empty path fails to open instead of opening a truncated one. */
+    if ((n < 0 || (size_t)n >= dst_sz) && dst_sz > 0) {
+        dst[0] = '\0';
+    }
 }
 
 static boolean probe_extension(const char *dirpath, const char *ext_with_dot,
@@ -212,11 +216,15 @@ boolean Wolf_ResolveDataDir(int argc, char **argv, wolf_data_dir_t *out)
                     "../data",
                 };
                 for (d = 0; d < sizeof(rel) / sizeof(rel[0]); ++d) {
+                    int n;
     #ifdef _WIN32
-                    snprintf(try_path, sizeof(try_path), "%s\\%s", exe_dir, rel[d]);
+                    n = snprintf(try_path, sizeof(try_path), "%s\\%s", exe_dir, rel[d]);
     #else
-                    snprintf(try_path, sizeof(try_path), "%s/%s", exe_dir, rel[d]);
+                    n = snprintf(try_path, sizeof(try_path), "%s/%s", exe_dir, rel[d]);
     #endif
+                    if (n < 0 || (size_t)n >= sizeof(try_path)) {
+                        continue;
+                    }
                     if (fill_from_path(try_path, out)) {
                         printf("Using data path near exe: %s\n", out->path);
                         return true;

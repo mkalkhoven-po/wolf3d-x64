@@ -20,8 +20,8 @@ void Wolf_EnableDpiAwareness(void)
     HMODULE user32 = LoadLibraryA("user32.dll");
     if (user32) {
         typedef BOOL(WINAPI *SetDpiCtxFn)(DPI_AWARENESS_CONTEXT);
-        SetDpiCtxFn set_ctx =
-            (SetDpiCtxFn)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
+        SetDpiCtxFn set_ctx = (SetDpiCtxFn)(void (*)(void))GetProcAddress(
+            user32, "SetProcessDpiAwarenessContext");
         if (set_ctx) {
             set_ctx(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
             FreeLibrary(user32);
@@ -33,8 +33,8 @@ void Wolf_EnableDpiAwareness(void)
         HMODULE shcore = LoadLibraryA("shcore.dll");
         if (shcore) {
             typedef HRESULT(WINAPI *SetDpiAwarenessFn)(int);
-            SetDpiAwarenessFn set_aw =
-                (SetDpiAwarenessFn)GetProcAddress(shcore, "SetProcessDpiAwareness");
+            SetDpiAwarenessFn set_aw = (SetDpiAwarenessFn)(void (*)(void))GetProcAddress(
+                shcore, "SetProcessDpiAwareness");
             if (set_aw) {
                 set_aw(2); /* PROCESS_PER_MONITOR_DPI_AWARE */
                 FreeLibrary(shcore);

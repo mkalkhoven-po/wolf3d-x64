@@ -10,6 +10,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(WOLF_FETCH_SDL2 "Download SDL2 via CMake FetchContent" ON)
+option(WOLF_SANITIZE "Build with ASan/UBSan (GCC/Clang only)" OFF)
+option(WOLF_BUILD_TESTS "Build unit tests and register CTest cases" ON)
 
 if(WOLF_FETCH_SDL2)
   include(FetchContent)
@@ -76,6 +78,21 @@ target_include_directories(wolf3d PRIVATE
 target_compile_definitions(wolf3d PRIVATE SDL_MAIN_HANDLED)
 target_link_libraries(wolf3d PRIVATE SDL2::SDL2)
 
+# Applies to project targets only, never to SDL2.
+function(wolf_apply_hardening target)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    if(WOLF_SANITIZE)
+      target_compile_options(${target} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+      target_link_options(${target} PRIVATE -fsanitize=address,undefined)
+    endif()
+  endif()
+endfunction()
+
+wolf_apply_hardening(wolf3d)
+
 if(UNIX OR MINGW)
   target_link_libraries(wolf3d PRIVATE m)
 endif()
@@ -94,3 +111,32 @@ if(WIN32 AND TARGET SDL2)
 endif()
 
 install(TARGETS wolf3d RUNTIME DESTINATION bin)
+
+if(WOLF_BUILD_TESTS)
+  enable_testing()
+
+  add_executable(test_decoders
+    tests/test_decoders.c
+    src/id/id_ca.c
+    src/id/id_us.c
+    src/id/wl_data.c
+    src/platform/win_sdl/wolf_winutil.c
+  )
+  target_include_directories(test_decoders PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/id
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
+  )
+  if(UNIX OR MINGW)
+    target_link_libraries(test_decoders PRIVATE m)
+  endif()
+  wolf_apply_hardening(test_decoders)
+  add_test(NAME decoders COMMAND test_decoders)
+
+  # Needs a user-supplied pack; skipped when WOLF3D_DATA is not set at configure time.
+  if(DEFINED ENV{WOLF3D_DATA})
+    add_test(NAME smoke_only COMMAND wolf3d --data "$ENV{WOLF3D_DATA}" --smoke-only)
+    set_tests_properties(smoke_only PROPERTIES
+      ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+  endif()
+endif()

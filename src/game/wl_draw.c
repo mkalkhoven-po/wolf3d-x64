@@ -157,7 +157,7 @@ static void draw_shape_billboard(float ex, float ey, int shapenum)
     float dy = ey - p->y;
     float inv_det, transform_x, transform_y;
     int sprite_screen_x, sprite_h, sprite_w;
-    int draw_start_y, draw_end_y, draw_start_x, draw_end_x;
+    int draw_start_y, draw_end_y;
     int stripe, y;
     float plane_x, plane_y;
     byte tex[64 * 64];

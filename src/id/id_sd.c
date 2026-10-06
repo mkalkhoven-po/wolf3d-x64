@@ -160,7 +160,7 @@ static boolean load_digi_table(void)
         byte *buf;
         int written = 0;
 
-        if (length == 0 || length > 256 * 1024) {
+        if (length == 0) {
             digi[i].data = NULL;
             digi[i].len = 0;
             continue;

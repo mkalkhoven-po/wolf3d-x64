@@ -23,7 +23,9 @@ Maps and world shell feel as close to original DOS Wolf as practical:
 - **Q4** audio/AppData playtest — independent (except shared smoke).
 - **Q5** go/no-go — can run after or in parallel once blockers cleared.
 
-## Priority among open work (recommended)
+## Priority among open work (historical)
+
+Superseded by the faithful-port roadmap in [README.md](README.md) (P1–P6, F4 last). Kept for context; L1 is implemented.
 
 | Order | Work | Why |
 |-------|------|-----|

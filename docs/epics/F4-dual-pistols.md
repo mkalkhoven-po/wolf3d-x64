@@ -89,4 +89,4 @@ Default recommend **A + simple unlock flag** for smoke/manual test.
 
 
 ## Status
-**PLANNED** — docs + board only until F2 ships and user says implement go.
+**DEFERRED — last item on the roadmap**, after the faithful port (P1–P6, WL1 then WL6). Docs + board only until then.
