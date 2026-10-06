@@ -1,7 +1,7 @@
 # Wolfenstein 3D — Win11 x64 Port Analysis & Planning Plan
 
-> **For Hermes:** Planning-only document. Do **not** implement or build until explicitly approved.
-> Use this as the basis for a later implementation plan (subagent-driven-development).
+> **Historical planning document (written before implementation).** The decisions here were adopted in [ADR-001](../adr/001-platform-backend.md) and amended by [ADR-002](../adr/002-faithful-fixed-point-port.md); current status is in [`docs/epics/README.md`](../epics/README.md).
+> Originally framed as a basis for a later implementation plan (subagent-driven-development).
 
 **Goal:** Analyse what is required to turn this 1992 Borland C++ 3.0 / 16-bit DOS raycaster into a modern **64-bit Windows 11 native executable**, and produce a phased porting plan (no code written yet).
 

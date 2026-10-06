@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (defaults for MVP)
+Accepted (defaults for MVP). Items 1 and 6 are amended by [ADR-002](002-faithful-fixed-point-port.md): faithful fixed-point port, WL1 first then WL6.
 
 ## Context
 
@@ -17,7 +17,7 @@ Original sources target Borland C++ 3.x, 16-bit DOS, VGA Mode-X, IRQ audio, and 
 5. **No JIT scalers** — simple C column loops (Carmack note).
 6. **MVP SKU: WL1 shareware** data layout; GOODTIMES/WL6 and Spear deferred.
 7. **Saves: new format** in AppData; DOS save import optional later.
-8. **Build: CMake + MSVC or Clang x64.**
+8. **Build: CMake + MinGW/GCC or MSVC x64** (CI uses MSVC).
 
 ## Consequences
 

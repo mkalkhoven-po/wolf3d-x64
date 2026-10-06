@@ -4,7 +4,7 @@ Native **Windows 11 x64** port of the 1992 id Software *Wolfenstein 3D* engine s
 
 > **Status:** Playable desktop build through **E8** (AppData config/saves, integer scale, fullscreen).  
 > **Repo visibility:** Private (sign in as an account with access — guests see “Page not found”)  
-> **MVP:** Full registered **WL6** or shareware **WL1** via SDL2 software renderer + digitized audio
+> **MVP:** Shareware **WL1** first (WL6 is supported for development and testing today; WL1 support lands in P3) via SDL2 software renderer + digitized audio. See [ADR-002](docs/adr/002-faithful-fixed-point-port.md).
 
 ## Player quickstart
 

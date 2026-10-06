@@ -2,19 +2,19 @@
 
 ## Faithful port roadmap (current plan)
 
-Direction (ADR-002 pending): reimplement gameplay from the original `WL_*.C` logic — 16.16 fixed-point, 70 Hz tics, original state tables and `US_RndT` — so behaviour matches the DOS game. **WL1 shareware first, then WL6.** The reference sources in `reference/original/` are the oracle.
+Direction ([ADR-002](../adr/002-faithful-fixed-point-port.md)): reimplement gameplay from the original `WL_*.C` logic — 16.16 fixed-point, 70 Hz tics, original state tables and `US_RndT` — so behaviour matches the DOS game. **WL1 shareware first, then WL6.** The reference sources in `reference/original/` are the oracle.
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| P1 | Safety net: warnings, ASan/UBSan option, decoder unit tests + CTest, CI build, script fixes | **In progress** (see below) |
-| P2 | Honest docs: known gaps, fill `GO_NO_GO.md`, ADR-002, fix outdated plan header and WL1/WL6 wording | Planned |
+| P1 | Safety net: warnings, ASan/UBSan option, decoder unit tests + CTest, CI build, script fixes | **Done** |
+| P2 | Honest docs: known gaps, `GO_NO_GO.md` assessment, ADR-002, FR matrix corrections, outdated plan header and WL1/WL6 wording | **Done** |
 | P3 | WL1 data layer: WL1 chunk/sound/map tables selected by extension (today only WL6 tables exist) | Planned |
 | P4 | Engine core: fixed-point + 70 Hz loop, original object/AI/state tables, player code, fixed-point renderer (re-run the L1.5 matrix) | Planned |
 | P5 | Game flow: real menus, intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | Planned |
 | P6 | WL6: all episodes / 60 maps, remaining enemies and chunks | Planned |
 | F4 | Dual pistols — optional, **last**, only after P6 | Deferred |
 
-P1 delivered so far: `-Wall -Wextra -Wpedantic` (`/W4` on MSVC), `-DWOLF_SANITIZE=ON`, `tests/test_decoders.c` via CTest, optional `smoke_only` CTest when `WOLF3D_DATA` is set at configure time, Windows CI workflow. Still open: confirm no game data or build output is tracked in git (`git ls-files`).
+P1 delivered: `-Wall -Wextra -Wpedantic` (`/W4` on MSVC) with zero project warnings, `-DWOLF_SANITIZE=ON`, `tests/test_decoders.c` via CTest, optional `smoke_only` CTest when `WOLF3D_DATA` is set at configure time, Windows CI (green).
 
 ### Known gaps (why M0–M8 is "shell delivered", not "complete")
 - Enemy AI is a placeholder (straight-line chase, melee only; no ranged attacks, patrol, ambush, door use or difficulty).

@@ -1,25 +1,25 @@
 # Go / no-go (Q5)
 
-Fill during **Epic Q5 / #60**. Until then this is a stub.
+**Not signed off.** The table is an assessment as of **2026-10-06** against the faithful-port bar ([ADR-002](../adr/002-faithful-fixed-point-port.md)); the maintainer decision happens in Q5 / #60 after P5.
 
 | Area | FR band | Result (Go / No-Go / Conditional) | Notes / open bugs |
 |------|---------|-------------------------------------|-------------------|
-| Platform | FR-PLAT-* | | |
-| Data | FR-DATA-* | | |
-| Video / present | FR-VID-* | | |
-| Input | FR-IN-* | | |
-| Gameplay | FR-GAME-* | | |
-| Audio | FR-AUD-* | | |
-| Saves / config | FR-SAVE-*, FR-DATA-004 | | |
-| Smoke harness | FR-QA-001 | | |
+| Platform | FR-PLAT-* | Conditional | FR-PLAT-002 (no admin) untested |
+| Data | FR-DATA-* | Conditional | WL6 works; WL1 not supported until P3 (chunk tables are WL6-only) |
+| Video / present | FR-VID-* | Go | FR-VID-005 alt-tab only informally checked |
+| Input | FR-IN-* | Conditional | Core keys + mouse turn; no Control menu (stub) |
+| Gameplay | FR-GAME-* | No-Go | Enemy AI is a placeholder (melee only); WL1 episode not testable; no demos/intermission |
+| Audio | FR-AUD-* | Conditional | Soft-OPL music is Partial (#74) |
+| Saves / config | FR-SAVE-*, FR-DATA-004 | Go | Own `saveN.w64` format; Load menu entry is a stub |
+| Smoke harness | FR-QA-001 | Go | 18 markers; P1 added unit tests (CTest) and Windows CI |
 
 ## Gates
 
 - [ ] Open `severity:crash` = 0  
 - [ ] Open `severity:blocker` = 0  
-- [ ] Q1 smoke green on maintainer machine  
+- [x] Q1 smoke green on maintainer machine (2026-10-06, `ctest` `smoke_only` against WL6)  
 - [ ] Q2–Q4 checklists completed or residual risk listed  
-- [ ] FR matrix reviewed; Partial items conscious  
+- [ ] FR matrix reviewed; Partial items conscious (reviewed 2026-10-06; statuses adjusted)  
 - [ ] Cold start with empty `%APPDATA%\Wolf3DWin64\` once  
 
 ## Sign-off
@@ -30,4 +30,4 @@ Fill during **Epic Q5 / #60**. Until then this is a stub.
 
 ## Residual risk (accepted)
 
-_List Partial FRs and wontfix p2 items._
+Nothing accepted yet. Known Partial FRs: FR-DATA-001, FR-VID-005, FR-IN-001, FR-IN-002, FR-GAME-006, FR-GAME-007, FR-AUD-003, NFR-001. Known gaps are listed in [`docs/epics/README.md`](../epics/README.md).

@@ -46,7 +46,7 @@ IDs are referenced from GitHub user stories.
 
 | ID | Requirement |
 |----|-------------|
-| FR-GAME-001 | Title/demo/menu loop reachable at startup when data present. |
+| FR-GAME-001 | Title/menu loop reachable at startup when data present (attract loop and demo playback arrive in P5). |
 | FR-GAME-002 | User can start a new shareware game from the menu. |
 | FR-GAME-003 | Player can move and collide with walls on level geometry loaded from data. |
 | FR-GAME-004 | Doors **and pushwalls/secrets** behave per original rules for loaded maps (push motion, blocking, secret tally). |

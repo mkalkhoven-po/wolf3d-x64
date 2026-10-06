@@ -13,7 +13,8 @@ Status values for the **QA phase** (not delivery history):
 
 Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-check.
 
-> Seeded at Q0. Update when blocks close. Game data remains user-owned.
+> Seeded at Q0. Update when blocks close. Game data remains user-owned.  
+> Reviewed 2026-10-06 (P2): FR-DATA-001, FR-GAME-006 and FR-GAME-007 lowered from Met to Partial against the faithful-port bar ([ADR-002](../adr/002-faithful-fixed-point-port.md)).
 
 ## Platform & process
 
@@ -28,7 +29,7 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
-| FR-DATA-001 | `--data` WL1/WL6 dir | A | Met | Q1/Q2 | WL6 preferred when owned |
+| FR-DATA-001 | `--data` WL1/WL6 dir | A | Partial | P3 | WL6 works; WL1 detected but chunk tables are WL6-only |
 | FR-DATA-002 | CLI + `WOLF3D_DATA` | A | Met | Q1/Q2 | + last_data fallback if no `--data` |
 | FR-DATA-003 | Bad path lists MISSING, exit ≠0 | A | Met | Q1/Q2 | Explicit bad `--data` must not use last_data |
 | FR-DATA-004 | Files under `%APPDATA%\Wolf3DWin64\` | A/M | Met | Q1/Q4 | config.ini, saves, highscores |
@@ -58,13 +59,13 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
-| FR-GAME-001 | Title → menu | A/M | Met | Q2 | |
+| FR-GAME-001 | Title → menu | A/M | Met | Q2 | Attract loop / demos not implemented (P5) |
 | FR-GAME-002 | New Game starts | M | Met | Q2/Q3 | Player sessions |
 | FR-GAME-003 | Move + wall collide | A/M | Met | Q3 | Raycast smoke |
 | FR-GAME-004 | Doors + pushwalls/secrets | A/M | Met | L1 | Doors #72/#75; pushwalls L1 code |
 | FR-GAME-005 | Pickups | A/M | Met | Q3 | UI; digi pickup SFX quiet (honest digimap) |
-| FR-GAME-006 | Enemies die | A/M | Met | Q3 | Teleport fixed; sprites = F3/#73 |
-| FR-GAME-007 | Weapons hitscan/melee | A/M | Met | Q3 | Empty-gun blocks fire; knife view = F2 |
+| FR-GAME-006 | Enemies die | A/M | Partial | P4 | Placeholder AI: chase + melee only, no ranged attacks/patrol/door use |
+| FR-GAME-007 | Weapons hitscan/melee | A/M | Partial | P4 | Fixed damage, float timing; not original-accurate yet |
 | FR-GAME-008 | Lives / elevator / episode | A/M | Met | Q3 | Death/R/GO; elev E → N next map (player #56) |
 
 ## Audio
