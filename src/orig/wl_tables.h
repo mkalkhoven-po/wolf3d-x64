@@ -18,3 +18,5 @@ extern int32_t finetangent[FINEANGLES / 4];
 
 /* Fill sintable/costable and finetangent exactly as BuildTables does. */
 void BuildTables(void);
+
+extern fixed tileglobal;
