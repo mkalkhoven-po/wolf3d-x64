@@ -272,17 +272,22 @@ static void RecursiveConnect(int areanumber)
     }
 }
 
+/* The player can't stand on a non-floor tile in valid maps; guarded anyway. */
 void ConnectAreas(void)
 {
     memset(areabyplayer, 0, sizeof(areabyplayer));
-    areabyplayer[player->areanumber] = true;
-    RecursiveConnect(player->areanumber);
+    if (player->areanumber < NUMAREAS) {
+        areabyplayer[player->areanumber] = true;
+        RecursiveConnect(player->areanumber);
+    }
 }
 
 void InitAreas(void)
 {
     memset(areabyplayer, 0, sizeof(areabyplayer));
-    areabyplayer[player->areanumber] = true;
+    if (player->areanumber < NUMAREAS) {
+        areabyplayer[player->areanumber] = true;
+    }
 }
 
 /*
@@ -346,4 +351,435 @@ void SpawnDoor(int tilex, int tiley, boolean vertical, int lock)
 
     doornum++;
     lastdoorobj++;
+}
+
+#define OPENTICS 300
+
+/*
+ * Area numbers on both sides of a door. Valid maps always have floor tiles
+ * there; anything else would index areaconnect out of bounds, so it is
+ * reported as invalid instead (not in the original).
+ */
+static boolean DoorAreas(int door, int *area1, int *area2)
+{
+    const uint16_t *map = mapsegs[0] + farmapylookup[doorobjlist[door].tiley] +
+                          doorobjlist[door].tilex;
+
+    if (doorobjlist[door].vertical) {
+        *area1 = *(map + 1);
+        *area2 = *(map - 1);
+    } else {
+        *area1 = *(map - mapwidth);
+        *area2 = *(map + mapwidth);
+    }
+    *area1 -= AREATILE;
+    *area2 -= AREATILE;
+
+    return *area1 >= 0 && *area1 < NUMAREAS && *area2 >= 0 && *area2 < NUMAREAS;
+}
+
+/*
+=====================
+=
+= OpenDoor
+=
+=====================
+*/
+
+void OpenDoor(int door)
+{
+    if (doorobjlist[door].action == dr_open) {
+        doorobjlist[door].ticcount = 0; /* reset open time */
+    } else {
+        doorobjlist[door].action = dr_opening; /* start it opening */
+    }
+}
+
+/*
+=====================
+=
+= CloseDoor
+=
+=====================
+*/
+
+void CloseDoor(int door)
+{
+    int tilex, tiley, area;
+    objtype *check;
+
+    /* don't close on anything solid */
+    tilex = doorobjlist[door].tilex;
+    tiley = doorobjlist[door].tiley;
+
+    if (actorat[tilex][tiley]) {
+        return;
+    }
+
+    if (player->tilex == tilex && player->tiley == tiley) {
+        return;
+    }
+
+    if (doorobjlist[door].vertical) {
+        if (player->tiley == tiley) {
+            if (((player->x + MINDIST) >> TILESHIFT) == tilex) {
+                return;
+            }
+            if (((player->x - MINDIST) >> TILESHIFT) == tilex) {
+                return;
+            }
+        }
+        check = actorat[tilex - 1][tiley];
+        if (check && ((check->x + MINDIST) >> TILESHIFT) == tilex) {
+            return;
+        }
+        check = actorat[tilex + 1][tiley];
+        if (check && ((check->x - MINDIST) >> TILESHIFT) == tilex) {
+            return;
+        }
+    } else if (!doorobjlist[door].vertical) {
+        if (player->tilex == tilex) {
+            if (((player->y + MINDIST) >> TILESHIFT) == tiley) {
+                return;
+            }
+            if (((player->y - MINDIST) >> TILESHIFT) == tiley) {
+                return;
+            }
+        }
+        check = actorat[tilex][tiley - 1];
+        if (check && ((check->y + MINDIST) >> TILESHIFT) == tiley) {
+            return;
+        }
+        check = actorat[tilex][tiley + 1];
+        if (check && ((check->y - MINDIST) >> TILESHIFT) == tiley) {
+            return;
+        }
+    }
+
+    /* play door sound if in a connected area */
+    area = *(mapsegs[0] + farmapylookup[doorobjlist[door].tiley] + doorobjlist[door].tilex) -
+           AREATILE;
+    if (area >= 0 && area < NUMAREAS && areabyplayer[area]) {
+        PlaySoundLocTile(CLOSEDOORSND, doorobjlist[door].tilex, doorobjlist[door].tiley);
+    }
+
+    doorobjlist[door].action = dr_closing;
+
+    /* make the door space solid */
+    actorat[tilex][tiley] = ACTORAT_TILE(door | 0x80);
+}
+
+/*
+=====================
+=
+= OperateDoor
+=
+= The player wants to change the door's direction
+=
+=====================
+*/
+
+void OperateDoor(int door)
+{
+    int lock;
+
+    lock = doorobjlist[door].lock;
+    if (lock >= dr_lock1 && lock <= dr_lock4) {
+        if (!(gamestate.keys & (1 << (lock - dr_lock1)))) {
+            OrigSD_PlaySound(NOWAYSND); /* locked */
+            return;
+        }
+    }
+
+    switch (doorobjlist[door].action) {
+    case dr_closed:
+    case dr_closing:
+        OpenDoor(door);
+        break;
+    case dr_open:
+    case dr_opening:
+        CloseDoor(door);
+        break;
+    }
+}
+
+/*
+===============
+=
+= DoorOpen
+=
+= Close the door after three seconds
+=
+===============
+*/
+
+static void DoorOpen(int door)
+{
+    doorobjlist[door].ticcount = (int16_t)(doorobjlist[door].ticcount + tics);
+    if (doorobjlist[door].ticcount >= OPENTICS) {
+        CloseDoor(door);
+    }
+}
+
+/*
+===============
+=
+= DoorOpening
+=
+===============
+*/
+
+static void DoorOpening(int door)
+{
+    int area1, area2;
+    int32_t position;
+
+    position = doorposition[door];
+    if (!position) {
+        /* door is just starting to open, so connect the areas */
+        if (DoorAreas(door, &area1, &area2)) {
+            areaconnect[area1][area2]++;
+            areaconnect[area2][area1]++;
+            ConnectAreas();
+            if (areabyplayer[area1]) {
+                PlaySoundLocTile(OPENDOORSND, doorobjlist[door].tilex, doorobjlist[door].tiley);
+            }
+        }
+    }
+
+    /* slide the door by an adaptive amount */
+    position += (int32_t)tics << 10;
+    if (position >= 0xffff) {
+        /* door is all the way open */
+        position = 0xffff;
+        doorobjlist[door].ticcount = 0;
+        doorobjlist[door].action = dr_open;
+        actorat[doorobjlist[door].tilex][doorobjlist[door].tiley] = NULL;
+    }
+
+    doorposition[door] = (uint16_t)position;
+}
+
+/*
+===============
+=
+= DoorClosing
+=
+===============
+*/
+
+static void DoorClosing(int door)
+{
+    int area1, area2;
+    int32_t position;
+    int tilex, tiley;
+
+    tilex = doorobjlist[door].tilex;
+    tiley = doorobjlist[door].tiley;
+
+    if ((ACTORAT_VALUE(actorat[tilex][tiley]) != (uintptr_t)(door | 0x80)) ||
+        (player->tilex == tilex && player->tiley == tiley)) {
+        /* something got inside the door */
+        OpenDoor(door);
+        return;
+    }
+
+    position = doorposition[door];
+
+    /* slide the door by an adaptive amount */
+    position -= (int32_t)tics << 10;
+    if (position <= 0) {
+        /* door is closed all the way, so disconnect the areas */
+        position = 0;
+
+        doorobjlist[door].action = dr_closed;
+
+        if (DoorAreas(door, &area1, &area2)) {
+            areaconnect[area1][area2]--;
+            areaconnect[area2][area1]--;
+        }
+
+        ConnectAreas();
+    }
+
+    doorposition[door] = (uint16_t)position;
+}
+
+/*
+=====================
+=
+= MoveDoors
+=
+= Called from PlayLoop
+=
+=====================
+*/
+
+void MoveDoors(void)
+{
+    int door;
+
+    if (gamestate.victoryflag) { /* don't move door during victory sequence */
+        return;
+    }
+
+    for (door = 0; door < doornum; door++) {
+        switch (doorobjlist[door].action) {
+        case dr_open:
+            DoorOpen(door);
+            break;
+
+        case dr_opening:
+            DoorOpening(door);
+            break;
+
+        case dr_closing:
+            DoorClosing(door);
+            break;
+
+        default:
+            break;
+        }
+    }
+}
+
+/*
+=============================================================================
+
+                        PUSHABLE WALLS
+
+=============================================================================
+*/
+
+uint16_t pwallstate;
+uint16_t pwallpos; /* amount a pushable wall has been moved (0-63) */
+uint16_t pwallx, pwally;
+int16_t pwalldir;
+
+/* Not in the original: keeps a pushwall from writing outside the map. */
+static boolean InsideMap(int x, int y)
+{
+    return x >= 0 && y >= 0 && x < MAPSIZE && y < MAPSIZE;
+}
+
+/* The tile one step from x,y in pushwall direction dir (di_north..di_west). */
+static void PWallStep(int dir, int *x, int *y)
+{
+    switch (dir) {
+    case di_north:
+        (*y)--;
+        break;
+    case di_east:
+        (*x)++;
+        break;
+    case di_south:
+        (*y)++;
+        break;
+    case di_west:
+        (*x)--;
+        break;
+    }
+}
+
+/*
+===============
+=
+= PushWall
+=
+===============
+*/
+
+void PushWall(int checkx, int checky, int dir)
+{
+    int oldtile;
+    int nx = checkx, ny = checky;
+
+    if (pwallstate) {
+        return;
+    }
+
+    oldtile = tilemap[checkx][checky];
+    if (!oldtile) {
+        return;
+    }
+
+    if (dir < di_north || dir > di_west) {
+        return;
+    }
+    PWallStep(dir, &nx, &ny);
+    if (!InsideMap(nx, ny) || actorat[nx][ny]) {
+        OrigSD_PlaySound(NOWAYSND);
+        return;
+    }
+    actorat[nx][ny] = ACTORAT_TILE(oldtile);
+    tilemap[nx][ny] = (byte)oldtile;
+
+    gamestate.secretcount++;
+    pwallx = (uint16_t)checkx;
+    pwally = (uint16_t)checky;
+    pwalldir = (int16_t)dir;
+    pwallstate = 1;
+    pwallpos = 0;
+    tilemap[pwallx][pwally] |= 0xc0;
+    *(mapsegs[1] + farmapylookup[pwally] + pwallx) = 0; /* remove P tile info */
+
+    OrigSD_PlaySound(PUSHWALLSND);
+}
+
+/*
+=================
+=
+= MovePWalls
+=
+=================
+*/
+
+void MovePWalls(void)
+{
+    int oldblock, oldtile;
+    int x, y;
+
+    if (!pwallstate) {
+        return;
+    }
+
+    oldblock = pwallstate / 128;
+
+    pwallstate = (uint16_t)(pwallstate + tics);
+
+    if (pwallstate / 128 != oldblock) {
+        /* block crossed into a new block */
+        oldtile = tilemap[pwallx][pwally] & 63;
+
+        /* the tile can now be walked into */
+        tilemap[pwallx][pwally] = 0;
+        actorat[pwallx][pwally] = NULL;
+        *(mapsegs[0] + farmapylookup[pwally] + pwallx) =
+            (uint16_t)(player->areanumber + AREATILE);
+
+        /* see if it should be pushed farther */
+        if (pwallstate > 256) {
+            /* the block has been pushed two tiles */
+            pwallstate = 0;
+            return;
+        }
+
+        x = pwallx;
+        y = pwally;
+        PWallStep(pwalldir, &x, &y);
+        pwallx = (uint16_t)x;
+        pwally = (uint16_t)y;
+
+        PWallStep(pwalldir, &x, &y);
+        if (!InsideMap(x, y) || actorat[x][y]) {
+            pwallstate = 0;
+            return;
+        }
+        actorat[x][y] = ACTORAT_TILE(oldtile);
+        tilemap[x][y] = (byte)oldtile;
+
+        tilemap[pwallx][pwally] = (byte)(oldtile | 0xc0);
+    }
+
+    pwallpos = (pwallstate / 2) & 63;
 }

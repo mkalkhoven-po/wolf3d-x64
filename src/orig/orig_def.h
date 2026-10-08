@@ -51,6 +51,12 @@
 
 #define MINDIST     (0x5800l)
 
+#define PLAYERSIZE      MINDIST     /* player radius */
+#define MINACTORDIST    0x10000l    /* minimum dist from player center to any actor center */
+
+#define MAXTICS     10
+#define DEMOTICS    4
+
 #define MAPSIZE     64      /* maps are 64*64 max */
 #define NORTH       0
 #define EAST        1
@@ -74,6 +80,13 @@
 #define FL_FIRSTATTACK  32
 #define FL_AMBUSH       64
 #define FL_NONMARK      128
+
+typedef enum {
+    di_north,
+    di_east,
+    di_south,
+    di_west
+} controldir_t;
 
 typedef enum {
     dr_normal,
@@ -189,7 +202,7 @@ typedef enum {
 typedef struct objstruct objtype;
 
 typedef struct statestruct {
-    boolean rotate;
+    int16_t rotate; /* Borland boolean was an int: pain states use 2 */
     int16_t shapenum; /* a shapenum of -1 means get from ob->temp1 */
     int16_t tictime;
     void (*think)(objtype *ob), (*action)(objtype *ob);
@@ -279,6 +292,19 @@ typedef struct {
     int32_t killx, killy;
     boolean victoryflag; /* set during victory animations */
 } gametype;
+
+typedef enum {
+    ex_stillplaying,
+    ex_completed,
+    ex_died,
+    ex_warped,
+    ex_resetgame,
+    ex_loadedgame,
+    ex_victorious,
+    ex_abort,
+    ex_demodone,
+    ex_secretlevel
+} exit_t;
 
 /*
  * actorat holds either an objtype pointer or a small tile number cast to a

@@ -1,11 +1,90 @@
-/* Player (WL_AGENT.C): spawn only. Movement, weapons and items come in S3. */
+/*
+ * Player (WL_AGENT.C): spawn, damage and score. Movement, weapons and items
+ * come in S3.
+ */
 #include "orig.h"
 
 #include "id_ca.h"
 
+/* T_Player is ported in S3; until then the player state does nothing. */
 statetype s_player = {false, 0, 0, NULL, NULL, NULL};
 
 int32_t thrustspeed;
+uint16_t plux, pluy; /* player coordinates scaled to unsigned */
+int16_t gotgatgun;   /* JR */
+objtype *LastAttacker;
+
+/*
+===============
+=
+= TakeDamage
+=
+===============
+*/
+
+void TakeDamage(int points, objtype *attacker)
+{
+    LastAttacker = attacker;
+
+    if (gamestate.victoryflag) {
+        return;
+    }
+    if (gamestate.difficulty == gd_baby) {
+        points >>= 2;
+    }
+
+    if (!godmode) {
+        gamestate.health = (int16_t)(gamestate.health - points);
+    }
+
+    if (gamestate.health <= 0) {
+        gamestate.health = 0;
+        playstate = ex_died;
+        killerobj = attacker;
+    }
+
+    StartDamageFlash(points);
+
+    gotgatgun = 0;
+
+    DrawHealth();
+    DrawFace();
+}
+
+/*
+===============
+=
+= GiveExtraMan
+=
+===============
+*/
+
+void GiveExtraMan(void)
+{
+    if (gamestate.lives < 9) {
+        gamestate.lives++;
+    }
+    DrawLives();
+    OrigSD_PlaySound(BONUS1UPSND);
+}
+
+/*
+===============
+=
+= GivePoints
+=
+===============
+*/
+
+void GivePoints(int32_t points)
+{
+    gamestate.score += points;
+    while (gamestate.score >= gamestate.nextextra) {
+        gamestate.nextextra += EXTRAPOINTS;
+        GiveExtraMan();
+    }
+    DrawScore();
+}
 
 /*
  * The part of Thrust(0,0) that SpawnPlayer relies on. With a zero move,

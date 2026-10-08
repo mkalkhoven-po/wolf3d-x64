@@ -9,7 +9,7 @@ Direction ([ADR-002](../adr/002-faithful-fixed-point-port.md)): reimplement game
 | P1 | Safety net: warnings, ASan/UBSan option, decoder unit tests + CTest, CI build, script fixes | **Done** |
 | P2 | Honest docs: known gaps, `GO_NO_GO.md` assessment, ADR-002, FR matrix corrections, outdated plan header and WL1/WL6 wording | **Done** |
 | P3 | WL1 data layer: WL1 and WL6 graphics layouts selected by pack extension (`src/id/gfxv.h`); layout is validated against the pack and unsupported versions fail with a clear error | **Done** for the Apogee 1.4 shareware pack (smoke passes on WL1 and WL6); manual WL1 playthrough not yet done |
-| P4 | Engine core: fixed-point + 70 Hz loop, original object/AI/state tables, player code, fixed-point renderer (re-run the L1.5 matrix) | **In progress**: S0, S1 done |
+| P4 | Engine core: fixed-point + 70 Hz loop, original object/AI/state tables, player code, fixed-point renderer (re-run the L1.5 matrix) | **In progress**: S0, S1 done; S2a done, S2b next |
 | P5 | Game flow: real menus, intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | Planned |
 | P6 | WL6: all episodes / 60 maps, remaining enemies and chunks | Planned |
 | F4 | Dual pistols — optional, **last**, only after P6 | Deferred |
@@ -23,15 +23,20 @@ Built in parallel with the legacy engine (`--engine=legacy|orig`); details of th
 | Step | Scope | Depends on | Status |
 |------|-------|------------|--------|
 | S0 | Foundations: 16.16 fixed-point (sign-magnitude `FixedByFrac`), sin/cos/tan tables, `US_RndT` table, 70 Hz tic clock, unit tests; spike: locate `T_DEMO0..3` chunks in WL1 and WL6 | P3 | **Done** (#128) |
-| S1 | Data model (`objtype`, `statetype`, `gametype`) and level load (`SetupGameLevel`, `ScanInfoPlane`, areas, doors, statics, difficulty spawns) | S0 | **Done** |
-| S2 | `WL_STATE.C` (movement, chase/dodge/run, sight, damage) + `WL_ACT1.C` + shareware actors of `WL_ACT2.C` as state-table data; deterministic trace tests | S1 | Planned |
+| S1 | Data model (`objtype`, `statetype`, `gametype`) and level load (`SetupGameLevel`, `ScanInfoPlane`, areas, doors, statics, difficulty spawns) | S0 | **Done** (#129) |
+| S2 | `WL_STATE.C` (movement, chase/dodge/run, sight, damage) + `WL_ACT1.C` + shareware actors of `WL_ACT2.C` as state-table data; deterministic trace tests | S1 | **S2a done**: WL_STATE.C, WL_ACT1.C (doors, pushwalls), all 303 non-SPEAR states (generated), soldier/dog/ghost/projectile AI. **S2b**: boss specials, BJ victory, death cam |
 | S3 | `WL_AGENT.C`: player movement/collision, weapons, `Cmd_Fire`/`Cmd_Use`, damage, items | S1 (hit test needs S4a) | Planned |
 | S4 | Renderer: S4a exact `TransformActor`/`CalcHeight`/projection; S4b raycaster in C (spec: `WL_DR_A.ASM`); S4c pixel-exact wall/sprite scaling (no compiled scalers) | S1; S4a before S3 | Planned |
 | S5 | `PlayLoop`: `CalcTics`, original actor update order, doors/pushwalls, HUD hooks | S2, S3, S4 | Planned |
 | S6 | Switch default to the new engine, delete legacy float gameplay/draw, save format v2, update smoke markers | S5 | Planned |
 | S7 | Fidelity gate: original demos replay without desync; local golden frame hashes; E1M1 any% route; L1.5 matrix re-run | S5 | Planned |
 
-S1 left for later steps: only the spawn states exist (think/action NULL, links outside the subset NULL) until S2 adds the full state tables; the boss spawners' death-state tictime (140 with digitized sound, else 5) moves with those states; `SpawnPlayer` uses the zero-move part of `Thrust` until S3. Original quirks kept on purpose: a standing dog (info tiles 134–137) spawns nothing and overwrites the previous actor's fields (no supported pack uses those tiles); `bo_clip2` statics keep the slot's previous flags; patrols can share or clear `actorat` spots.
+Engine notes so far (details in the code comments and PRs):
+- **Still to come:** S2b replaces the boss/BJ/death-cam stubs (`src/orig/orig_act2_todo.c`, they quit loudly if reached); `SpawnPlayer` uses the zero-move part of `Thrust` and `s_player` has no think until S3; sound and status-bar calls go through `orig_hooks.h` (no-ops until S5/S6).
+- **State tables** are generated from `WL_ACT2.C` by `scripts/gen_orig_states.sh`; do not edit `orig_states.c/.h` by hand.
+- **Original quirks kept on purpose:** a standing dog (info tiles 134–137) spawns nothing and overwrites the previous actor's fields (no supported pack uses those tiles); `bo_clip2` statics keep the slot's previous flags; patrols can share or clear `actorat` spots; a pushwall moves three tiles when `pwallstate` lands exactly on 256 (e.g. one or three tics per frame) and two otherwise; `CheckLine` compares a door's position with the absolute line coordinate, so a door stops blocking sight early.
+- **Divergences (to confirm with demos in S7):** reads outside the map are bounds-checked (invalid maps only); an actor on a non-floor tile (WL6 map 17: a boss on an ambush tile, area 255) reads as "not connected to the player" where the original read unrelated memory.
+- **Renderer dependency:** the original marks actors active and `FL_VISABLE` while drawing (`WL_DRAW.C`), which feeds `DoActor` and `T_Shoot`; S4 has to keep that coupling.
 
 Risks: renderer-set `viewx`/`FL_VISABLE` feed the player's hit test; sign-magnitude fixed-point rounding; trig tables built with Borland floating point (check against `WOLF3D.EXE` locally); 16-bit overflow assumptions; the assembly raycaster.
 

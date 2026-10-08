@@ -74,10 +74,13 @@ set(WOLF_ORIG_SOURCES
   ${WOLF_ORIG_CORE_SOURCES}
   src/orig/orig_act1.c
   src/orig/orig_act2.c
+  src/orig/orig_act2_todo.c
   src/orig/orig_agent.c
   src/orig/orig_game.c
+  src/orig/orig_hooks.c
   src/orig/orig_play.c
   src/orig/orig_state.c
+  src/orig/orig_states.c
 )
 
 add_executable(wolf3d
@@ -183,6 +186,26 @@ if(WOLF_BUILD_TESTS)
   wolf_apply_hardening(test_orig_level)
   add_test(NAME orig_level COMMAND test_orig_level)
 
+  add_executable(test_orig_ai
+    tests/test_orig_ai.c
+    ${WOLF_ORIG_SOURCES}
+    src/id/id_ca.c
+    src/id/id_us.c
+    src/id/wl_data.c
+    src/platform/win_sdl/wolf_winutil.c
+  )
+  target_include_directories(test_orig_ai PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/id
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/orig
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
+  )
+  if(UNIX OR MINGW)
+    target_link_libraries(test_orig_ai PRIVATE m)
+  endif()
+  wolf_apply_hardening(test_orig_ai)
+  add_test(NAME orig_ai COMMAND test_orig_ai)
+
   add_executable(test_demo_chunks
     tests/test_demo_chunks.c
     src/id/id_ca.c
@@ -204,6 +227,7 @@ if(WOLF_BUILD_TESTS)
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     add_test(NAME demo_chunks COMMAND test_demo_chunks --data "$ENV{WOLF3D_DATA}")
     add_test(NAME orig_level_maps COMMAND test_orig_level --data "$ENV{WOLF3D_DATA}")
+    add_test(NAME orig_ai_maps COMMAND test_orig_ai --data "$ENV{WOLF3D_DATA}")
   endif()
   if(DEFINED ENV{WOLF3D_DATA_WL1})
     add_test(NAME smoke_only_wl1 COMMAND wolf3d --data "$ENV{WOLF3D_DATA_WL1}" --smoke-only)
@@ -211,5 +235,6 @@ if(WOLF_BUILD_TESTS)
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     add_test(NAME demo_chunks_wl1 COMMAND test_demo_chunks --data "$ENV{WOLF3D_DATA_WL1}")
     add_test(NAME orig_level_maps_wl1 COMMAND test_orig_level --data "$ENV{WOLF3D_DATA_WL1}")
+    add_test(NAME orig_ai_maps_wl1 COMMAND test_orig_ai --data "$ENV{WOLF3D_DATA_WL1}")
   endif()
 endif()
