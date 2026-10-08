@@ -36,7 +36,7 @@ Optional later:
 
 | File | Role |
 |------|------|
-| Demos (`DEMO0`… as chunks or extern files depending on build flags) | Attract mode |
+| Demos (`DEMO0`… as chunks or extern files depending on build flags) | Attract mode. In the supported packs they are `VGAGRAPH` chunks `T_DEMO0..3`: 139–142 in WL6 (maps 37, 43, 56, 31), 151–154 in WL1 Apogee 1.4 (maps 0, 2, 4, 6). Checked by the `demo_chunks` CTest when a pack is configured. |
 | `CONFIG.WL*` | Original DOS config (we prefer AppData modern config) |
 
 Spear of Destiny **`.SOD` / `.SDM`** is a separate SKU (often in a sibling folder) — supported as sequence expansion, not the first load-path milestone.

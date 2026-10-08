@@ -31,6 +31,7 @@ typedef struct {
     int n_blankpic, n_0pic;
     int face1apic, face8apic;
     int gotgatlingpic, mutantbjpic, pausedpic, getpsychedpic;
+    int t_demo0; /* T_DEMO0..T_DEMO3 are consecutive extern chunks */
 } gfx_layout_t;
 
 extern const gfx_layout_t gfx_layout_wl6;
@@ -87,6 +88,11 @@ extern const gfx_layout_t *g_gfx;
 #define MUTANTBJPIC     (g_gfx->mutantbjpic)
 #define PAUSEDPIC       (g_gfx->pausedpic)
 #define GETPSYCHEDPIC   (g_gfx->getpsychedpic)
+
+/* Attract-mode demos (PlayDemo): byte map, word length incl. 4-byte header,
+ * one pad byte, then 3 bytes per tic (buttons, dx, dy). */
+#define T_DEMO0         (g_gfx->t_demo0)
+#define NUMDEMOS        4
 
 /* Control-panel colours (WL_MENU.H) */
 #define MENU_BORDCOLOR  0x29
