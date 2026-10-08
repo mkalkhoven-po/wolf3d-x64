@@ -117,6 +117,7 @@ static void check_layout(const gfx_layout_t *l)
           l->gatlinggunpic == l->knifepic + 3);
     CHECK(l->face8apic == l->face1apic + 21);
     CHECK(l->gotgatlingpic == l->face8apic + 1 && l->getpsychedpic == l->pausedpic + 1);
+    CHECK(l->t_demo0 >= l->startexterns && l->t_demo0 + NUMDEMOS <= l->numchunks);
 }
 
 static void test_gfx_layouts(void)
@@ -125,6 +126,7 @@ static void test_gfx_layouts(void)
     check_layout(&gfx_layout_wl1);
     CHECK(gfx_layout_wl6.numchunks == 149 && gfx_layout_wl6.numpics == 132);
     CHECK(gfx_layout_wl1.numchunks == 156 && gfx_layout_wl1.numpics == 144);
+    CHECK(gfx_layout_wl6.t_demo0 == 139 && gfx_layout_wl1.t_demo0 == 151);
 }
 
 int main(void)

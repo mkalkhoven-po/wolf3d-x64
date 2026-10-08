@@ -61,6 +61,14 @@ set(WOLF_PLATFORM_SOURCES
   src/platform/win_sdl/wolf_winutil.c
 )
 
+# Faithful engine (P4, ADR-002). No SDL dependency; built next to the legacy engine.
+set(WOLF_ORIG_SOURCES
+  src/orig/wl_fixed.c
+  src/orig/wl_tables.c
+  src/orig/id_us_rnd.c
+  src/orig/wl_tics.c
+)
+
 add_executable(wolf3d
   src/main.c
   ${WOLF_ID_SOURCES}
@@ -133,15 +141,42 @@ if(WOLF_BUILD_TESTS)
   wolf_apply_hardening(test_decoders)
   add_test(NAME decoders COMMAND test_decoders)
 
+  add_executable(test_orig_core tests/test_orig_core.c ${WOLF_ORIG_SOURCES})
+  target_include_directories(test_orig_core PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/id
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/orig
+  )
+  if(UNIX OR MINGW)
+    target_link_libraries(test_orig_core PRIVATE m)
+  endif()
+  wolf_apply_hardening(test_orig_core)
+  add_test(NAME orig_core COMMAND test_orig_core)
+
+  add_executable(test_demo_chunks
+    tests/test_demo_chunks.c
+    src/id/id_ca.c
+    src/id/id_us.c
+    src/id/wl_data.c
+    src/platform/win_sdl/wolf_winutil.c
+  )
+  target_include_directories(test_demo_chunks PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/id
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
+  )
+  wolf_apply_hardening(test_demo_chunks)
+
   # Needs a user-supplied pack; skipped when WOLF3D_DATA is not set at configure time.
   if(DEFINED ENV{WOLF3D_DATA})
     add_test(NAME smoke_only COMMAND wolf3d --data "$ENV{WOLF3D_DATA}" --smoke-only)
     set_tests_properties(smoke_only PROPERTIES
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+    add_test(NAME demo_chunks COMMAND test_demo_chunks --data "$ENV{WOLF3D_DATA}")
   endif()
   if(DEFINED ENV{WOLF3D_DATA_WL1})
     add_test(NAME smoke_only_wl1 COMMAND wolf3d --data "$ENV{WOLF3D_DATA_WL1}" --smoke-only)
     set_tests_properties(smoke_only_wl1 PROPERTIES
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+    add_test(NAME demo_chunks_wl1 COMMAND test_demo_chunks --data "$ENV{WOLF3D_DATA_WL1}")
   endif()
 endif()

@@ -25,6 +25,7 @@ const gfx_layout_t gfx_layout_wl6 = {
     98, 99,
     109, 130,
     131, 132, 133, 134,
+    139,
 };
 
 /* Apogee 1.4 shareware; VGAHEAD has 156 chunks. */
@@ -37,6 +38,7 @@ const gfx_layout_t gfx_layout_wl1 = {
     110, 111,
     121, 142,
     143, 144, 145, 146,
+    151,
 };
 
 const gfx_layout_t *g_gfx = &gfx_layout_wl6;
