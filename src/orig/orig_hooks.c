@@ -61,3 +61,24 @@ void StartDamageFlash(int damage)
         orig_hooks.start_damage_flash(damage);
     }
 }
+
+void DeathCamIntro(void)
+{
+    if (orig_hooks.death_cam_intro) {
+        orig_hooks.death_cam_intro();
+    }
+}
+
+void DeathCamOutro(void)
+{
+    if (orig_hooks.death_cam_outro) {
+        orig_hooks.death_cam_outro();
+    }
+}
+
+void DeathCamPause(void)
+{
+    if (orig_hooks.death_cam_pause) {
+        orig_hooks.death_cam_pause();
+    }
+}

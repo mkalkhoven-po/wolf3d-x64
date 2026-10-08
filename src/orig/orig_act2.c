@@ -1,6 +1,7 @@
 /* Enemy spawning and AI (WL_ACT2.C). State tables: orig_states.c (generated). */
 #include "orig.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -1124,5 +1125,578 @@ void T_Bite(objtype *ob)
                 return;
             }
         }
+    }
+}
+
+/*
+=============================================================================
+
+                        BOSS SPECIALS
+
+=============================================================================
+*/
+
+/* Borland's math.h value. */
+#define ORIG_M_PI 3.14159265358979323846
+
+/*
+ * The angle from (deltax, deltay) as the original computes it in the
+ * throwing and death-cam code: atan2 in double, kept in a float, scaled to
+ * ANGLES and truncated. Keep the float: rounding to float changes results.
+ */
+static int AtanAngle(int32_t deltax, int32_t deltay)
+{
+    float angle;
+
+    angle = (float)atan2((double)deltay, (double)deltax);
+    if (angle < 0) {
+        angle = (float)(ORIG_M_PI * 2 + angle);
+    }
+    return (int)(angle / (ORIG_M_PI * 2) * ANGLES);
+}
+
+/*
+=================
+=
+= T_SchabbThrow
+=
+=================
+*/
+
+void T_SchabbThrow(objtype *ob)
+{
+    int32_t deltax, deltay;
+    int iangle;
+
+    deltax = player->x - ob->x;
+    deltay = ob->y - player->y;
+    iangle = AtanAngle(deltax, deltay);
+
+    GetNewActor();
+    new->state = &s_needle1;
+    new->ticcount = 1;
+
+    new->tilex = ob->tilex;
+    new->tiley = ob->tiley;
+    new->x = ob->x;
+    new->y = ob->y;
+    new->obclass = needleobj;
+    new->dir = nodir;
+    new->angle = (int16_t)iangle;
+    new->speed = 0x2000l;
+
+    new->flags = FL_NONMARK;
+    new->active = ac_yes;
+
+    PlaySoundLocActor(SCHABBSTHROWSND, new);
+}
+
+/*
+=================
+=
+= T_GiftThrow
+=
+=================
+*/
+
+void T_GiftThrow(objtype *ob)
+{
+    int32_t deltax, deltay;
+    int iangle;
+
+    deltax = player->x - ob->x;
+    deltay = ob->y - player->y;
+    iangle = AtanAngle(deltax, deltay);
+
+    GetNewActor();
+    new->state = &s_rocket;
+    new->ticcount = 1;
+
+    new->tilex = ob->tilex;
+    new->tiley = ob->tiley;
+    new->x = ob->x;
+    new->y = ob->y;
+    new->obclass = rocketobj;
+    new->dir = nodir;
+    new->angle = (int16_t)iangle;
+    new->speed = 0x2000l;
+    new->flags = FL_NONMARK;
+    new->active = ac_yes;
+
+    PlaySoundLocActor(MISSILEFIRESND, new);
+}
+
+/*
+ * T_Schabb, T_Gift and T_Fat are the same routine with a different shoot
+ * state in the original; one copy here, called with that state.
+ */
+static void BossThrowerChase(objtype *ob, statetype *shoot)
+{
+    int32_t move;
+    int dx, dy, dist;
+    boolean dodge;
+
+    dodge = false;
+    dx = abs(ob->tilex - player->tilex);
+    dy = abs(ob->tiley - player->tiley);
+    dist = dx > dy ? dx : dy;
+
+    if (CheckLine(ob)) { /* got a shot at player? */
+        if (US_RndT() < (tics << 3)) {
+            /* go into attack frame */
+            NewState(ob, shoot);
+            return;
+        }
+        dodge = true;
+    }
+
+    if (ob->dir == nodir) {
+        if (dodge) {
+            SelectDodgeDir(ob);
+        } else {
+            SelectChaseDir(ob);
+        }
+        if (ob->dir == nodir) {
+            return; /* object is blocked in */
+        }
+    }
+
+    move = ob->speed * tics;
+
+    while (move) {
+        if (ob->distance < 0) {
+            /* waiting for a door to open */
+            OpenDoor(-ob->distance - 1);
+            if (doorobjlist[-ob->distance - 1].action != dr_open) {
+                return;
+            }
+            ob->distance = TILEGLOBAL; /* go ahead, the door is now opoen */
+        }
+
+        if (move < ob->distance) {
+            MoveObj(ob, move);
+            break;
+        }
+
+        /* reached goal tile, so select another one */
+
+        /* fix position to account for round off during moving */
+        ob->x = ((fixed)ob->tilex << TILESHIFT) + TILEGLOBAL / 2;
+        ob->y = ((fixed)ob->tiley << TILESHIFT) + TILEGLOBAL / 2;
+
+        move -= ob->distance;
+
+        if (dist < 4) {
+            SelectRunDir(ob);
+        } else if (dodge) {
+            SelectDodgeDir(ob);
+        } else {
+            SelectChaseDir(ob);
+        }
+
+        if (ob->dir == nodir) {
+            return; /* object is blocked in */
+        }
+    }
+}
+
+/*
+=================
+=
+= T_Schabb
+=
+=================
+*/
+
+void T_Schabb(objtype *ob)
+{
+    BossThrowerChase(ob, &s_schabbshoot1);
+}
+
+/*
+=================
+=
+= T_Gift
+=
+=================
+*/
+
+void T_Gift(objtype *ob)
+{
+    BossThrowerChase(ob, &s_giftshoot1);
+}
+
+/*
+=================
+=
+= T_Fat
+=
+=================
+*/
+
+void T_Fat(objtype *ob)
+{
+    BossThrowerChase(ob, &s_fatshoot1);
+}
+
+/*
+=============================================================================
+
+                            HITLERS
+
+=============================================================================
+*/
+
+/*
+===============
+=
+= A_HitlerMorph
+=
+===============
+*/
+
+void A_HitlerMorph(objtype *ob)
+{
+    static const int16_t hitpoints[4] = {500, 700, 800, 900};
+
+    SpawnNewObj(ob->tilex, ob->tiley, &s_hitlerchase1);
+    new->speed = SPDPATROL * 5;
+
+    new->x = ob->x;
+    new->y = ob->y;
+
+    new->distance = ob->distance;
+    new->dir = ob->dir;
+    new->flags = ob->flags | FL_SHOOTABLE;
+
+    new->obclass = realhitlerobj;
+    new->hitpoints = hitpoints[gamestate.difficulty];
+}
+
+/*
+================
+=
+= A_MechaSound
+= A_Slurpie
+=
+================
+*/
+
+void A_MechaSound(objtype *ob)
+{
+    if (AREABYPLAYER(ob->areanumber)) {
+        PlaySoundLocActor(MECHSTEPSND, ob);
+    }
+}
+
+void A_Slurpie(objtype *ob)
+{
+    (void)ob;
+    OrigSD_PlaySound(SLURPIESND);
+}
+
+/*
+=================
+=
+= T_FakeFire
+=
+=================
+*/
+
+void T_FakeFire(objtype *ob)
+{
+    int32_t deltax, deltay;
+    int iangle;
+
+    deltax = player->x - ob->x;
+    deltay = ob->y - player->y;
+    iangle = AtanAngle(deltax, deltay);
+
+    GetNewActor();
+    new->state = &s_fire1;
+    new->ticcount = 1;
+
+    new->tilex = ob->tilex;
+    new->tiley = ob->tiley;
+    new->x = ob->x;
+    new->y = ob->y;
+    new->dir = nodir;
+    new->angle = (int16_t)iangle;
+    new->obclass = fireobj;
+    new->speed = 0x1200l;
+    new->flags = FL_NEVERMARK;
+    new->active = ac_yes;
+
+    PlaySoundLocActor(FLAMETHROWERSND, new);
+}
+
+/*
+=================
+=
+= T_Fake
+=
+=================
+*/
+
+void T_Fake(objtype *ob)
+{
+    int32_t move;
+
+    if (CheckLine(ob)) { /* got a shot at player? */
+        if (US_RndT() < (tics << 1)) {
+            /* go into attack frame */
+            NewState(ob, &s_fakeshoot1);
+            return;
+        }
+    }
+
+    if (ob->dir == nodir) {
+        SelectDodgeDir(ob);
+        if (ob->dir == nodir) {
+            return; /* object is blocked in */
+        }
+    }
+
+    move = ob->speed * tics;
+
+    while (move) {
+        if (move < ob->distance) {
+            MoveObj(ob, move);
+            break;
+        }
+
+        /* reached goal tile, so select another one */
+
+        /* fix position to account for round off during moving */
+        ob->x = ((fixed)ob->tilex << TILESHIFT) + TILEGLOBAL / 2;
+        ob->y = ((fixed)ob->tiley << TILESHIFT) + TILEGLOBAL / 2;
+
+        move -= ob->distance;
+
+        SelectDodgeDir(ob);
+
+        if (ob->dir == nodir) {
+            return; /* object is blocked in */
+        }
+    }
+}
+
+/*
+============================================================================
+
+                            BJ VICTORY
+
+============================================================================
+*/
+
+#define BJRUNSPEED  2048
+#define BJJUMPSPEED 680
+
+/*
+===============
+=
+= SpawnBJVictory
+=
+===============
+*/
+
+void SpawnBJVictory(void)
+{
+    SpawnNewObj(player->tilex, player->tiley + 1, &s_bjrun1);
+    new->x = player->x;
+    new->y = player->y;
+    new->obclass = bjobj;
+    new->dir = north;
+    new->temp1 = 6; /* tiles to run forward */
+}
+
+/*
+===============
+=
+= T_BJRun
+=
+===============
+*/
+
+void T_BJRun(objtype *ob)
+{
+    int32_t move;
+
+    move = BJRUNSPEED * tics;
+
+    while (move) {
+        if (move < ob->distance) {
+            MoveObj(ob, move);
+            break;
+        }
+
+        ob->x = ((fixed)ob->tilex << TILESHIFT) + TILEGLOBAL / 2;
+        ob->y = ((fixed)ob->tiley << TILESHIFT) + TILEGLOBAL / 2;
+        move -= ob->distance;
+
+        SelectPathDir(ob);
+
+        if (!(--ob->temp1)) {
+            NewState(ob, &s_bjjump1);
+            return;
+        }
+    }
+}
+
+/*
+===============
+=
+= T_BJJump
+=
+===============
+*/
+
+void T_BJJump(objtype *ob)
+{
+    int32_t move;
+
+    move = BJJUMPSPEED * tics;
+    MoveObj(ob, move);
+}
+
+/*
+===============
+=
+= T_BJYell
+=
+===============
+*/
+
+void T_BJYell(objtype *ob)
+{
+    PlaySoundLocActor(YEAHSND, ob); /* JAB */
+}
+
+/*
+===============
+=
+= T_BJDone
+=
+===============
+*/
+
+void T_BJDone(objtype *ob)
+{
+    (void)ob;
+    playstate = ex_victorious; /* exit castle tile */
+}
+
+/*
+===============
+=
+= CheckPosition
+=
+===============
+*/
+
+boolean CheckPosition(objtype *ob)
+{
+    int x, y, xl, yl, xh, yh;
+    objtype *check;
+
+    xl = (int)((ob->x - PLAYERSIZE) >> TILESHIFT);
+    yl = (int)((ob->y - PLAYERSIZE) >> TILESHIFT);
+
+    xh = (int)((ob->x + PLAYERSIZE) >> TILESHIFT);
+    yh = (int)((ob->y + PLAYERSIZE) >> TILESHIFT);
+
+    /* check for solid walls */
+    for (y = yl; y <= yh; y++) {
+        for (x = xl; x <= xh; x++) {
+            if (x < 0 || y < 0 || x >= MAPSIZE || y >= MAPSIZE) {
+                return false; /* not in the original: it read outside actorat */
+            }
+            check = actorat[x][y];
+            if (check && !ISPOINTER(check)) { /* check < objlist: a tile */
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+/*
+===============
+=
+= A_StartDeathCam
+=
+= The screen work (palette, fizzle, "Let's see that again!", waiting for
+= input, redrawing the border) goes through DeathCamIntro / DeathCamOutro.
+=
+===============
+*/
+
+void A_StartDeathCam(objtype *ob)
+{
+    int32_t dx, dy;
+    int32_t xmove, ymove;
+    int32_t dist;
+
+    DeathCamPause(); /* FinishPaletteShifts, VW_WaitVBL (100) */
+
+    if (gamestate.victoryflag) {
+        playstate = ex_victorious; /* exit castle tile */
+        return;
+    }
+
+    gamestate.victoryflag = true;
+    DeathCamIntro();
+
+    /* line angle up exactly */
+    NewState(player, &s_deathcam);
+
+    player->x = gamestate.killx;
+    player->y = gamestate.killy;
+
+    dx = ob->x - player->x;
+    dy = player->y - ob->y;
+
+    player->angle = (int16_t)AtanAngle(dx, dy); /* atan2 returns -pi to pi */
+
+    /* try to position as close as possible without being in a wall */
+    dist = 0x14000l;
+    do {
+        xmove = FixedByFrac(dist, costable[player->angle]);
+        ymove = -FixedByFrac(dist, sintable[player->angle]);
+
+        player->x = ob->x - xmove;
+        player->y = ob->y - ymove;
+        dist += 0x1000;
+
+        /* Not in the original: with no free spot it would loop forever. */
+        if (dist > (MAPSIZE << TILESHIFT)) {
+            Quit("A_StartDeathCam: no free spot for the camera");
+        }
+    } while (!CheckPosition(player));
+    plux = (uint16_t)(player->x >> UNSIGNEDSHIFT); /* scale to fit in unsigned */
+    pluy = (uint16_t)(player->y >> UNSIGNEDSHIFT);
+    player->tilex = (uint16_t)(player->x >> TILESHIFT); /* scale to tile values */
+    player->tiley = (uint16_t)(player->y >> TILESHIFT);
+
+    /* go back to the game */
+    DeathCamOutro();
+
+    fizzlein = true;
+    switch (ob->obclass) {
+    case schabbobj:
+        NewState(ob, &s_schabbdeathcam);
+        break;
+    case realhitlerobj:
+        NewState(ob, &s_hitlerdeathcam);
+        break;
+    case giftobj:
+        NewState(ob, &s_giftdeathcam);
+        break;
+    case fatobj:
+        NewState(ob, &s_fatdeathcam);
+        break;
+    default:
+        break;
     }
 }

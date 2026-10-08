@@ -20,6 +20,16 @@ typedef struct {
     void (*draw_score)(void);
     void (*draw_lives)(void);
     void (*start_damage_flash)(int damage);
+
+    /*
+     * A_StartDeathCam presentation: palette reset and a short wait (pause,
+     * also when the cam is already over), red fizzle, "Let's see that
+     * again!" and the wait for input (intro), then redrawing the play border
+     * (outro). The camera placement between them is game logic.
+     */
+    void (*death_cam_pause)(void);
+    void (*death_cam_intro)(void);
+    void (*death_cam_outro)(void);
 } orig_hooks_t;
 
 extern orig_hooks_t orig_hooks;
@@ -39,6 +49,9 @@ void DrawFace(void);
 void DrawScore(void);
 void DrawLives(void);
 void StartDamageFlash(int damage);
+void DeathCamPause(void);
+void DeathCamIntro(void);
+void DeathCamOutro(void);
 
 /* JAB (WL_DEF.H) */
 #define PlaySoundLocTile(s, tx, ty)                                                  \

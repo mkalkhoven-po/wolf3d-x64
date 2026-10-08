@@ -74,7 +74,6 @@ set(WOLF_ORIG_SOURCES
   ${WOLF_ORIG_CORE_SOURCES}
   src/orig/orig_act1.c
   src/orig/orig_act2.c
-  src/orig/orig_act2_todo.c
   src/orig/orig_agent.c
   src/orig/orig_game.c
   src/orig/orig_hooks.c

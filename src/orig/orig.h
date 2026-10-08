@@ -21,6 +21,7 @@ void NewGame(int difficulty, int episode);
 
 /* WL_GAME */
 extern int16_t mapwidth, mapheight;
+extern boolean fizzlein; /* renderer fizzles the next frame in */
 void ScanInfoPlane(void);
 boolean SetupGameLevel(void);
 void SetupLoadedLevel(void);
@@ -121,6 +122,8 @@ void SpawnFakeHitler(int tilex, int tiley);
 void SpawnHitler(int tilex, int tiley);
 boolean ProjectileTryMove(objtype *ob);
 void SelectPathDir(objtype *ob);
+void SpawnBJVictory(void);
+boolean CheckPosition(objtype *ob);
 
 /* WL_AGENT */
 extern statetype s_player;

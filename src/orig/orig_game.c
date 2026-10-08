@@ -11,6 +11,7 @@ gametype gamestate;
 boolean loadedgame;
 
 int16_t mapwidth, mapheight;
+boolean fizzlein;
 
 /*
 ==========================
