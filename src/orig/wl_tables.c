@@ -42,3 +42,5 @@ void BuildTables(void)
         angle += anglestep;
     }
 }
+
+fixed tileglobal = TILEGLOBAL;
