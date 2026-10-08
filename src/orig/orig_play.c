@@ -15,6 +15,10 @@ objtype *actorat[MAPSIZE][MAPSIZE];
 
 boolean demorecord, demoplayback;
 
+int16_t controlx, controly; /* range from -100 to 100 per tic */
+boolean buttonstate[NUMBUTTONS];
+boolean buttonheld[NUMBUTTONS];
+
 exit_t playstate;
 boolean madenoise; /* true when shooting or screaming */
 boolean singlestep, godmode, noclip;

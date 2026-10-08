@@ -8,148 +8,8 @@
  * --data DIR: every map runs for
  * 2100 tics on all four difficulties with the player standing still.
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "id_ca.h"
-#include "id_us_rnd.h"
-#include "orig.h"
+#include "orig_testkit.h"
 #include "wl_data.h"
-
-static int g_failures;
-
-#define CHECK(cond)                                                          \
-    do {                                                                     \
-        if (!(cond)) {                                                       \
-            fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond);  \
-            g_failures++;                                                    \
-        }                                                                    \
-    } while (0)
-
-/* ------------------------------------------------------------------ hooks */
-
-#define MAXSOUNDS 4096
-static int g_sounds[MAXSOUNDS];
-static int g_numsounds;
-
-static void record_sound(int sound)
-{
-    if (g_numsounds < MAXSOUNDS) {
-        g_sounds[g_numsounds++] = sound;
-    }
-}
-
-static void record_sound_loc(int sound, fixed gx, fixed gy)
-{
-    (void)gx;
-    (void)gy;
-    record_sound(sound);
-}
-
-static int count_sound(int sound)
-{
-    int i, n = 0;
-
-    for (i = 0; i < g_numsounds; i++) {
-        n += g_sounds[i] == sound;
-    }
-    return n;
-}
-
-static void install_hooks(void)
-{
-    OrigHooks_Reset();
-    orig_hooks.play_sound = record_sound;
-    orig_hooks.play_sound_loc = record_sound_loc;
-    g_numsounds = 0;
-}
-
-/* ------------------------------------------------------------- map helpers */
-
-static uint16_t plane0[MAPAREA], plane1[MAPAREA];
-
-#define AT(plane, x, y) ((plane)[(y) * MAPSIZE + (x)])
-
-/* 64x64 floor of area 0 inside a wall border. */
-static void empty_map(void)
-{
-    int x, y;
-
-    for (y = 0; y < MAPSIZE; y++) {
-        for (x = 0; x < MAPSIZE; x++) {
-            const int edge = x == 0 || y == 0 || x == MAPSIZE - 1 || y == MAPSIZE - 1;
-            AT(plane0, x, y) = edge ? 1 : AREATILE;
-            AT(plane1, x, y) = 0;
-        }
-    }
-}
-
-/* Wall column at x from y0 to y1, everything east of it becomes area 1. */
-static void split_areas(int wallx)
-{
-    int x, y;
-
-    for (y = 1; y < MAPSIZE - 1; y++) {
-        AT(plane0, wallx, y) = 1;
-        for (x = wallx + 1; x < MAPSIZE - 1; x++) {
-            AT(plane0, x, y) = AREATILE + 1;
-        }
-    }
-}
-
-static void update_plu(void)
-{
-    plux = (uint16_t)(player->x >> UNSIGNEDSHIFT);
-    pluy = (uint16_t)(player->y >> UNSIGNEDSHIFT);
-}
-
-static void load_level(int difficulty)
-{
-    mapsegs[0] = plane0;
-    mapsegs[1] = plane1;
-    mapwidth = mapheight = 64;
-
-    NewGame(difficulty, 0);
-    US_InitRndT(false);
-    SetupLoadedLevel();
-    update_plu();
-    pwallstate = 0;
-    fizzlein = false;
-    playstate = ex_stillplaying;
-    godmode = false;
-    tics = 1;
-    install_hooks();
-}
-
-/* One PlayLoop iteration without input, refresh or palette work. */
-static void run_tic(void)
-{
-    madenoise = false;
-    MoveDoors();
-    MovePWalls();
-    for (obj = player; obj; obj = obj->next) {
-        DoActor(obj);
-    }
-    gamestate.TimeCount += tics;
-}
-
-static objtype *first_actor(void)
-{
-    return player->next;
-}
-
-static int state_index(const statetype *s)
-{
-    int i;
-
-    for (i = 0; i < orig_numstates; i++) {
-        if (orig_statelist[i] == s) {
-            return i;
-        }
-    }
-    return -1;
-}
 
 /* ------------------------------------------------------------ state tables */
 
@@ -235,17 +95,21 @@ static void test_guard_reaction(void)
     guard = first_actor();
     CHECK(guard->state == &s_grdstand && guard->dir == west);
 
-    /* no RNG used while spawning: SightPlayer draws rndtable[1] = 8 -> 1 + 8/4 */
-    for (tic = 1; tic <= 10 && !reacted; tic++) {
+    /*
+     * No RNG used while spawning. The player thinks first each tic and its
+     * UpdateFace draws rndtable[1] (8 > facecount 1, no face change), then
+     * SightPlayer draws rndtable[2] = 109: reaction delay 1 + 109/4 = 28.
+     */
+    for (tic = 1; tic <= 40 && !reacted; tic++) {
         run_tic();
         if (tic == 1) {
-            CHECK(guard->temp2 == 3);
+            CHECK(guard->temp2 == 28);
         }
         if (guard->flags & FL_ATTACKMODE) {
             reacted = tic;
         }
     }
-    CHECK(reacted == 4);
+    CHECK(reacted == 29);
     CHECK(guard->state == &s_grdchase1 && guard->speed == SPDPATROL * 3);
     CHECK(guard->flags & FL_FIRSTATTACK);
     CHECK(count_sound(HALTSND) == 1);
@@ -464,22 +328,10 @@ static void test_patrol_loop(void)
     }
     CHECK(turns == 8); /* two laps */
     CHECK(!(guard->flags & FL_ATTACKMODE));
-    CHECK(US_RndT() == rndtable[2]); /* patrolling used no randomness */
+    CHECK(guard->temp2 == 0); /* never sighted the player */
 }
 
 /* ------------------------------------------------------------ golden trace */
-
-static uint32_t fnv(uint32_t h, const void *data, size_t n)
-{
-    const unsigned char *p = (const unsigned char *)data;
-    size_t i;
-
-    for (i = 0; i < n; i++) {
-        h ^= p[i];
-        h *= 16777619u;
-    }
-    return h;
-}
 
 static uint32_t hash_world(uint32_t h)
 {
@@ -529,7 +381,7 @@ static void test_golden_trace(void)
 
     printf("golden trace: %08x\n", a);
     CHECK(a == b);
-    CHECK(a == 0x45b140d7u); /* regression pin: update only for an intended change */
+    CHECK(a == 0x9d67a71eu); /* regression pin: update only for an intended change */
 }
 
 

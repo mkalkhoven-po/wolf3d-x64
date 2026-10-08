@@ -165,45 +165,30 @@ if(WOLF_BUILD_TESTS)
   wolf_apply_hardening(test_orig_core)
   add_test(NAME orig_core COMMAND test_orig_core)
 
-  add_executable(test_orig_level
-    tests/test_orig_level.c
-    ${WOLF_ORIG_SOURCES}
-    src/id/id_ca.c
-    src/id/id_us.c
-    src/id/wl_data.c
-    src/platform/win_sdl/wolf_winutil.c
-  )
-  target_include_directories(test_orig_level PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/id
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/orig
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
-  )
-  if(UNIX OR MINGW)
-    target_link_libraries(test_orig_level PRIVATE m)
-  endif()
-  wolf_apply_hardening(test_orig_level)
-  add_test(NAME orig_level COMMAND test_orig_level)
-
-  add_executable(test_orig_ai
-    tests/test_orig_ai.c
-    ${WOLF_ORIG_SOURCES}
-    src/id/id_ca.c
-    src/id/id_us.c
-    src/id/wl_data.c
-    src/platform/win_sdl/wolf_winutil.c
-  )
-  target_include_directories(test_orig_ai PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/id
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/orig
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
-  )
-  if(UNIX OR MINGW)
-    target_link_libraries(test_orig_ai PRIVATE m)
-  endif()
-  wolf_apply_hardening(test_orig_ai)
-  add_test(NAME orig_ai COMMAND test_orig_ai)
+  # Faithful-engine tests: the engine plus the shared id layer for map loading.
+  # Each takes an optional --data DIR to run over a real pack.
+  set(WOLF_ORIG_TESTS orig_level orig_ai orig_player)
+  foreach(name IN LISTS WOLF_ORIG_TESTS)
+    add_executable(test_${name}
+      tests/test_${name}.c
+      ${WOLF_ORIG_SOURCES}
+      src/id/id_ca.c
+      src/id/id_us.c
+      src/id/wl_data.c
+      src/platform/win_sdl/wolf_winutil.c
+    )
+    target_include_directories(test_${name} PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/src
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/id
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/orig
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
+    )
+    if(UNIX OR MINGW)
+      target_link_libraries(test_${name} PRIVATE m)
+    endif()
+    wolf_apply_hardening(test_${name})
+    add_test(NAME ${name} COMMAND test_${name})
+  endforeach()
 
   add_executable(test_demo_chunks
     tests/test_demo_chunks.c
@@ -225,15 +210,17 @@ if(WOLF_BUILD_TESTS)
     set_tests_properties(smoke_only PROPERTIES
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     add_test(NAME demo_chunks COMMAND test_demo_chunks --data "$ENV{WOLF3D_DATA}")
-    add_test(NAME orig_level_maps COMMAND test_orig_level --data "$ENV{WOLF3D_DATA}")
-    add_test(NAME orig_ai_maps COMMAND test_orig_ai --data "$ENV{WOLF3D_DATA}")
+    foreach(name IN LISTS WOLF_ORIG_TESTS)
+      add_test(NAME ${name}_maps COMMAND test_${name} --data "$ENV{WOLF3D_DATA}")
+    endforeach()
   endif()
   if(DEFINED ENV{WOLF3D_DATA_WL1})
     add_test(NAME smoke_only_wl1 COMMAND wolf3d --data "$ENV{WOLF3D_DATA_WL1}" --smoke-only)
     set_tests_properties(smoke_only_wl1 PROPERTIES
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     add_test(NAME demo_chunks_wl1 COMMAND test_demo_chunks --data "$ENV{WOLF3D_DATA_WL1}")
-    add_test(NAME orig_level_maps_wl1 COMMAND test_orig_level --data "$ENV{WOLF3D_DATA_WL1}")
-    add_test(NAME orig_ai_maps_wl1 COMMAND test_orig_ai --data "$ENV{WOLF3D_DATA_WL1}")
+    foreach(name IN LISTS WOLF_ORIG_TESTS)
+      add_test(NAME ${name}_maps_wl1 COMMAND test_${name} --data "$ENV{WOLF3D_DATA_WL1}")
+    endforeach()
   endif()
 endif()

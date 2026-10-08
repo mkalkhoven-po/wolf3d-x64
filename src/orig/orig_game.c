@@ -12,6 +12,11 @@ boolean loadedgame;
 
 int16_t mapwidth, mapheight;
 boolean fizzlein;
+int32_t spearx, speary;
+uint16_t spearangle;
+boolean spearflag;
+
+int16_t centerx, shootdelta;
 
 /*
 ==========================

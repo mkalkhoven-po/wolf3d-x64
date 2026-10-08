@@ -14,12 +14,28 @@
 typedef struct {
     void (*play_sound)(int sound);
     void (*play_sound_loc)(int sound, fixed gx, fixed gy);
-    boolean (*sound_playing)(void);
+
+    /*
+     * SD_SoundPlaying: the number of the sound still playing, 0 if none.
+     * Game logic depends on it (UpdateFace skips its US_RndT calls while the
+     * gatling pickup sound plays), so the platform must report real sound
+     * lengths. HITWALLSND is sound 0 and so reads as "nothing playing".
+     */
+    int (*sound_playing)(void);
+    void (*wait_sound_done)(void); /* SD_WaitSoundDone: block until it ends */
+
+    /* status bar (WL_AGENT.C draw functions); state is read from gamestate */
     void (*draw_health)(void);
-    void (*draw_face)(void);
+    void (*draw_face)(void); /* also reads LastAttacker when health is 0 */
     void (*draw_score)(void);
     void (*draw_lives)(void);
+    void (*draw_weapon)(void);
+    void (*draw_keys)(void);
+    void (*draw_ammo)(void);
+    void (*draw_got_gatling)(void); /* StatusDrawPic (17,4,GOTGATLINGPIC) */
+
     void (*start_damage_flash)(int damage);
+    void (*start_bonus_flash)(void);
 
     /*
      * A_StartDeathCam presentation: palette reset and a short wait (pause,
@@ -38,17 +54,24 @@ extern orig_hooks_t orig_hooks;
 void OrigHooks_Reset(void);
 
 /*
- * Original call names. SD_PlaySound and SD_SoundPlaying already exist in the
- * legacy id layer, so the engine-side versions carry an Orig prefix.
+ * Original call names. SD_PlaySound, SD_SoundPlaying and SD_WaitSoundDone
+ * already exist in the legacy id layer, so the engine-side versions carry an
+ * Orig prefix.
  */
 void OrigSD_PlaySound(int sound);
-boolean OrigSD_SoundPlaying(void);
+int OrigSD_SoundPlaying(void);
+void OrigSD_WaitSoundDone(void);
 void PlaySoundLocGlobal(int s, fixed gx, fixed gy);
 void DrawHealth(void);
 void DrawFace(void);
 void DrawScore(void);
 void DrawLives(void);
+void DrawWeapon(void);
+void DrawKeys(void);
+void DrawAmmo(void);
+void DrawGotGatling(void);
 void StartDamageFlash(int damage);
+void StartBonusFlash(void);
 void DeathCamPause(void);
 void DeathCamIntro(void);
 void DeathCamOutro(void);
