@@ -15,6 +15,13 @@ objtype *actorat[MAPSIZE][MAPSIZE];
 
 boolean demorecord, demoplayback;
 
+exit_t playstate;
+boolean madenoise; /* true when shooting or screaming */
+boolean singlestep, godmode, noclip;
+uint16_t tics;
+
+boolean digisoundenabled = true;
+
 /*
 =========================
 =
@@ -114,4 +121,98 @@ void RemoveObj(objtype *gone)
     objfreelist = gone;
 
     objcount--;
+}
+
+/*
+=====================
+=
+= DoActor
+=
+=====================
+*/
+
+void DoActor(objtype *ob)
+{
+    void (*think)(objtype *);
+
+    if (!ob->active && !AREABYPLAYER(ob->areanumber)) {
+        return;
+    }
+
+    if (!(ob->flags & (FL_NONMARK | FL_NEVERMARK))) {
+        actorat[ob->tilex][ob->tiley] = NULL;
+    }
+
+    /* non transitional object */
+
+    if (!ob->ticcount) {
+        think = ob->state->think;
+        if (think) {
+            think(ob);
+            if (!ob->state) {
+                RemoveObj(ob);
+                return;
+            }
+        }
+
+        if (ob->flags & FL_NEVERMARK) {
+            return;
+        }
+
+        if ((ob->flags & FL_NONMARK) && actorat[ob->tilex][ob->tiley]) {
+            return;
+        }
+
+        actorat[ob->tilex][ob->tiley] = ob;
+        return;
+    }
+
+    /* transitional object */
+
+    ob->ticcount = (int16_t)(ob->ticcount - tics);
+    while (ob->ticcount <= 0) {
+        think = ob->state->action; /* end of state action */
+        if (think) {
+            think(ob);
+            if (!ob->state) {
+                RemoveObj(ob);
+                return;
+            }
+        }
+
+        ob->state = ob->state->next;
+
+        if (!ob->state) {
+            RemoveObj(ob);
+            return;
+        }
+
+        if (!ob->state->tictime) {
+            ob->ticcount = 0;
+            goto think;
+        }
+
+        ob->ticcount = (int16_t)(ob->ticcount + ob->state->tictime);
+    }
+
+think:
+    /* think */
+    think = ob->state->think;
+    if (think) {
+        think(ob);
+        if (!ob->state) {
+            RemoveObj(ob);
+            return;
+        }
+    }
+
+    if (ob->flags & FL_NEVERMARK) {
+        return;
+    }
+
+    if ((ob->flags & FL_NONMARK) && actorat[ob->tilex][ob->tiley]) {
+        return;
+    }
+
+    actorat[ob->tilex][ob->tiley] = ob;
 }
