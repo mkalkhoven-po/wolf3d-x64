@@ -16,6 +16,23 @@ Direction ([ADR-002](../adr/002-faithful-fixed-point-port.md)): reimplement game
 
 P1 delivered: `-Wall -Wextra -Wpedantic` (`/W4` on MSVC) with zero project warnings, `-DWOLF_SANITIZE=ON`, `tests/test_decoders.c` via CTest, optional `smoke_only` CTest when `WOLF3D_DATA` is set at configure time, Windows CI (green).
 
+### P4 breakdown (engine core)
+
+Built in parallel with the legacy engine (`--engine=legacy|orig`); details of the decisions are in ADR-002. Each step lists what it replaces from the original sources.
+
+| Step | Scope | Depends on |
+|------|-------|------------|
+| S0 | Foundations: 16.16 fixed-point (sign-magnitude `FixedByFrac`), sin/cos/tan tables, `US_RndT` table, 70 Hz tic clock, unit tests; spike: locate `T_DEMO0..3` chunks in WL1 and WL6 | P3 |
+| S1 | Data model (`objtype`, `statetype`, `gametype`) and level load (`SetupGameLevel`, `ScanInfoPlane`, areas, doors, statics, difficulty spawns) | S0 |
+| S2 | `WL_STATE.C` (movement, chase/dodge/run, sight, damage) + `WL_ACT1.C` + shareware actors of `WL_ACT2.C` as state-table data; deterministic trace tests | S1 |
+| S3 | `WL_AGENT.C`: player movement/collision, weapons, `Cmd_Fire`/`Cmd_Use`, damage, items | S1 (hit test needs S4a) |
+| S4 | Renderer: S4a exact `TransformActor`/`CalcHeight`/projection; S4b raycaster in C (spec: `WL_DR_A.ASM`); S4c pixel-exact wall/sprite scaling (no compiled scalers) | S1; S4a before S3 |
+| S5 | `PlayLoop`: `CalcTics`, original actor update order, doors/pushwalls, HUD hooks | S2, S3, S4 |
+| S6 | Switch default to the new engine, delete legacy float gameplay/draw, save format v2, update smoke markers | S5 |
+| S7 | Fidelity gate: original demos replay without desync; local golden frame hashes; E1M1 any% route; L1.5 matrix re-run | S5 |
+
+Risks: renderer-set `viewx`/`FL_VISABLE` feed the player's hit test; sign-magnitude fixed-point rounding; trig tables built with Borland floating point (check against `WOLF3D.EXE` locally); 16-bit overflow assumptions; the assembly raycaster.
+
 ### Known gaps (why M0–M8 is "shell delivered", not "complete")
 - Enemy AI is a placeholder (straight-line chase, melee only; no ranged attacks, patrol, ambush, door use or difficulty).
 - Float / frame-time gameplay: not deterministic, no demo compatibility.

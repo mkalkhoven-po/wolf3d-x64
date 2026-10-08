@@ -19,6 +19,9 @@ M0–M8 delivered a playable shell, but gameplay was written as a float / frame-
 3. **Fidelity check.** Original demo lumps replaying to the same end state are the decisive test once P4 lands.
 4. **Optional extras last.** Non-original features (F4 dual pistols) wait until after WL6.
 5. **Unchanged from ADR-001:** SDL2 backend, software renderer, no ASM/JIT, new save format in AppData. Build is CMake with MinGW/GCC or MSVC (CI uses MSVC).
+6. **Parallel engines.** The faithful engine is built next to the legacy float engine behind `--engine=legacy|orig` and becomes the default only after the fidelity gate passes; the legacy code is then deleted.
+7. **Canonical 320x200 renderer.** The game always renders a pixel-exact 320x200 8-bit frame; gameplay (including the player's hit test, which uses the renderer's projection) depends only on that frame's geometry. Higher resolutions are presentation only (scaling of the canonical frame); any true high-resolution render mode is an optional later feature outside the faithful path.
+8. **Old saves are dropped** at the switch-over; save format v2 stores original-style state.
 
 ## Phases
 
