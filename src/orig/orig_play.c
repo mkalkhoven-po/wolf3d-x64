@@ -24,6 +24,9 @@ boolean madenoise; /* true when shooting or screaming */
 boolean singlestep, godmode, noclip;
 uint16_t tics;
 
+/* the 70 Hz clock (ID_SD.C), driven by the platform layer (S5) */
+int32_t TimeCount;
+
 boolean digisoundenabled = true;
 
 /*

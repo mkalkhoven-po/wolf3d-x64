@@ -480,56 +480,21 @@ void SetupWalls(void)
 ===================
 */
 
-static const byte mapmasks[3][4][8] = {
-    {{1, 3, 7, 15, 15, 15, 15, 15},
-     {2, 6, 14, 14, 14, 14, 14, 14},
-     {4, 12, 12, 12, 12, 12, 12, 12},
-     {8, 8, 8, 8, 8, 8, 8, 8}},
-    {{0, 0, 0, 0, 1, 3, 7, 15},
-     {0, 0, 0, 1, 3, 7, 15, 15},
-     {0, 0, 1, 3, 7, 15, 15, 15},
-     {0, 1, 3, 7, 15, 15, 15, 15}},
-    {{0, 0, 0, 0, 0, 0, 0, 0},
-     {0, 0, 0, 0, 0, 0, 0, 1},
-     {0, 0, 0, 0, 0, 0, 1, 3},
-     {0, 0, 0, 0, 0, 1, 3, 7}}};
-
-static byte MapMask(int table, int index)
-{
-    const byte *flat = &mapmasks[0][0][0];
-    const int at = table * 32 + index;
-    return at < (int)sizeof(mapmasks) ? flat[at] : 0;
-}
-
-static void ScaleMaskedBytes(int firstbyte, int index, int height, const byte *src)
-{
-    int b, plane;
-
-    for (b = 0; b < 3; b++) {
-        const byte mask = MapMask(b, index);
-        if (!mask) {
-            break; /* or al,al / jz nomore */
-        }
-        for (plane = 0; plane < 4; plane++) {
-            const int x = (firstbyte + b) * 4 + plane;
-            if ((mask & (1 << plane)) && x < viewwidth) {
-                ScaleColumn(src, height, &screenbuf[screenofs + x], SCREENWIDTH);
-            }
-        }
-    }
-}
-
 void ScalePost(void)
 {
-    int index;
+    int index, height, cols[12], n, i;
 
     index = (wallheight[postx] & 0xfff8) >> 3; /* heightscaler */
     if (index > maxscale) {
         index = maxscale;
     }
+    height = ScalerHeight(index);
 
-    ScaleMaskedBytes(postx >> 2, (postx & 3) * 8 + postwidth - 1, ScalerHeight(index),
-                     postsource.page + postsource.texture);
+    n = MaskedColumns(postx, postwidth, cols);
+    for (i = 0; i < n; i++) {
+        ScaleColumn(postsource.page + postsource.texture, height,
+                    &screenbuf[screenofs + cols[i]], SCREENWIDTH);
+    }
 }
 
 /*
@@ -1109,4 +1074,86 @@ void VGAClearScreen(void)
     for (; y < (viewheight / 2) * 2; y++) {
         memset(&screenbuf[screenofs + y * SCREENWIDTH], 0x19, (size_t)viewwidth);
     }
+}
+
+/*
+=============================================================================
+
+                    FRAME (S4c): player weapon, ThreeDRefresh
+
+=============================================================================
+*/
+
+int32_t lasttimecount;
+int32_t frameon;
+
+/*
+==============
+=
+= DrawPlayerWeapon
+=
+= Draw the player's hands
+=
+==============
+*/
+
+static const int16_t weaponscale[NUMWEAPONS] = {SPR_KNIFEREADY, SPR_PISTOLREADY,
+                                                SPR_MACHINEGUNREADY, SPR_CHAINREADY};
+
+void DrawPlayerWeapon(void)
+{
+    int shapenum;
+
+    if (gamestate.victoryflag) {
+        if (player->state == &s_deathcam && (TimeCount & 32)) {
+            SimpleScaleShape(viewwidth / 2, SPR_DEATHCAM, (unsigned)viewheight + 1);
+        }
+        return;
+    }
+
+    if ((int)gamestate.weapon != -1) {
+        shapenum = weaponscale[gamestate.weapon] + gamestate.weaponframe;
+        SimpleScaleShape(viewwidth / 2, shapenum, (unsigned)viewheight + 1);
+    }
+
+    if (demorecord || demoplayback) {
+        SimpleScaleShape(viewwidth / 2, SPR_DEMO, (unsigned)viewheight + 1);
+    }
+}
+
+/*
+========================
+=
+= ThreeDRefresh
+=
+= Renders the view into the view window of screenbuf. Page flipping and the
+= VGA register work of the original are the platform layer's job; the
+= fizzle-in goes through a hook.
+=
+========================
+*/
+
+void ThreeDRefresh(void)
+{
+    /* clear out the traced array */
+    memset(spotvis, 0, sizeof(spotvis));
+
+    /* follow the walls from there to the right, drawwing as we go */
+    VGAClearScreen();
+
+    WallRefresh();
+
+    /* draw all the scaled images */
+    DrawScaleds();       /* draw scaled stuff */
+    DrawPlayerWeapon(); /* draw player's hands */
+
+    /* show screen and time last cycle */
+    if (fizzlein) {
+        FizzleIn();
+        fizzlein = false;
+
+        lasttimecount = TimeCount = 0; /* don't make a big tic count */
+    }
+
+    frameon++;
 }

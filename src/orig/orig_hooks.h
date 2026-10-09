@@ -46,6 +46,9 @@ typedef struct {
     void (*death_cam_pause)(void);
     void (*death_cam_intro)(void);
     void (*death_cam_outro)(void);
+
+    /* ThreeDRefresh after a level start or the death cam: fizzle the new view in */
+    void (*fizzle_in)(void);
 } orig_hooks_t;
 
 extern orig_hooks_t orig_hooks;
@@ -75,6 +78,7 @@ void StartBonusFlash(void);
 void DeathCamPause(void);
 void DeathCamIntro(void);
 void DeathCamOutro(void);
+void FizzleIn(void);
 
 /* JAB (WL_DEF.H) */
 #define PlaySoundLocTile(s, tx, ty)                                                  \
