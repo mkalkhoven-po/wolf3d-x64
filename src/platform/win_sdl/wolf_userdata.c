@@ -13,7 +13,6 @@
 #define WOLF_MKDIR(p) mkdir((p), 0755)
 #endif
 
-#include "wl_play.h"
 
 wolf_config_t g_config;
 wolf_highscore_t g_highscores[WOLF_MAX_HIGH_SCORES];
@@ -241,23 +240,117 @@ void Wolf_HighScoresTryInsert(int score, int episode, int level, const char *nam
         }
     }
 }
-
-#pragma pack(push, 1)
-typedef struct {
-    char magic[4];
-    int32_t version;
-    int32_t mapnum;
-    int32_t episode_map;
-    float px, py, pangle;
-    int32_t health, lives, ammo, score, keys, weapon, best_weapon;
-} wolf_save_hdr_t;
-#pragma pack(pop)
+/*
+ * Save files, format v2 (ADR-002): a header, then the engine's stream
+ * (SaveTheGame in src/orig/orig_save.c). All numbers little-endian.
+ *
+ *   0  "W64S"
+ *   4  u16 version (2; 1 was the legacy engine's player snapshot)
+ *   6  u16 reserved
+ *   8  char pack[4]   "WL1" / "WL6": a save only loads into its own pack
+ *  12  char desc[32]  shown when choosing a save
+ *  44  u32 length of the stream
+ *  48  u32 CRC-32 of the stream
+ *  52  the stream
+ */
+#define SAVE_HEADER 52
 
 static void save_path(int slot, char *out, size_t out_sz)
 {
     char name[32];
     snprintf(name, sizeof(name), "save%d.w64", slot);
     (void)Wolf_GetAppDataPath(name, out, out_sz);
+}
+
+static uint32_t crc32_of(const byte *data, size_t len)
+{
+    uint32_t crc = 0xffffffffu;
+    size_t i;
+    int bit;
+
+    for (i = 0; i < len; i++) {
+        crc ^= data[i];
+        for (bit = 0; bit < 8; bit++) {
+            crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1u)));
+        }
+    }
+    return ~crc;
+}
+
+static void put_u32(byte *p, uint32_t v)
+{
+    p[0] = (byte)v;
+    p[1] = (byte)(v >> 8);
+    p[2] = (byte)(v >> 16);
+    p[3] = (byte)(v >> 24);
+}
+
+static uint32_t get_u32(const byte *p)
+{
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) |
+           ((uint32_t)p[3] << 24);
+}
+
+static boolean write_save(const char *path, const char *pack, const char *desc,
+                          const byte *data, size_t len)
+{
+    byte hdr[SAVE_HEADER];
+    FILE *f;
+    boolean ok;
+
+    memset(hdr, 0, sizeof(hdr));
+    memcpy(hdr, WOLF_SAVE_MAGIC, 4);
+    hdr[4] = WOLF_SAVE_VERSION;
+    memcpy(hdr + 8, pack, strlen(pack) < 3 ? strlen(pack) : 3);
+    if (desc) {
+        memcpy(hdr + 12, desc, strlen(desc) < WOLF_SAVE_DESC - 1 ? strlen(desc) : WOLF_SAVE_DESC - 1);
+    }
+    put_u32(hdr + 44, (uint32_t)len);
+    put_u32(hdr + 48, crc32_of(data, len));
+
+    f = fopen(path, "wb");
+    if (!f) {
+        return false;
+    }
+    ok = fwrite(hdr, 1, sizeof(hdr), f) == sizeof(hdr) && fwrite(data, 1, len, f) == len;
+    ok = (fclose(f) == 0) && ok;
+    return ok;
+}
+
+static wolf_save_result_t read_save(const char *path, const char *pack, byte *buf, size_t cap,
+                                    size_t *len, char *desc)
+{
+    byte hdr[SAVE_HEADER];
+    uint32_t n;
+    FILE *f = fopen(path, "rb");
+
+    if (!f) {
+        return WOLF_SAVE_MISSING;
+    }
+    if (fread(hdr, 1, sizeof(hdr), f) != sizeof(hdr) || memcmp(hdr, WOLF_SAVE_MAGIC, 4) != 0) {
+        fclose(f);
+        return WOLF_SAVE_DAMAGED;
+    }
+    if ((hdr[4] | (hdr[5] << 8)) != WOLF_SAVE_VERSION) {
+        fclose(f);
+        return WOLF_SAVE_OLD;
+    }
+    if (strncmp((const char *)hdr + 8, pack, 4) != 0) {
+        fclose(f);
+        return WOLF_SAVE_OTHER_PACK;
+    }
+    n = get_u32(hdr + 44);
+    if (n > cap || fread(buf, 1, n, f) != n || crc32_of(buf, n) != get_u32(hdr + 48)) {
+        fclose(f);
+        return WOLF_SAVE_DAMAGED;
+    }
+    fclose(f);
+    *len = n;
+    if (desc) {
+        memcpy(desc, hdr + 12, WOLF_SAVE_DESC);
+        desc[WOLF_SAVE_DESC - 1] = '\0';
+    }
+    return WOLF_SAVE_OK;
 }
 
 boolean Wolf_SaveExists(int slot)
@@ -276,88 +369,49 @@ boolean Wolf_SaveExists(int slot)
     return true;
 }
 
-boolean Wolf_SaveGame(int slot)
+boolean Wolf_WriteSave(int slot, const char *pack, const char *desc, const byte *data,
+                       size_t len)
 {
     char path[WOLF_PATH_MAX];
-    FILE *f;
-    wolf_save_hdr_t hdr;
-    player_t *p;
 
-    if (slot < 0 || slot >= WOLF_MAX_SAVE_SLOTS || !g_level.active) {
+    if (slot < 0 || slot >= WOLF_MAX_SAVE_SLOTS || !data || !len) {
         return false;
     }
     save_path(slot, path, sizeof(path));
-    f = fopen(path, "wb");
-    if (!f) {
+    if (!write_save(path, pack, desc, data, len)) {
+        fprintf(stderr, "Could not write %s\n", path);
         return false;
     }
-    memset(&hdr, 0, sizeof(hdr));
-    memcpy(hdr.magic, WOLF_SAVE_MAGIC, 4);
-    hdr.version = WOLF_SAVE_VERSION;
-    hdr.mapnum = g_level.mapnum;
-    hdr.episode_map = g_level.episode_map;
-    p = &g_level.player;
-    hdr.px = p->x;
-    hdr.py = p->y;
-    hdr.pangle = p->angle;
-    hdr.health = p->health;
-    hdr.lives = p->lives;
-    hdr.ammo = p->ammo;
-    hdr.score = p->score;
-    hdr.keys = p->keys;
-    hdr.weapon = p->weapon;
-    hdr.best_weapon = p->best_weapon;
-    if (fwrite(&hdr, sizeof(hdr), 1, f) != 1) {
-        fclose(f);
-        return false;
-    }
-    fclose(f);
     printf("Saved game slot %d -> %s\n", slot, path);
     return true;
 }
 
-boolean Wolf_LoadGame(int slot)
+wolf_save_result_t Wolf_ReadSave(int slot, const char *pack, byte *buf, size_t cap, size_t *len,
+                                 char *desc)
 {
     char path[WOLF_PATH_MAX];
-    FILE *f;
-    wolf_save_hdr_t hdr;
-    player_t *p;
 
     if (slot < 0 || slot >= WOLF_MAX_SAVE_SLOTS) {
-        return false;
+        return WOLF_SAVE_MISSING;
     }
     save_path(slot, path, sizeof(path));
-    f = fopen(path, "rb");
-    if (!f) {
-        return false;
+    return read_save(path, pack, buf, cap, len, desc);
+}
+
+const char *Wolf_SaveResultText(wolf_save_result_t result)
+{
+    switch (result) {
+    case WOLF_SAVE_OK:
+        return "OK";
+    case WOLF_SAVE_MISSING:
+        return "NO SAVED GAME";
+    case WOLF_SAVE_OLD:
+        return "SAVED BY AN OLDER VERSION";
+    case WOLF_SAVE_OTHER_PACK:
+        return "SAVED WITH OTHER GAME DATA";
+    default:
+        return "SAVED GAME IS DAMAGED";
     }
-    if (fread(&hdr, sizeof(hdr), 1, f) != 1) {
-        fclose(f);
-        return false;
-    }
-    fclose(f);
-    if (memcmp(hdr.magic, WOLF_SAVE_MAGIC, 4) != 0 || hdr.version != WOLF_SAVE_VERSION) {
-        fprintf(stderr, "Save slot %d: bad magic/version\n", slot);
-        return false;
-    }
-    if (!Wolf_SetupLevel(hdr.mapnum)) {
-        return false;
-    }
-    p = &g_level.player;
-    p->x = hdr.px;
-    p->y = hdr.py;
-    p->angle = hdr.pangle;
-    p->health = hdr.health;
-    p->lives = hdr.lives;
-    p->ammo = hdr.ammo;
-    p->score = hdr.score;
-    p->keys = hdr.keys;
-    p->weapon = hdr.weapon;
-    p->best_weapon = hdr.best_weapon;
-    p->dead = false;
-    g_level.episode_map = hdr.episode_map;
-    printf("Loaded game slot %d map=%d score=%d\n", slot, hdr.mapnum, hdr.score);
-    return true;
 }
 
 boolean Wolf_UserDataSmokeVerify(void)
@@ -415,31 +469,32 @@ boolean Wolf_UserDataSmokeVerify(void)
         printf("UserData smoke: config path=%s\n", cfg);
     }
 
-    /* Save/load current level snapshot if active, else setup map0 temporarily. */
-    {
-        boolean had = g_level.active;
-        if (!had) {
-            Wolf_ResetPlayerStats();
-            if (!Wolf_SetupLevel(0)) {
-                fprintf(stderr, "UserData smoke: cannot setup level for save test\n");
-                return false;
-            }
+    /* the save file format, on a file of its own: the player's slots stay untouched */
+    if (!Wolf_GetAppDataPath("smoke_save.w64", savep, sizeof(savep))) {
+        ok = false;
+    } else {
+        static byte data[1000], back[1000];
+        size_t len = 0;
+        char desc[WOLF_SAVE_DESC];
+        int i;
+
+        for (i = 0; i < (int)sizeof(data); i++) {
+            data[i] = (byte)(i * 7);
         }
-        g_level.player.score = 12345;
-        if (!Wolf_SaveGame(0)) {
-            fprintf(stderr, "UserData smoke: SaveGame failed\n");
+        if (!write_save(savep, "WL6", "SMOKE", data, sizeof(data)) ||
+            read_save(savep, "WL6", back, sizeof(back), &len, desc) != WOLF_SAVE_OK ||
+            len != sizeof(data) || memcmp(data, back, len) != 0 || strcmp(desc, "SMOKE") != 0) {
+            fprintf(stderr, "UserData smoke: save file roundtrip failed\n");
             ok = false;
-        }
-        g_level.player.score = 0;
-        if (!Wolf_LoadGame(0) || g_level.player.score != 12345) {
-            fprintf(stderr, "UserData smoke: LoadGame failed score=%d\n",
-                    g_level.player.score);
+        } else if (read_save(savep, "WL1", back, sizeof(back), &len, NULL) !=
+                   WOLF_SAVE_OTHER_PACK) {
+            fprintf(stderr, "UserData smoke: save file loaded into the wrong pack\n");
             ok = false;
         } else {
-            printf("UserData smoke: save/load OK score=%d\n", g_level.player.score);
+            printf("UserData smoke: save/load OK (format v%d, %u bytes)\n", WOLF_SAVE_VERSION,
+                   (unsigned)len);
         }
-        save_path(0, savep, sizeof(savep));
-        printf("UserData smoke: save path=%s\n", savep);
+        remove(savep);
     }
 
     Wolf_HighScoresTryInsert(999, 0, 0, "SMOKE");

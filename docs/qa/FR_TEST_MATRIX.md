@@ -80,7 +80,7 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
-| FR-SAVE-001 | F5/F9 versioned save | A/M | Met | Q4 | `saveN.w64` magic W64S |
+| FR-SAVE-001 | F8/F9 versioned save (format v2: the whole level, as the original) | A/M | Met | P4/S6 | `saveN.w64` magic W64S v2; `orig_loop_maps` saves mid-demo and checks the loaded game ends identically; smoke `Engine smoke: save v2` |
 | FR-SAVE-002 | Config + high scores | A/M | Met | Q4 | config.ini + highscores.dat |
 
 ## Non-functional

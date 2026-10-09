@@ -20,6 +20,7 @@
 
 #include "orig.h"
 #include "orig_bridge.h"
+#include "wolf_userdata.h"
 #include "wl_tics.h"
 
 static tic_clock_t g_clock;
@@ -47,10 +48,35 @@ static const char *ArgValue(int argc, char **argv, const char *name)
     return NULL;
 }
 
-boolean OrigRunner_Requested(int argc, char **argv)
+boolean OrigRunner_Direct(int argc, char **argv)
 {
-    const char *engine = ArgValue(argc, argv, "--engine");
-    return engine && strcmp(engine, "orig") == 0;
+    static const char *const flags[] = {"--engine", "--map",  "--skill",  "--viewsize",  "--demo",
+                                        "--load",   "--fast", "--frames", "--screenshot"};
+    size_t f;
+    int i;
+
+    for (i = 1; i < argc; i++) {
+        for (f = 0; f < sizeof(flags) / sizeof(flags[0]); f++) {
+            const size_t len = strlen(flags[f]);
+            if (strncmp(argv[i], flags[f], len) == 0 && (!argv[i][len] || argv[i][len] == '=')) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void OrigRunner_Defaults(orig_run_options_t *opts)
+{
+    opts->map = 0;
+    opts->skill = gd_medium; /* "Bring 'em on" */
+    opts->viewsize = 15;
+    opts->demo = -1;
+    opts->load = -1;
+    opts->fast = 0;
+    opts->maxframes = 0;
+    opts->shotframe = 0;
+    opts->shotpath = NULL;
 }
 
 static boolean IntArg(int argc, char **argv, const char *name, int lo, int hi, int *out)
@@ -73,16 +99,15 @@ static boolean IntArg(int argc, char **argv, const char *name, int lo, int hi, i
 
 boolean OrigRunner_ParseArgs(int argc, char **argv, orig_run_options_t *opts)
 {
+    const char *engine = ArgValue(argc, argv, "--engine");
     int i;
 
-    opts->map = 0;
-    opts->skill = gd_medium; /* "Bring 'em on" */
-    opts->viewsize = 15;
-    opts->demo = -1;
-    opts->fast = 0;
-    opts->maxframes = 0;
-    opts->shotframe = 0;
-    opts->shotpath = NULL;
+    OrigRunner_Defaults(opts);
+    if (engine && strcmp(engine, "orig") != 0) {
+        fprintf(stderr, "--engine=%s: the legacy engine was removed in P4/S6; "
+                        "the faithful engine is the only one\n", engine);
+        return false;
+    }
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--fast") == 0) {
             opts->fast = 1;
@@ -102,7 +127,8 @@ boolean OrigRunner_ParseArgs(int argc, char **argv, orig_run_options_t *opts)
     return IntArg(argc, argv, "--map", 0, 59, &opts->map) &&
            IntArg(argc, argv, "--skill", gd_baby, gd_hard, &opts->skill) &&
            IntArg(argc, argv, "--viewsize", 4, 20, &opts->viewsize) &&
-           IntArg(argc, argv, "--demo", 0, 3, &opts->demo); /* T_DEMO0..3 */
+           IntArg(argc, argv, "--demo", 0, 3, &opts->demo) && /* T_DEMO0..3 */
+           IntArg(argc, argv, "--load", 0, WOLF_MAX_SAVE_SLOTS - 1, &opts->load);
 }
 
 /* ------------------------------------------------------------------ clock */
@@ -677,6 +703,64 @@ static void HookCheatMessage(void)
     }
 }
 
+/* ------------------------------------------------------- saving (F8, F9) */
+
+/*
+ * The original's quick save (F8) and quick load (F9) use the slot last
+ * chosen in the save menu; the menus are P5, so they use slot 0 until then.
+ */
+#define QUICKSLOT 0
+
+static byte g_savebuf[64 * 1024];
+
+static const char *Pack(void)
+{
+    return Bridge_IsShareware() ? "WL1" : "WL6";
+}
+
+static void QuickSave(void)
+{
+    char desc[WOLF_SAVE_DESC];
+    const size_t len = SaveTheGame(g_savebuf, sizeof(g_savebuf));
+
+    snprintf(desc, sizeof(desc), "Episode %d, floor %d", gamestate.episode + 1,
+             gamestate.mapon + 1);
+    if (len && len <= sizeof(g_savebuf) &&
+        Wolf_WriteSave(QUICKSLOT, Pack(), desc, g_savebuf, len)) {
+        Message("Game saved", desc);
+    } else {
+        Message("Could not save the game", NULL);
+    }
+    if (!g_fast) {
+        UserInput(70);
+    }
+}
+
+/* True when the saved game is loaded: GameLoop then restarts on it (loadedgame). */
+static boolean LoadSlot(int slot)
+{
+    size_t len = 0;
+    const wolf_save_result_t result =
+        Wolf_ReadSave(slot, Pack(), g_savebuf, sizeof(g_savebuf), &len, NULL);
+
+    if (result == WOLF_SAVE_OK && LoadTheGame(g_savebuf, len)) {
+        return true;
+    }
+    if (result == WOLF_SAVE_OK && loadedgame) {
+        /* the stream was fine but its level would not load: the game is gone */
+        loadedgame = false;
+        abortgame = true;
+        playstate = ex_abort;
+    }
+    Message(result == WOLF_SAVE_OK ? Wolf_SaveResultText(WOLF_SAVE_DAMAGED)
+                                   : Wolf_SaveResultText(result),
+            NULL);
+    if (!g_fast) {
+        UserInput(105);
+    }
+    return false;
+}
+
 /* Pause and Esc. The control panel (F1-F10, Esc) is P5; Esc quits until then. */
 static void HookCheckKeys(byte scan)
 {
@@ -691,6 +775,18 @@ static void HookCheckKeys(byte scan)
         g_paused = false;
         g_mousedx = g_mousedy = 0;
         orig_lastscan = 0;
+        return;
+    }
+    if (scan == 0x42) { /* sc_F8 */
+        orig_lastscan = 0;
+        QuickSave();
+        return;
+    }
+    if (scan == 0x43) { /* sc_F9 */
+        orig_lastscan = 0;
+        if (LoadSlot(QUICKSLOT)) {
+            playstate = ex_abort; /* as CheckKeys after a load from the control panel */
+        }
         return;
     }
     if (scan == 0x01 || g_quit) { /* sc_Escape */
@@ -762,8 +858,9 @@ int OrigRunner_Run(const orig_run_options_t *opts)
     g_fast = opts->fast != 0;
     g_quit = false;
     g_frames = 0;
+    g_shotsaved = false;
 
-    if (opts->demo < 0 && !Bridge_MapExists(opts->map)) {
+    if (opts->demo < 0 && opts->load < 0 && !Bridge_MapExists(opts->map)) {
         fprintf(stderr, "Map %d is not in this pack\n", opts->map);
         return 34;
     }
@@ -805,8 +902,15 @@ int OrigRunner_Run(const orig_run_options_t *opts)
         printf("orig demo %d: %d frames, playstate %d, health %d, kills %d\n", opts->demo,
                g_frames, playstate, gamestate.health, gamestate.killcount);
     } else {
-        NewGame(opts->skill, opts->map / 10);
-        gamestate.mapon = (int16_t)(opts->map % 10);
+        if (opts->load >= 0) {
+            if (!LoadSlot(opts->load)) {
+                Bridge_CloseWindow();
+                return 35;
+            }
+        } else {
+            NewGame(opts->skill, opts->map / 10);
+            gamestate.mapon = (int16_t)(opts->map % 10);
+        }
         GameLoop();
         printf("orig game over: map %d, score %ld, lives %d\n",
                gamestate.episode * 10 + gamestate.mapon, (long)gamestate.score, gamestate.lives);
@@ -820,4 +924,46 @@ int OrigRunner_Run(const orig_run_options_t *opts)
         return 33;
     }
     return 0;
+}
+
+boolean OrigRunner_SmokeVerify(void)
+{
+    static byte first[64 * 1024], again[64 * 1024];
+    orig_run_options_t opts;
+    size_t n1, n2;
+    boolean ok = true;
+
+    /* demo 0 with everything wired up, unclocked, for 300 frames */
+    OrigRunner_Defaults(&opts);
+    opts.demo = 0;
+    opts.fast = 1;
+    opts.maxframes = 300;
+    if (OrigRunner_Run(&opts) != 0 || g_frames != opts.maxframes) {
+        fprintf(stderr, "Engine smoke: demo 0 did not run %d frames\n", opts.maxframes);
+        return false;
+    }
+    printf("Engine smoke: demo 0 on map %d, %d frames, %d actors, %d doors\n",
+           gamestate.mapon + 10 * gamestate.episode, g_frames, objcount, doornum);
+
+    /* save format v2: the state at frame 300 survives a load byte for byte */
+    n1 = SaveTheGame(first, sizeof(first));
+    if (!n1 || n1 > sizeof(first) || !LoadTheGame(first, n1)) {
+        fprintf(stderr, "Engine smoke: save/load failed\n");
+        ok = false;
+    } else {
+        n2 = SaveTheGame(again, sizeof(again));
+        if (n2 != n1 || memcmp(first, again, n1) != 0) {
+            fprintf(stderr, "Engine smoke: save changed after a load\n");
+            ok = false;
+        } else {
+            printf("Engine smoke: save v2 roundtrip OK (%u bytes)\n", (unsigned)n1);
+        }
+    }
+    loadedgame = false;
+    return ok;
+}
+
+boolean OrigRunner_QuitRequested(void)
+{
+    return g_quit;
 }

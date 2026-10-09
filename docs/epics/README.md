@@ -9,8 +9,8 @@ Direction ([ADR-002](../adr/002-faithful-fixed-point-port.md)): reimplement game
 | P1 | Safety net: warnings, ASan/UBSan option, decoder unit tests + CTest, CI build, script fixes | **Done** |
 | P2 | Honest docs: known gaps, `GO_NO_GO.md` assessment, ADR-002, FR matrix corrections, outdated plan header and WL1/WL6 wording | **Done** |
 | P3 | WL1 data layer: WL1 and WL6 graphics layouts selected by pack extension (`src/id/gfxv.h`); layout is validated against the pack and unsupported versions fail with a clear error | **Done** for the Apogee 1.4 shareware pack (smoke passes on WL1 and WL6); manual WL1 playthrough not yet done |
-| P4 | Engine core: fixed-point + 70 Hz loop, original object/AI/state tables, player code, fixed-point renderer (re-run the L1.5 matrix) | **In progress**: S0–S5 done; S6 next |
-| P5 | Game flow: real menus, intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | Planned |
+| P4 | Engine core: fixed-point + 70 Hz loop, original object/AI/state tables, player code, fixed-point renderer (re-run the L1.5 matrix) | **In progress**: S0–S6 done (the faithful engine is the only engine); S7 next |
+| P5 | Game flow: real menus (episode and skill choice, save slots with names, sound and control settings with **separate music and effects volume**), intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | Planned |
 | P6 | WL6: all episodes / 60 maps, remaining enemies and chunks | Planned |
 | F4 | Dual pistols — optional, **last**, only after P6 | Deferred |
 
@@ -18,7 +18,7 @@ P1 delivered: `-Wall -Wextra -Wpedantic` (`/W4` on MSVC) with zero project warni
 
 ### P4 breakdown (engine core)
 
-Built in parallel with the legacy engine (`--engine=legacy|orig`); details of the decisions are in ADR-002. Each step lists what it replaces from the original sources.
+Built in parallel with the legacy engine (`--engine=legacy|orig`) until S6, which made the faithful engine the only one; details of the decisions are in ADR-002. Each step lists what it replaces from the original sources.
 
 | Step | Scope | Depends on | Status |
 |------|-------|------------|--------|
@@ -28,7 +28,7 @@ Built in parallel with the legacy engine (`--engine=legacy|orig`); details of th
 | S3 | `WL_AGENT.C`: player movement/collision, weapons, `Cmd_Fire`/`Cmd_Use`, damage, items | S1 (hit test needs S4a) | **Done** (#132): movement, collision, turning, strafing, `Cmd_Use` (doors, locks, elevators, pushwalls), items, weapon frames, hit test, victory spin |
 | S4 | Renderer: S4a exact `TransformActor`/`CalcHeight`/projection; S4b raycaster in C (spec: `WL_DR_A.ASM`); S4c pixel-exact wall/sprite scaling (no compiled scalers) | S1; S4a before S3 | **S4a done** (#133): view size and projection constants, view variables, `TransformActor`/`TransformTile`/`CalcHeight`, `CalcRotate`, `DrawScaleds` visibility (activation, `FL_VISABLE`, item pickup, back-to-front order). **S4b done** (#134): `AsmRefresh` ported register by register, wall/door/pushwall posts, column scaler and VGA masks, floor/ceiling, into the 320x200 frame. **S4c done** (#135): `ScaleShape`/`SimpleScaleShape` from the compiled-shape sprite format with wall occlusion, `DrawPlayerWeapon`, `ThreeDRefresh` |
 | S5 | `PlayLoop`: `CalcTics`, original actor update order, doors/pushwalls, HUD hooks | S2, S3, S4 | **S5a done**: `PlayLoop`, `CalcTics`, `PollControls` (keyboard, mouse, joystick, demo record and playback), palette shifts, MLI cheat, music, `PlayDemo`; **7 of 8 original demos end exactly on their last input frame** (in sync), WL1 demo 0 drifts (S7). **S5b done**: `wolf3d.exe --engine=orig` plays the faithful engine (SDL keyboard and mouse as DOS scan codes, 70 Hz clock, screenbuf presentation with palette shifts and FizzleFade, status bar, sound and music, `GameLoop`, `Died`, `DrawPlayScreen`); `--demo`, `--map`, `--skill`, `--viewsize`, `--screenshot`, `--frames`. Menus, intermission and the attract loop are P5 (placeholder screens until then) |
-| S6 | Switch default to the new engine, delete legacy float gameplay/draw, save format v2, update smoke markers | S5 | Planned |
+| S6 | Switch default to the new engine, delete legacy float gameplay/draw, save format v2, update smoke markers | S5 | **Done**: the title and stand-in menu start the faithful engine (New Game, Load Game), any game option starts it directly, Esc returns to the menu; legacy gameplay, renderer, status bar, weapon and sprite code deleted (`--engine=legacy` refused); save format v2 (`orig_save.c`: the original `SaveTheGame` contents field by field with pointers as indices, plus the `US_RndT` index, `killerobj`, `LastAttacker`), F8 quick save and F9 quick load; a save made halfway through each original demo loads and plays on to the same end state; smoke suite and markers run the faithful engine |
 | S7 | Fidelity gate: original demos replay without desync; local golden frame hashes; E1M1 any% route; L1.5 matrix re-run | S5 | Planned. Early evidence from S5a: WL6 demos 0-3 and WL1 demos 1-3 play back in sync; WL1 demo 0 dies 97 frames before its input ends |
 
 Engine notes so far (details in the code comments and PRs):
@@ -41,10 +41,9 @@ Engine notes so far (details in the code comments and PRs):
 
 Risks: renderer-set `viewx`/`FL_VISABLE` feed the player's hit test; the menu view size changes `centerx`/`shootdelta`/the projection and so the hit test, so demo replay (S7) has to use the view size the demos were recorded with; sign-magnitude fixed-point rounding; trig tables built with Borland floating point (check against `WOLF3D.EXE` locally); boss throw and death-cam angles from `atan2` kept in a float (x87 vs SSE rounding); 16-bit overflow assumptions; the assembly raycaster.
 
-### Known gaps (why M0–M8 is "shell delivered", not "complete")
-- Enemy AI is a placeholder (straight-line chase, melee only; no ranged attacks, patrol, ambush, door use or difficulty).
-- Float / frame-time gameplay: not deterministic, no demo compatibility.
-- Menus: Sound, Control, Load and View are stubs; no intermission, attract loop, demos or cheats.
+### Known gaps
+- Menus: the original control panel (episode/skill choice, save slots, sound, controls, view size), the intermission, high scores and the title/demo attract loop are P5; a stand-in title and menu start the game until then.
+- WL1 demo 0 dies 97 frames before its recorded input ends (S7).
 - Only the Apogee 1.4 shareware WL1 layout is supported; other WL1 versions are rejected at startup.
 
 ## Shell delivered (M0–M8)

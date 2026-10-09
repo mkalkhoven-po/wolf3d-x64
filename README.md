@@ -2,7 +2,7 @@
 
 Native **Windows 11 x64** port of the 1992 id Software *Wolfenstein 3D* engine sources.
 
-> **Status:** Playable desktop build through **E8** (AppData config/saves, integer scale, fullscreen).  
+> **Status:** Playable on the faithful port of the original engine (P4/S6): original AI, renderer and timing, save/load (F8/F9), AppData config, integer scale, fullscreen. Original menus and intermission follow in P5.  
 > **Repo visibility:** Private (sign in as an account with access — guests see “Page not found”)  
 > **MVP:** Shareware **WL1** first (WL6 is supported for development and testing today; WL1 support lands in P3) via SDL2 software renderer, digitized sound and an emulated AdLib (OPL2) for music and effects ([ADR-003](docs/adr/003-own-opl2-emulator.md)). See [ADR-002](docs/adr/002-faithful-fixed-point-port.md).
 
@@ -15,9 +15,9 @@ set WOLF3D_DATA=D:\path\to\your\wolfdata
 build\wolf3d.exe --data "%WOLF3D_DATA%"
 ```
 
-Faithful engine preview (P4, no menus yet; Esc quits):
+Start a level directly (any of `--map`, `--skill`, `--demo`, `--load` skips the menu):
 ```bat
-build\wolf3d.exe --data "%WOLF3D_DATA%" --engine=orig
+build\wolf3d.exe --data "%WOLF3D_DATA%" --map 0 --skill 3
 ```
 
 Smoke:
@@ -110,12 +110,12 @@ Runtime dependency: **`SDL2.dll`** is copied next to `wolf3d.exe` when using the
 |-----|--------|
 | F11 | Fullscreen toggle |
 | +/- | Integer scale |
-| F5 / F9 | Save / load slot 0 |
-| Esc | Menu back / quit |
+| F8 / F9 | Quick save / load (slot 0) |
+| Esc | Back to the menu / quit |
 
 ## Roadmap
 
-Milestones **M0–M8** = epics **E0–E8** — the platform shell, data loading, raycast view, placeholder combat, audio and Win11 polish are on `main`. Gameplay is **not** yet faithful to the original (see *Known gaps* in [docs/epics/README.md](docs/epics/README.md)).
+Milestones **M0–M8** = epics **E0–E8** delivered the platform shell, data loading and Win11 polish. Since P4/S6 the game runs on the faithful port of the original engine (fixed point, 70 Hz, original AI, renderer and state tables); 7 of the 8 original demos replay in sync. Still to come: the original menus and intermission (P5) and the full WL6 pass (P6); see [docs/epics/README.md](docs/epics/README.md).
 
 Current plan: a faithful fixed-point port driven by the original sources — P1 safety net → P2 docs → P3 WL1 data → P4 engine core → P5 game flow + QA → P6 WL6 → F4 (dual pistols, optional, last). **WL1 shareware first, then WL6.** Details in [docs/epics/README.md](docs/epics/README.md).
 

@@ -49,3 +49,13 @@ int US_RndT(void)
     rndindex = (rndindex + 1) & 0xffu;
     return rndtable[rndindex];
 }
+
+int US_GetRndIndex(void)
+{
+    return (int)rndindex;
+}
+
+void US_SetRndIndex(int index)
+{
+    rndindex = (unsigned)index & 0xffu;
+}

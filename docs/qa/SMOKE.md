@@ -63,34 +63,36 @@ Bad path expected: **exit 2**, no `wolf3d-win64 smoke OK`.
 | 3 | Required files check failed |
 | 4–5 | Map / VSWAP open failed |
 | 8 | Graphics open failed |
-| 9–14 | Title / level / combat / episode smoke failed |
+| 9–10 | Title smoke failed (layout check, empty paint) |
+| 11 | Engine smoke failed: demo 0 with all hooks, or the save v2 roundtrip |
 | 15–16 | Audio setup / audio smoke failed |
 | 17–19 | UserData / present smoke failed |
+
+Codes 12–14 and 20–23 belonged to the legacy engine's checks (raycast, combat, status bar, weapon, sprite, pushwall) and were retired with it in P4/S6.
 
 ## Required markers (good run)
 
 Asserted by `scripts/smoke_wl6.sh` (must all appear in combined stdout/stderr):
 
-| Marker substring |
-|------------------|
-| `wolf3d-win64 smoke OK` |
-| `TITLEPIC loaded` |
-| `VSWAP chunks=` |
-| `VGAGRAPH open` |
-| `Audio digi:` |
-| `Audio smoke:` |
-| `silent fallback play: OK` |
-| `UserData smoke:` |
-| `config roundtrip OK` |
-| `save/load OK` |
-| `Status smoke:` |
-| `Get Psyched:` |
-| `Weapon smoke:` |
-| `Sprite smoke:
-- `Pushwall smoke:` — L1 secret tile count on map 0` |
-| `Present smoke:` |
-| `logical=320x200` |
-| `windowed_client=` |
+| Marker substring | Checks |
+|------------------|--------|
+| `wolf3d-win64 smoke OK` | the whole suite passed |
+| `TITLEPIC loaded` | graphics layout of the pack |
+| `VSWAP chunks=` | page file |
+| `VGAGRAPH open` | graphics file |
+| `Audio digi:` | digitized sounds loaded |
+| `Audio smoke:` | audio modes |
+| `silent fallback play: OK` | effects off does not crash |
+| `AdLib effect:` | an AdLib-only effect starts and ends by itself |
+| `digi extra screams=` | the digitized sound map matches the pack (WL6 full, WL1 `UPLOAD`) |
+| `UserData smoke:` | AppData location |
+| `config roundtrip OK` | config.ini write and read |
+| `save/load OK` | save file format v2 (on its own file; player slots untouched) |
+| `Engine smoke: demo 0` | the faithful engine plays 300 frames of demo 0 with every hook (status bar, sound, palette, present) |
+| `Engine smoke: save v2 roundtrip OK` | that game state survives SaveTheGame → LoadTheGame byte for byte |
+| `Present smoke:` | window and scaling |
+| `logical=320x200` | canonical frame size |
+| `windowed_client=` | window size |
 
 When changing engine print strings, update **both** the game and this list / script in the same PR.
 
