@@ -254,7 +254,7 @@ static int run_pack(int argc, char **argv)
             keyed += ch(c)->keyon;
         }
         printf("  music %2d: peak %5d, %d channels keyed at 5 s\n", n, (int)peak, keyed);
-        CHECK(peak > 500 && peak < 32768 / 4); /* OPL_GAIN in id_sd.c is 4x */
+        CHECK(peak > 500 && peak < 32768 / 2); /* OPL_GAIN in id_sd.c is 2x */
         CHECK(!ch(0)->keyon); /* channel 0 belongs to the effects */
     }
     /* shareware has the 11 songs of episode 1 and the menus; WL6 all 27 */

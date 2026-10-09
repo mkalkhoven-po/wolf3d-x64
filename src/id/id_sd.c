@@ -25,8 +25,8 @@
 #define MAX_DIGI 64
 /* the SB time constant 256 - 1000000 / 7000 gives 1000000 / 142 Hz */
 #define DIGI_RATE 7042
-/* the chip sums nine channels of +-4084: a sound card amplifies that by about 12 dB */
-#define OPL_GAIN (4.0f / 32768.0f)
+/* the chip sums nine channels of +-4084; x2 as in DOSBox, the usual reference for the mix */
+#define OPL_GAIN (2.0f / 32768.0f)
 #define DIGI_GAIN (1.0f / 128.0f)  /* 8-bit samples at full scale */
 
 SDMode SoundMode = sdm_Off;
@@ -36,6 +36,7 @@ boolean SD_Silent = false;
 int DigiMap[LASTSOUND];
 
 static boolean sd_started;
+static boolean sd_upload; /* a shareware pack */
 static SDL_AudioDeviceID audio_dev;
 static SDL_mutex *audio_mx;
 
@@ -75,31 +76,55 @@ static longword time_count_base;
 
 /* ---- digi table from last VSWAP page ---- */
 
-static void init_digimap(void)
+/*
+ * wolfdigimap (WL_MAIN.C InitDigiMap): sound -> VSWAP digitized sample.
+ * Sounds not listed play on the AdLib (pickups, treasure, menus...). The
+ * shareware EXE was built with UPLOAD and maps only the first group.
+ */
+static void init_digimap(boolean upload)
 {
-    int i;
-    /*
-     * Official wolfdigimap (WL_MAIN.C InitDigiMap) — sounds NOT in this list
-     * have DigiMap=-1 and play on the AdLib (pickups, treasure, menus...).
-     */
-    static const int map[] = {
+    static const int upload_map[] = {
         HALTSND, 0, DOGBARKSND, 1, CLOSEDOORSND, 2, OPENDOORSND, 3,
         ATKMACHINEGUNSND, 4, ATKPISTOLSND, 5, ATKGATLINGSND, 6, SCHUTZADSND, 7,
         GUTENTAGSND, 8, MUTTISND, 9, BOSSFIRESND, 10, SSFIRESND, 11,
         DEATHSCREAM1SND, 12, DEATHSCREAM2SND, 13, DEATHSCREAM3SND, 13,
-        TAKEDAMAGESND, 14, PUSHWALLSND, 15, DOGDEATHSND, 16, AHHHGSND, 17,
-        DIESND, 18, EVASND, 19, LEBENSND, 20, NAZIFIRESND, 21, SLURPIESND, 22,
-        TOT_HUNDSND, 23, MEINGOTTSND, 24, SCHABBSHASND, 25, HITLERHASND, 26,
-        SPIONSND, 27, NEINSOVASSND, 28, DOGATTACKSND, 29, LEVELDONESND, 30,
-        /* mech step 31 and yeah 32 exist on some packs — omit if no enum */
+        TAKEDAMAGESND, 14, PUSHWALLSND, 15,
+        LEBENSND, 20, NAZIFIRESND, 21, SLURPIESND, 22,
+        YEAHSND, 32,
         LASTSOUND
     };
+    /* "These are in all other episodes" */
+    static const int full_map[] = {
+        DOGDEATHSND, 16, AHHHGSND, 17, DIESND, 18, EVASND, 19,
+        TOT_HUNDSND, 23, MEINGOTTSND, 24, SCHABBSHASND, 25, HITLERHASND, 26,
+        SPIONSND, 27, NEINSOVASSND, 28, DOGATTACKSND, 29, LEVELDONESND, 30,
+        MECHSTEPSND, 31,
+        SCHEISTSND, 33,
+        DEATHSCREAM4SND, 34, /* AIIEEE */
+        DEATHSCREAM5SND, 35, /* DEE-DEE */
+        DONNERSND, 36,       /* episode 4 boss dies */
+        EINESND, 37,         /* episode 4 boss sighting */
+        ERLAUBENSND, 38,     /* episode 6 boss sighting */
+        DEATHSCREAM6SND, 39, /* FART */
+        DEATHSCREAM7SND, 40, /* GASP */
+        DEATHSCREAM8SND, 41, /* GUH-BOY! */
+        DEATHSCREAM9SND, 42, /* AH GEEZ! */
+        KEINSND, 43,         /* episode 5 boss sighting */
+        MEINSND, 44,         /* episode 6 boss dies */
+        ROSESND, 45,         /* episode 5 boss dies */
+        LASTSOUND
+    };
+    int i;
+
     for (i = 0; i < LASTSOUND; ++i) {
         DigiMap[i] = -1;
     }
-    for (i = 0; map[i] != LASTSOUND; i += 2) {
-        if (map[i] >= 0 && map[i] < LASTSOUND) {
-            DigiMap[map[i]] = map[i + 1];
+    for (i = 0; upload_map[i] != LASTSOUND; i += 2) {
+        DigiMap[upload_map[i]] = upload_map[i + 1];
+    }
+    if (!upload) {
+        for (i = 0; full_map[i] != LASTSOUND; i += 2) {
+            DigiMap[full_map[i]] = full_map[i + 1];
         }
     }
 }
@@ -342,7 +367,7 @@ static void play_digitized(int which, int leftpos, int rightpos)
 
 void SD_Startup(void)
 {
-    init_digimap();
+    init_digimap(false);
     digi_data = NULL;
     DigiNumber = DigiPriority = 0;
     LeftPosition = RightPosition = 0;
@@ -377,6 +402,8 @@ boolean SD_SetupFromData(const wolf_data_dir_t *dir)
         audio_mx = SDL_CreateMutex();
     }
 
+    sd_upload = strcmp(dir->extension, ".WL1") == 0; /* the shareware EXE: UPLOAD */
+    init_digimap(sd_upload);
     if (!load_digi_table()) {
         fprintf(stderr, "SD: digi table load failed - silent digi\n");
     }
@@ -646,6 +673,17 @@ boolean SD_AudioSmokeVerify(void)
     printf("  digi pistol=%d door=%d open_mapped=%d\n",
            (int)SD_HasDigiFor(ATKPISTOLSND), (int)SD_HasDigiFor(OPENDOORSND),
            DigiMap[OPENDOORSND]);
+
+    /* the full game's extra screams are digitized; the shareware EXE plays them on the AdLib */
+    if (num_digi > 0) {
+        const boolean screams = SD_HasDigiFor(DEATHSCREAM4SND) && SD_HasDigiFor(DEATHSCREAM9SND) &&
+                                SD_HasDigiFor(SCHEISTSND);
+        printf("  digi extra screams=%d (shareware=%d)\n", (int)screams, (int)sd_upload);
+        if (screams == sd_upload || !SD_HasDigiFor(DEATHSCREAM1SND) || !SD_HasDigiFor(YEAHSND)) {
+            fprintf(stderr, "Audio smoke: digitized sound map does not match the pack\n");
+            ok = false;
+        }
+    }
 
     /* Silent path must not crash */
     {
