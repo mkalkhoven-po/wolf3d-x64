@@ -65,6 +65,9 @@
 
 #define STARTAMMO   8
 
+#define MAXVIEWWIDTH    320
+#define HEIGHTRATIO     0.50
+
 #define SPDPATROL   512
 #define SPDDOG      1500
 

@@ -151,6 +151,52 @@ void SelectPathDir(objtype *ob);
 void SpawnBJVictory(void);
 boolean CheckPosition(objtype *ob);
 
+/* WL_MAIN: view size and projection constants (set by NewViewSize) */
+extern int16_t viewsize; /* menu setting 4-20 */
+extern int16_t viewwidth, viewheight;
+extern fixed focallength;
+extern fixed scale, maxslope;
+extern int32_t heightnumerator;
+extern int16_t minheightdiv;
+extern int16_t pixelangle[MAXVIEWWIDTH];
+extern const int16_t dirangle[9];
+
+void CalcProjection(int32_t focal);
+boolean SetViewSize(unsigned width, unsigned height);
+void NewViewSize(int width);
+
+/* WL_DRAW */
+#define MAXVISABLE 50
+
+typedef struct {
+    int16_t viewx, viewheight, shapenum;
+} visobj_t;
+
+extern fixed mindist;
+extern uint16_t wallheight[MAXVIEWWIDTH];
+extern fixed viewx, viewy; /* the focal point */
+extern int16_t viewangle;
+extern fixed viewsin, viewcos;
+extern int16_t focaltx, focalty, viewtx, viewty;
+extern int16_t midangle;
+extern uint16_t xpartialup, xpartialdown, ypartialup, ypartialdown;
+extern int32_t xintercept, yintercept;
+extern visobj_t vislist[MAXVISABLE], *visptr, *visstep, *farthest;
+
+void CalcViewVariables(void);
+void TransformActor(objtype *ob);
+boolean TransformTile(int tx, int ty, int16_t *dispx, int16_t *dispheight);
+int16_t CalcHeight(void);
+int CalcRotate(objtype *ob);
+void DrawScaleds(void);
+
+/* WL_SCALE: the draw calls made, in order (cleared by the caller) */
+typedef visobj_t scaledraw_t;
+extern scaledraw_t scaledraws[MAXVISABLE];
+extern int numscaledraws;
+
+void ScaleShape(int xcenter, int shapenum, unsigned height);
+
 /* WL_AGENT */
 extern statetype s_player, s_attack;
 extern boolean running;
