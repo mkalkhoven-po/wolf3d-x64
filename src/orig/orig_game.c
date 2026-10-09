@@ -669,22 +669,18 @@ void DrawPlayBorder(void)
 =
 = DrawPlayScreen
 =
-= The status bar picture is the platform's (status_bar hook); the numbers
-= and pictures on it come from the Draw* hooks.
+= The original drew the border and status bar on all three video pages;
+= here there is one frame.
 =
 ===================
 */
 
 void DrawPlayScreen(void)
 {
-    if (orig_hooks.fade_out) {
-        orig_hooks.fade_out();
-    }
+    VW_FadeOut();
 
     DrawPlayBorder();
-    if (orig_hooks.status_bar) {
-        orig_hooks.status_bar();
-    }
+    VWB_DrawPic(0, 200 - STATUSLINES, STATUSBARPIC);
 
     DrawFace();
     DrawHealth();
@@ -701,8 +697,8 @@ void DrawPlayScreen(void)
 =
 = Died
 =
-= Swing around to face the attacker, fade to red (died_fade hook: the red
-= bar, the fizzle and the short wait), then take a life.
+= Swing around to face the attacker, fade to red (a red bar fizzled over
+= the view, a short wait), then take a life.
 =
 ===================
 */
@@ -781,9 +777,11 @@ void Died(void)
 
     /* fade to red */
     FinishPaletteShifts();
-    if (orig_hooks.died_fade) {
-        orig_hooks.died_fade();
-    }
+
+    VWB_Bar(screenofs % SCREENWIDTH, screenofs / SCREENWIDTH, viewwidth, viewheight, 4);
+    IN_ClearKeysDown();
+    FizzleFade(screenofs % SCREENWIDTH, screenofs / SCREENWIDTH, viewwidth, viewheight, 70);
+    IN_UserInput(100);
     OrigSD_WaitSoundDone();
 
     gamestate.lives--;
@@ -812,8 +810,8 @@ void Died(void)
 = The original's level loop: set up the level, play it, then go on by how
 = it ended. The intermission (level_completed), the end of the game
 = (game_over, victory) and the high scores are P5's screens and come
-= through hooks; so does "Get Psyched" (get_psyched). Returns when the game
-= is over, won, or the platform set abortgame.
+= through hooks until P5c ports them. Returns when the game is over, won,
+= or the platform set abortgame.
 =
 ===================
 */
@@ -842,10 +840,7 @@ restartgame:
         ingame = true;
         StartMusic();
         if (!died) {
-            if (orig_hooks.get_psyched) {
-                orig_hooks.get_psyched(); /* PreloadGraphics */
-            }
-            DrawPlayBorder();
+            PreloadGraphics(); /* "Get Psyched!" */
         } else {
             died = false;
         }

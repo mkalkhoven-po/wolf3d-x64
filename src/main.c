@@ -89,9 +89,9 @@ static int run_smoke_suite(void)
                 pictable[STATUSBARPIC - STARTPICS].height);
         return 9;
     }
-    VL_ClearScreen(0);
-    VL_SetPalette(gamepal);
-    VWB_DrawPic(0, 0, TITLEPIC);
+    FB_Clear(0);
+    FB_SetPalette(gamepal);
+    FB_DrawPic(0, 0, TITLEPIC);
     nz = 0;
     for (pi = 0; pi < SCREENPIXELS; ++pi) {
         if (framebuffer[pi]) {
@@ -122,9 +122,9 @@ static int run_smoke_suite(void)
         fprintf(stderr, "Present create failed\n");
         return 18;
     }
-    VL_ClearScreen(0);
-    VL_SetPalette(gamepal);
-    VWB_DrawPic(0, 0, TITLEPIC);
+    FB_Clear(0);
+    FB_SetPalette(gamepal);
+    FB_DrawPic(0, 0, TITLEPIC);
     Wolf_PresentFrame(&pr);
     if (pr.scale < 1 || pr.logical_w != 320 || pr.logical_h != 200) {
         fprintf(stderr, "Present logical size wrong\n");

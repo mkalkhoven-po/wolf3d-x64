@@ -140,9 +140,9 @@ static void hash_frame(void)
 
 static void test_golden_frames(void)
 {
-    /* view size 19, where every demo is in sync; frames 1, 100, 300, 600 */
-    static const uint32_t wl1_golden[4] = {0xaa249a5du, 0xebc88c6fu, 0x13c04b1cu, 0x3295fd8fu};
-    static const uint32_t wl6_golden[4] = {0x325c4ed9u, 0x803d8f34u, 0xb37fd70bu, 0xea1dee01u};
+    /* view size 19, where every demo is in sync; frames 1, 100, 300, 600 (status bar included since P5a) */
+    static const uint32_t wl1_golden[4] = {0xffe47c0au, 0x03b80decu, 0x79994107u, 0x4523c9adu};
+    static const uint32_t wl6_golden[4] = {0x7cb2d84du, 0xc35b1952u, 0x78911785u, 0x84dd59ccu};
     int d;
 
     NewViewSize(19);

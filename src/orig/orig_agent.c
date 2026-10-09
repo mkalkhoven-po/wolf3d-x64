@@ -4,7 +4,9 @@
  */
 #include "orig.h"
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "id_ca.h"
 #include "id_us_rnd.h"
@@ -1090,4 +1092,100 @@ void T_Player(objtype *ob)
     pluy = (uint16_t)(player->y >> UNSIGNEDSHIFT);
     player->tilex = (uint16_t)(player->x >> TILESHIFT); /* scale to tile values */
     player->tiley = (uint16_t)(player->y >> TILESHIFT);
+}
+
+/*
+=============================================================================
+
+                         STATUS WINDOW STUFF
+
+ The original drew each status picture on all three video pages from latch
+ memory; here there is one frame, so a picture goes into screenbuf below
+ the play area.
+
+=============================================================================
+*/
+
+void StatusDrawPic(unsigned x, unsigned y, unsigned picnum)
+{
+    VWB_DrawPic((int)x * 8, (int)y + (200 - STATUSLINES), (int)picnum);
+}
+
+void DrawFace(void)
+{
+    if (gamestate.health) {
+        StatusDrawPic(17, 4, FACE1APIC + 3 * ((100 - gamestate.health) / 16) + gamestate.faceframe);
+    } else if (LastAttacker && LastAttacker->obclass == needleobj) {
+        StatusDrawPic(17, 4, MUTANTBJPIC);
+    } else {
+        StatusDrawPic(17, 4, FACE8APIC);
+    }
+}
+
+void DrawGotGatling(void)
+{
+    StatusDrawPic(17, 4, GOTGATLINGPIC);
+}
+
+/* right justifies and pads with blanks */
+void LatchNumber(int x, int y, int width, int32_t number)
+{
+    char str[20];
+    int length, c;
+
+    snprintf(str, sizeof(str), "%ld", (long)number);
+    length = (int)strlen(str);
+
+    while (length < width) {
+        StatusDrawPic((unsigned)x, (unsigned)y, N_BLANKPIC);
+        x++;
+        width--;
+    }
+
+    c = length <= width ? 0 : length - width;
+
+    while (c < length) {
+        StatusDrawPic((unsigned)x, (unsigned)y, (unsigned)(str[c] - '0' + N_0PIC));
+        x++;
+        c++;
+    }
+}
+
+void DrawHealth(void)
+{
+    LatchNumber(21, 16, 3, gamestate.health);
+}
+
+void DrawLevel(void)
+{
+    LatchNumber(2, 16, 2, gamestate.mapon + 1);
+}
+
+void DrawLives(void)
+{
+    LatchNumber(14, 16, 1, gamestate.lives);
+}
+
+void DrawScore(void)
+{
+    LatchNumber(6, 16, 6, gamestate.score);
+}
+
+void DrawWeapon(void)
+{
+    if ((int)gamestate.weapon < 0) {
+        return; /* not reached in the original: no weapon after Died is not drawn */
+    }
+    StatusDrawPic(32, 8, KNIFEPIC + gamestate.weapon);
+}
+
+void DrawKeys(void)
+{
+    StatusDrawPic(30, 4, (gamestate.keys & 1) ? GOLDKEYPIC : NOKEYPIC);
+    StatusDrawPic(30, 20, (gamestate.keys & 2) ? SILVERKEYPIC : NOKEYPIC);
+}
+
+void DrawAmmo(void)
+{
+    LatchNumber(27, 16, 2, gamestate.ammo);
 }

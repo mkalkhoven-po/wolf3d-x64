@@ -96,6 +96,13 @@ void CalcTics(void)
 byte orig_keys[NUMCODES]; /* the keyboard interrupt's Keyboard[] */
 byte orig_lastscan;        /* LastScan: the last key pressed */
 
+/* IN_ClearKeysDown (ID_IN.C): forget the keys held and the last key pressed */
+void IN_ClearKeysDown(void)
+{
+    memset(orig_keys, 0, sizeof(orig_keys));
+    orig_lastscan = 0;
+}
+
 boolean mouseenabled, joystickenabled, joypadenabled, joystickprogressive;
 int16_t joystickport;
 int16_t mouseadjustment = 5;
@@ -456,9 +463,13 @@ boolean screenfaded;
 
 void CheckKeys(void)
 {
+    byte scan;
+
     if (screenfaded || demoplayback) { /* don't do anything with a faded screen */
         return;
     }
+
+    scan = orig_lastscan; /* before the cheat below clears it, as the original */
 
     /* SECRET CHEAT CODE: MLI */
     if (KeyDown(sc_M) && KeyDown(sc_L) && KeyDown(sc_I)) {
@@ -478,11 +489,11 @@ void CheckKeys(void)
         if (orig_hooks.cheat_message) {
             orig_hooks.cheat_message(); /* "You now have 100% Health..." */
         }
-        memset(orig_keys, 0, sizeof(orig_keys)); /* IN_ClearKeysDown */
+        IN_ClearKeysDown();
     }
 
     if (orig_hooks.check_keys) {
-        orig_hooks.check_keys(orig_lastscan);
+        orig_hooks.check_keys(scan);
     }
 }
 
@@ -780,6 +791,10 @@ void PlayLoop(void)
             orig_hooks.sound_update(); /* SD_Poll, UpdateSoundLoc */
         }
 
+        if (screenfaded) {
+            VW_FadeIn();
+        }
+
         CheckKeys();
 
         /* a key press ends demo playback */
@@ -825,7 +840,10 @@ boolean PlayDemo(const byte *demo, size_t demosize)
     demoptr = demo + 4;
     lastdemoptr = demo + length;
 
+    VW_FadeOut();
+    SETFONTCOLOR(0, 15);
     DrawPlayScreen(); /* after NewGame, so the status bar shows the new game */
+    VW_FadeIn();
 
     startgame = false;
     demoplayback = true;
@@ -842,5 +860,6 @@ boolean PlayDemo(const byte *demo, size_t demosize)
     demoplayback = false;
 
     StopMusic();
+    VW_FadeOut();
     return true;
 }

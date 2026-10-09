@@ -18,12 +18,8 @@ void VH_UpdateScreen(void)
 {
 }
 
-void VWB_Bar(int x, int y, int width, int height, int color)
-{
-    VL_Bar(x, y, width, height, color);
-}
 
-void VWB_DrawPic(int x, int y, int chunknum)
+void FB_DrawPic(int x, int y, int chunknum)
 {
     int picnum;
     int width, height;
@@ -64,12 +60,8 @@ void VWB_DrawPic(int x, int y, int chunknum)
     }
 }
 
-void VWB_DrawPropString(const char *string)
-{
-    (void)string;
-}
 
-void VH_DrawString(int x, int y, const char *text, int color)
+void FB_DrawString(int x, int y, const char *text, int color)
 {
     int cx = x;
     const char *p;
@@ -264,7 +256,7 @@ void VH_DrawString(int x, int y, const char *text, int color)
         for (row = 0; row < 8; ++row) {
             for (col = 0; col < 8; ++col) {
                 if (glyph[row] & (0x80 >> col)) {
-                    VL_Plot(cx + col, y + row, color);
+                    FB_Plot(cx + col, y + row, color);
                 }
             }
         }

@@ -252,6 +252,7 @@ void SimpleScaleShape(int xcenter, int shapenum, unsigned height);
 /* the play loop (S5): WL_PLAY.C controls / palette / music / PlayLoop, WL_GAME.C PlayDemo */
 extern byte orig_keys[NUMCODES]; /* Keyboard[], filled by the platform layer */
 extern byte orig_lastscan;        /* LastScan */
+void IN_ClearKeysDown(void);
 extern boolean mouseenabled, joystickenabled, joypadenabled, joystickprogressive;
 extern int16_t joystickport, mouseadjustment;
 extern int16_t dirscan[4], buttonscan[NUMBUTTONS], buttonmouse[4], buttonjoy[4];
@@ -330,3 +331,65 @@ void SpawnPlayer(int tilex, int tiley, int dir);
 void KnifeAttack(objtype *ob);
 void GunAttack(objtype *ob);
 void VictorySpin(void);
+
+/*
+ * The 2D toolkit (P5a, orig_vh.c): ID_VH.C, ID_VL.C and ID_US_1.C drawing
+ * into screenbuf. VWB_DrawPic rounds x down to 8 as the original;
+ * fontnumber 0 is the small font, 1 the large.
+ */
+#define WHITE 15 /* ID_VH.H */
+#define BLACK 0
+#define SETFONTCOLOR(f, b) (fontcolor = (byte)(f), backcolor = (byte)(b))
+
+extern const byte gamepal[768]; /* the shared id layer's game palette */
+extern byte fontcolor, backcolor;
+extern int16_t fontnumber;
+extern int16_t px, py; /* where VW_DrawPropString draws */
+extern uint16_t PrintX, PrintY, WindowX, WindowY, WindowW, WindowH;
+
+void VWB_Bar(int x, int y, int width, int height, int color);
+void VWB_Plot(int x, int y, int color);
+void VWB_Hlin(int x1, int x2, int y, int color);
+void VWB_Vlin(int y1, int y2, int x, int color);
+void VWB_DrawPic(int x, int y, int chunknum);
+void VW_MeasurePropString(const char *string, uint16_t *width, uint16_t *height);
+void VW_DrawPropString(const char *string);
+void VWB_DrawPropString(const char *string);
+void US_Print(const char *s);
+void US_PrintUnsigned(uint32_t n);
+void US_PrintSigned(int32_t n);
+void US_PrintCentered(const char *s);
+void US_CPrintLine(const char *s);
+void US_CPrint(const char *s);
+void US_ClearWindow(void);
+void VL_SetPalette(const byte *palette);
+void VL_GetPalette(byte *palette);
+void VL_FillPalette(int red, int green, int blue);
+void VL_WaitVBL(int vbls);
+void VL_FadeOut(int start, int end, int red, int green, int blue, int steps);
+void VL_FadeIn(int start, int end, const byte *palette, int steps);
+void VW_FadeOut(void); /* to black over 30 retraces */
+void VW_FadeIn(void);  /* back to the game palette */
+void VW_UpdateScreen(void);
+
+/* the status bar (WL_AGENT.C), into screenbuf rows 160-199 */
+void StatusDrawPic(unsigned x, unsigned y, unsigned picnum);
+void LatchNumber(int x, int y, int width, int32_t number);
+void DrawFace(void);
+void DrawHealth(void);
+void DrawLevel(void);
+void DrawLives(void);
+void DrawScore(void);
+void DrawWeapon(void);
+void DrawKeys(void);
+void DrawAmmo(void);
+void DrawGotGatling(void); /* StatusDrawPic (17,4,GOTGATLINGPIC) in GetBonus */
+
+/* WL_INTER.C: "Get Psyched!" before a level */
+void PreloadGraphics(void);
+void ClearSplitVWB(void); /* the 2D window over the play area (WL_INTER.C) */
+
+/* WL_MENU.C (P5a: the drawing the rest of the game uses) */
+void DrawOutline(int x, int y, int w, int h, int color1, int color2);
+void DrawWindow(int x, int y, int w, int h, int wcolor);
+void Message(const char *string);

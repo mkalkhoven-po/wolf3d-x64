@@ -1,10 +1,12 @@
 #pragma once
 
 /*
- * Calls from the faithful engine's game logic into sound and the status bar.
- * The logic only decides *that* a sound plays or the HUD changes; the platform
- * layer installs the real implementations when the engine is wired up (S5/S6).
- * Until then every hook is a no-op. Tests install recorders.
+ * Calls from the faithful engine into the hardware: sound, the clock, input,
+ * the palette and showing the frame. The engine draws everything itself into
+ * screenbuf (the 3D view, the status bar, the 2D screens: orig_vh.c); the
+ * platform layer shows it and installs the real implementations. Every hook
+ * is a no-op by default, so the engine runs headless; tests install
+ * recorders.
  *
  * Sound numbers are the soundnames of orig_audio.h (WL6 numbering).
  */
@@ -24,16 +26,6 @@ typedef struct {
     int (*sound_playing)(void);
     void (*wait_sound_done)(void); /* SD_WaitSoundDone: block until it ends */
 
-    /* status bar (WL_AGENT.C draw functions); state is read from gamestate */
-    void (*draw_health)(void);
-    void (*draw_face)(void); /* also reads LastAttacker when health is 0 */
-    void (*draw_score)(void);
-    void (*draw_lives)(void);
-    void (*draw_weapon)(void);
-    void (*draw_keys)(void);
-    void (*draw_ammo)(void);
-    void (*draw_got_gatling)(void); /* StatusDrawPic (17,4,GOTGATLINGPIC) */
-
     void (*start_damage_flash)(int damage);
     void (*start_bonus_flash)(void);
 
@@ -47,8 +39,11 @@ typedef struct {
     void (*death_cam_intro)(void);
     void (*death_cam_outro)(void);
 
-    /* ThreeDRefresh after a level start or the death cam: fizzle the new view in */
-    void (*fizzle_in)(void);
+    /*
+     * FizzleFade: dissolve the rectangle of screenbuf onto the screen over
+     * frames frames (the level start, dying, the death cam).
+     */
+    void (*fizzle)(int x, int y, int width, int height, int frames);
 
     /*
      * The 70 Hz timer interrupt (S5). read_time returns TimeCount as the
@@ -86,19 +81,25 @@ typedef struct {
     /* palette: red shift 1-6, white shift 1-3, or 0 / 0 for the game palette */
     void (*set_palette_shift)(int red, int white);
 
-    void (*present_frame)(void); /* show screenbuf (the page flip) */
+    void (*present_frame)(void); /* show screenbuf after a 3D frame (the page flip) */
 
     /*
-     * The level loop (S5b). status_bar draws STATUSBARPIC; draw_level the
-     * level number; get_psyched is PreloadGraphics; died_fade the red
-     * fizzle and wait after dying. The intermission, game over (high scores)
-     * and victory screens are P5's.
+     * The 2D side (P5, orig_vh.c). set_palette shows a whole palette (768
+     * bytes, 6-bit VGA) at once; wait_vbl waits vbls 70 Hz retraces (fades
+     * step on them); update_screen shows screenbuf after 2D drawing
+     * (VW_UpdateScreen, not a game frame); user_input waits up to tics
+     * 70 Hz tics or until a key or button, and says whether one came
+     * (IN_UserInput).
      */
-    void (*fade_out)(void);
-    void (*status_bar)(void);
-    void (*draw_level)(void);
-    void (*get_psyched)(void);
-    void (*died_fade)(void);
+    void (*set_palette)(const byte *palette);
+    void (*wait_vbl)(int vbls);
+    void (*update_screen)(void);
+    boolean (*user_input)(int32_t tics);
+
+    /*
+     * The screens P5 still has to port: the intermission, game over (high
+     * scores) and victory.
+     */
     void (*level_completed)(void);
     void (*game_over)(void);
     void (*victory)(void);
@@ -119,21 +120,13 @@ void OrigSD_PlaySound(int sound);
 int OrigSD_SoundPlaying(void);
 void OrigSD_WaitSoundDone(void);
 void PlaySoundLocGlobal(int s, fixed gx, fixed gy);
-void DrawHealth(void);
-void DrawFace(void);
-void DrawScore(void);
-void DrawLives(void);
-void DrawLevel(void);
-void DrawWeapon(void);
-void DrawKeys(void);
-void DrawAmmo(void);
-void DrawGotGatling(void);
 void StartDamageFlash(int damage);
 void StartBonusFlash(void);
 void DeathCamPause(void);
 void DeathCamIntro(void);
 void DeathCamOutro(void);
-void FizzleIn(void);
+void FizzleFade(int x, int y, int width, int height, int frames);
+boolean IN_UserInput(int32_t tics);
 
 /* JAB (WL_DEF.H) */
 #define PlaySoundLocTile(s, tx, ty)                                                  \

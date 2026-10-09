@@ -40,7 +40,7 @@ void Bridge_Present(void)
 
 void Bridge_SetPalette(const byte *palette)
 {
-    VL_SetPalette(palette);
+    FB_SetPalette(palette);
 }
 
 const byte *Bridge_GamePalette(void)
@@ -48,48 +48,8 @@ const byte *Bridge_GamePalette(void)
     return gamepal;
 }
 
-int Bridge_Pic(bridge_pic_t pic)
-{
-    switch (pic) {
-    case BRIDGE_STATUSBARPIC:
-        return STATUSBARPIC;
-    case BRIDGE_FACE1APIC:
-        return FACE1APIC;
-    case BRIDGE_FACE8APIC:
-        return FACE8APIC;
-    case BRIDGE_MUTANTBJPIC:
-        return MUTANTBJPIC;
-    case BRIDGE_GOTGATLINGPIC:
-        return GOTGATLINGPIC;
-    case BRIDGE_N_BLANKPIC:
-        return N_BLANKPIC;
-    case BRIDGE_N_0PIC:
-        return N_0PIC;
-    case BRIDGE_KNIFEPIC:
-        return KNIFEPIC;
-    case BRIDGE_NOKEYPIC:
-        return NOKEYPIC;
-    case BRIDGE_GOLDKEYPIC:
-        return GOLDKEYPIC;
-    case BRIDGE_SILVERKEYPIC:
-        return SILVERKEYPIC;
-    case BRIDGE_GETPSYCHEDPIC:
-        return GETPSYCHEDPIC;
-    case BRIDGE_PAUSEDPIC:
-        return PAUSEDPIC;
-    }
-    return -1;
-}
 
-void Bridge_DrawPic(int x, int y, int chunk)
-{
-    VWB_DrawPic(x, y, chunk);
-}
 
-void Bridge_DrawString(int x, int y, const char *text, int color)
-{
-    VH_DrawString(x, y, text, color);
-}
 
 boolean Bridge_PlaySound(int sound)
 {

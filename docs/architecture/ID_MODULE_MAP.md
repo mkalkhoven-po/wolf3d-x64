@@ -6,8 +6,8 @@
 | `ID_MM.C/.H` | `src/id/id_mm.c/.h` | malloc wrappers, no EMS/XMS |
 | `ID_PM.C/.H` | `src/id/id_pm.c/.h` | Stub (real VSWAP in E3) |
 | `ID_CA.C/.H` | `src/id/id_ca.c/.h` | Stub codecs (E3) |
-| `ID_VL.C/.H` + ASM | `src/id/id_vl.c/.h` | Palette stubs; present still SDL shell |
-| `ID_VH.C/.H` + ASM | `src/id/id_vh.c/.h` | Pic blits stub (E4) |
+| `ID_VL.C/.H` + ASM | `src/id/id_vl.c/.h` | the present buffer (`FB_*`); the original drawing is `src/orig/orig_vh.c` |
+| `ID_VH.C/.H` + ASM | `src/id/id_vh.c/.h` | `FB_DrawPic` for the stand-in menu until P5d; the original is `src/orig/orig_vh.c` |
 | `ID_IN.C/.H` | `src/id/id_in.c/.h` | Stub keys; SDL ticks |
 | `ID_SD.C/.H` + ASM | `src/id/id_sd.c/.h` | Silent stub (E7) |
 | `ID_US*.C/.H` / `Quit` | `src/id/id_us.c/.h` | Quit to stderr/exit |
@@ -34,7 +34,7 @@
 | Huffman + VGAGRAPH | `src/id/id_ca.c` | `CA_OpenGraphFiles`, planar→chunky pics |
 | Framebuffer | `src/id/id_vl.c` | 320×200×8 + game palette |
 | Palette | `src/id/gamepal.c` | 6-bit VGA GAMEPAL |
-| 2D draw | `src/id/id_vh.c` | VWB_DrawPic + fallback font |
+| 2D draw | `src/id/id_vh.c` | `FB_DrawPic` + fallback font (stand-in menu; P5a moved the game to `orig_vh.c`) |
 | Intro UI | `src/game/wl_menu_simple.c` | Title + keyboard main menu present |
 
 ## E5–E7 additions
@@ -59,8 +59,12 @@ The E5/E6 float gameplay (`src/game/wl_play.c`, `wl_draw.c`, `wl_game.c`, `wl_st
 | Player | `src/orig/orig_agent.c` | WL_AGENT |
 | Renderer | `src/orig/orig_draw.c`, `orig_scale.c` | WL_DRAW, WL_DR_A.ASM, WL_SCALE |
 | Save format v2 | `src/orig/orig_save.c` | WL_MAIN (`SaveTheGame`, `LoadTheGame`) |
-| Hooks to the platform | `src/orig/orig_hooks.c` | sound, status bar, clock, input, palette, present |
-| Platform side | `src/platform/win_sdl/orig_runner.c`, `orig_bridge.c` | SDL input, presentation, status bar, F8/F9, the menu's New/Load Game |
+| 2D toolkit | `src/orig/orig_vh.c` | ID_VH, ID_VL, ID_US_1 (pictures, fonts, print window, fades) into `screenbuf` |
+| Status bar | `src/orig/orig_agent.c` | WL_AGENT (`StatusDrawPic`, `LatchNumber`, `Draw*`) |
+| Menus | `src/orig/orig_menu.c` | WL_MENU (P5a: `DrawWindow`, `DrawOutline`, `Message`) |
+| Between levels | `src/orig/orig_inter.c` | WL_INTER (P5a: `PreloadGraphics`) |
+| Hooks to the platform | `src/orig/orig_hooks.c` | sound, clock, input, palette and fades, fizzle, present |
+| Platform side | `src/platform/win_sdl/orig_runner.c`, `orig_bridge.c` | SDL input, showing screenbuf, palette, F8/F9, the menu's New/Load Game |
 
 ## Audio (ADR-003)
 | Module | Path | Original |

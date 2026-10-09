@@ -16,30 +16,11 @@ maptype *mapheaderseg[NUMMAPS];
 int mapon = -1;
 uint16_t rlew_tag;
 
-const gfx_layout_t gfx_layout_wl6 = {
-    "WL6", 149, 132, 135, 136,
-    10, 11, 12, 13, 14, 18,
-    86, 87, 88, 89, 90,
-    91, 92, 93, 94,
-    95, 96, 97,
-    98, 99,
-    109, 130,
-    131, 132, 133, 134,
-    139,
-};
+/* registered 1.4 (GFXV_WL6.H) */
+const gfx_layout_t gfx_layout_wl6 = {"WL6", 149, 132, 135, 136, 0};
 
-/* Apogee 1.4 shareware; VGAHEAD has 156 chunks. */
-const gfx_layout_t gfx_layout_wl1 = {
-    "WL1", 156, 144, 147, 148,
-    22, 23, 24, 25, 26, 30,
-    98, 99, 100, 101, 102,
-    103, 104, 105, 106,
-    107, 108, 109,
-    110, 111,
-    121, 142,
-    143, 144, 145, 146,
-    151,
-};
+/* Apogee 1.4 shareware: 12 more help pictures, then the WL6 layout; 8 externs */
+const gfx_layout_t gfx_layout_wl1 = {"WL1", 156, 144, 147, 148, 12};
 
 const gfx_layout_t *g_gfx = &gfx_layout_wl6;
 

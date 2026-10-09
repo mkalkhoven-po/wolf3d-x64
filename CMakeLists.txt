@@ -76,12 +76,15 @@ set(WOLF_ORIG_SOURCES
   src/orig/orig_draw.c
   src/orig/orig_game.c
   src/orig/orig_hooks.c
+  src/orig/orig_inter.c
   src/orig/orig_loop.c
+  src/orig/orig_menu.c
   src/orig/orig_play.c
   src/orig/orig_save.c
   src/orig/orig_scale.c
   src/orig/orig_state.c
   src/orig/orig_states.c
+  src/orig/orig_vh.c
 )
 
 add_executable(wolf3d
@@ -173,12 +176,13 @@ if(WOLF_BUILD_TESTS)
 
   # Faithful-engine tests: the engine plus the shared id layer for map loading.
   # Each takes an optional --data DIR to run over a real pack.
-  set(WOLF_ORIG_TESTS orig_level orig_ai orig_player orig_draw orig_walls orig_frame orig_loop orig_fidelity)
+  set(WOLF_ORIG_TESTS orig_level orig_ai orig_player orig_draw orig_walls orig_frame orig_loop orig_fidelity orig_ui)
   foreach(name IN LISTS WOLF_ORIG_TESTS)
     add_executable(test_${name}
       tests/test_${name}.c
       ${WOLF_ORIG_SOURCES}
       src/id/id_ca.c
+      src/id/gamepal.c
       src/id/id_pm.c
       src/id/id_us.c
       src/id/wl_data.c
