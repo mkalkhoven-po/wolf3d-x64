@@ -91,14 +91,29 @@ void Bridge_DrawString(int x, int y, const char *text, int color)
     VH_DrawString(x, y, text, color);
 }
 
-void Bridge_PlaySound(int sound)
+boolean Bridge_PlaySound(int sound)
 {
-    SD_PlaySound((word)sound);
+    return SD_PlaySound((word)sound);
 }
 
-boolean Bridge_SoundPlaying(void)
+int Bridge_SoundPlaying(void)
 {
     return SD_SoundPlaying();
+}
+
+void Bridge_PositionSound(int left, int right)
+{
+    SD_PositionSound(left, right);
+}
+
+void Bridge_SetSoundPosition(int left, int right)
+{
+    SD_SetPosition(left, right);
+}
+
+boolean Bridge_SoundPositioned(void)
+{
+    return SD_SoundPositioned();
 }
 
 void Bridge_WaitSoundDone(void)

@@ -90,6 +90,14 @@ The mouse turns and moves when `mouse_look` is on in `config.ini`. `scale`,
 you die, BJ turns towards the killer and the level restarts; out of lives
 ends the run.
 
+## Sound
+
+Both engines play the music and the AdLib-only effects (treasure, ammo,
+health, keys, extra life) through an emulated AdLib (OPL2) chip, and the
+digitized effects (guns, doors, voices) like a Sound Blaster Pro, placed left
+or right by where they happen. In `config.ini`, `sfx_on=0` turns the effects
+off and `music_on=0` the music; each leaves the other alone.
+
 ## Where settings live
 ```
 %APPDATA%\Wolf3DWin64\

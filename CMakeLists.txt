@@ -40,6 +40,8 @@ set(WOLF_ID_SOURCES
   src/id/id_vh.c
   src/id/id_in.c
   src/id/id_sd.c
+  src/id/opl2.c
+  src/id/sd_adlib.c
   src/id/wl_data.c
   src/id/gamepal.c
   src/id/wl_sprite.c
@@ -198,6 +200,30 @@ if(WOLF_BUILD_TESTS)
     add_test(NAME ${name} COMMAND test_${name})
   endforeach()
 
+  # The OPL2 emulator and the AdLib side of the sound manager (no SDL).
+  add_executable(test_opl2 tests/test_opl2.c src/id/opl2.c)
+  target_include_directories(test_opl2 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/id)
+  add_executable(test_sd_adlib
+    tests/test_sd_adlib.c
+    src/id/sd_adlib.c
+    src/id/opl2.c
+    src/id/wl_data.c
+    src/platform/win_sdl/wolf_winutil.c
+  )
+  target_include_directories(test_sd_adlib PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/id
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
+  )
+  foreach(name IN ITEMS test_opl2 test_sd_adlib)
+    if(UNIX OR MINGW)
+      target_link_libraries(${name} PRIVATE m)
+    endif()
+    wolf_apply_hardening(${name})
+  endforeach()
+  add_test(NAME opl2 COMMAND test_opl2)
+  add_test(NAME sd_adlib COMMAND test_sd_adlib)
+
   add_executable(test_demo_chunks
     tests/test_demo_chunks.c
     src/id/id_ca.c
@@ -231,6 +257,7 @@ if(WOLF_BUILD_TESTS)
     set_tests_properties(smoke_only PROPERTIES
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     add_test(NAME demo_chunks COMMAND test_demo_chunks --data "$ENV{WOLF3D_DATA}")
+    add_test(NAME sd_adlib_data COMMAND test_sd_adlib --data "$ENV{WOLF3D_DATA}")
     foreach(name IN LISTS WOLF_ORIG_TESTS)
       add_test(NAME ${name}_maps COMMAND test_${name} --data "$ENV{WOLF3D_DATA}")
     endforeach()
@@ -241,6 +268,7 @@ if(WOLF_BUILD_TESTS)
     set_tests_properties(smoke_only_wl1 PROPERTIES
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     add_test(NAME demo_chunks_wl1 COMMAND test_demo_chunks --data "$ENV{WOLF3D_DATA_WL1}")
+    add_test(NAME sd_adlib_data_wl1 COMMAND test_sd_adlib --data "$ENV{WOLF3D_DATA_WL1}")
     foreach(name IN LISTS WOLF_ORIG_TESTS)
       add_test(NAME ${name}_maps_wl1 COMMAND test_${name} --data "$ENV{WOLF3D_DATA_WL1}")
     endforeach()

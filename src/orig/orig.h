@@ -273,6 +273,11 @@ void DrawPlayScreen(void);
 void Died(void);
 void GameLoop(void);
 
+/* sound placement (WL_GAME.C): SetSoundLoc fills leftchannel/rightchannel, 0-8 */
+extern fixed globalsoundx, globalsoundy;
+extern int leftchannel, rightchannel;
+void SetSoundLoc(fixed gx, fixed gy);
+
 /* WL_AGENT */
 extern statetype s_player, s_attack;
 extern boolean running;

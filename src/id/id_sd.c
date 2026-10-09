@@ -1,6 +1,5 @@
 #include "id_sd.h"
 
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,19 +12,22 @@
 #include "id_in.h"
 #include "id_pm.h"
 #include "id_us.h"
+#include "sd_adlib.h"
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
-#define MIX_RATE 22050
+/*
+ * The mixer runs at the OPL2's own rate; SDL converts to the device. The
+ * AdLib side (music, AdLib-only effects) is sd_adlib.c; the digitized
+ * effects play here on one Sound Blaster channel with the SB Pro's stereo
+ * placement, as in the original.
+ */
+#define MIX_RATE SDA_RATE
 #define MIX_SAMPLES 1024
 #define MAX_DIGI 64
-/* Digitized samples in VSWAP are ~7000 Hz unsigned 8-bit PCM. */
-#define DIGI_SRC_RATE 7000
-#define DIGI_VOICE_GAIN 1.35f
-#define MAX_VOICE 8
-#define IMF_HZ 700.0 /* Wolf3D AdLib IMF rate (ID_SD) */
+/* the SB time constant 256 - 1000000 / 7000 gives 1000000 / 142 Hz */
+#define DIGI_RATE 7042
+/* the chip sums nine channels of +-4084: a sound card amplifies that by about 12 dB */
+#define OPL_GAIN (4.0f / 32768.0f)
+#define DIGI_GAIN (1.0f / 128.0f)  /* 8-bit samples at full scale */
 
 SDMode SoundMode = sdm_Off;
 SMMode MusicMode = smm_Off;
@@ -42,42 +44,34 @@ typedef struct {
     int len;
 } digi_sample_t;
 
-typedef struct {
-    const byte *data;
-    int len;
-    int pos; /* in source samples, fixed 16.16 */
-    int active;
-    int vol;
-} voice_t;
-
 static digi_sample_t digi[MAX_DIGI];
 static int num_digi;
-static voice_t voices[MAX_VOICE];
 
-/* IMF music */
-static byte *music_data;       /* full AUDIOT music chunk */
-static int music_len;          /* total chunk bytes */
-static int music_pos;          /* byte offset into values[] stream */
-static int music_seq_len;      /* MusicGroup.length (bytes of values) */
-static int music_remaining;    /* bytes left in values this loop */
-static double music_tick_acc;  /* fractional AdLib timer ticks */
-static long music_al_time;     /* alTimeCount analogue */
-static long music_sq_time;     /* sqHackTime analogue */
-static boolean music_on;
-static int music_index_cur = -1;
+/* the digitized channel (SD_PlayDigitized, SDL_DigitizedDone) */
+static const byte *digi_data;
+static int digi_len;
+static uint32_t digi_pos; /* 16.16 source samples */
+static float digi_left, digi_right;
+static int DigiNumber, DigiPriority;
 
-/* Minimal AdLib channel state for pitch * volume */
-static struct {
-    int fnum;
-    int block;
-    int keyon;
-    int vol; /* 0..63 where lower is louder on real HW — invert */
-    double phase;
-} opl_ch[9];
-
-static byte opl_reg[256];
+/* SD_PositionSound for the next sound, and the position of the current one */
+static int LeftPosition, RightPosition;
+static boolean nextsoundpos, SoundPositioned;
 
 static longword time_count_base;
+
+#define LOCK()                                                                         \
+    do {                                                                               \
+        if (audio_mx) {                                                                \
+            SDL_LockMutex(audio_mx);                                                   \
+        }                                                                              \
+    } while (0)
+#define UNLOCK()                                                                       \
+    do {                                                                               \
+        if (audio_mx) {                                                                \
+            SDL_UnlockMutex(audio_mx);                                                 \
+        }                                                                              \
+    } while (0)
 
 /* ---- digi table from last VSWAP page ---- */
 
@@ -86,8 +80,7 @@ static void init_digimap(void)
     int i;
     /*
      * Official wolfdigimap (WL_MAIN.C InitDigiMap) — sounds NOT in this list
-     * have DigiMap=-1 and must not fall back to unrelated digi (e.g. pistol).
-     * Pickups like GETAMMOSND / BONUS* are AdLib-only in the original.
+     * have DigiMap=-1 and play on the AdLib (pickups, treasure, menus...).
      */
     static const int map[] = {
         HALTSND, 0, DOGBARKSND, 1, CLOSEDOORSND, 2, OPENDOORSND, 3,
@@ -190,9 +183,10 @@ static boolean load_digi_table(void)
     return num_digi > 0;
 }
 
-/* ---- AUDIOT music ---- */
+/* ---- AUDIOT: AdLib effects and music ---- */
 
 static byte *audiot_blob;
+static long audiot_size;
 static long *audiot_starts;
 static int audiot_chunks;
 
@@ -227,9 +221,19 @@ static boolean load_audiot(const wolf_data_dir_t *dir)
             break;
         }
         audiot_starts[i] =
-            (long)(b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24));
+            (long)(b[0] | (b[1] << 8) | (b[2] << 16) | ((long)b[3] << 24));
     }
     fclose(f);
+
+    /* AdLib effects at STARTADLIBSOUNDS, music up to STARTMUSIC + LASTMUSIC */
+    if (audiot_chunks < STARTMUSIC + LASTMUSIC + 1) {
+        fprintf(stderr, "SD: AUDIOHED has %d entries, expected %d - no AdLib\n",
+                audiot_chunks, STARTMUSIC + LASTMUSIC + 1);
+        free(audiot_starts);
+        audiot_starts = NULL;
+        audiot_chunks = 0;
+        return false;
+    }
 
     Wolf_MakeDataPath(dir, "AUDIOT", path, sizeof(path));
     f = fopen(path, "rb");
@@ -247,234 +251,102 @@ static boolean load_audiot(const wolf_data_dir_t *dir)
         return false;
     }
     fclose(f);
+    audiot_size = fsz;
     printf("Audio AUDIOT loaded: %ld bytes, %d headers\n", fsz, audiot_chunks);
     return true;
 }
 
-static void free_music(void)
+/* An AUDIOT chunk, NULL if absent. */
+static const byte *audio_chunk(int chunk, size_t *size)
 {
-    free(music_data);
-    music_data = NULL;
-    music_len = 0;
-    music_pos = 0;
-    music_seq_len = 0;
-    music_remaining = 0;
-    music_tick_acc = 0;
-    music_al_time = 0;
-    music_sq_time = 0;
-    music_on = false;
-    music_index_cur = -1;
-}
+    long start, end;
 
-/* ---- OPL register write stub for IMF ---- */
-
-static void al_out(byte reg, byte val)
-{
-    int ch;
-    opl_reg[reg] = val;
-
-    /* Key on / fnum for 9 melodic channels packed in A0-B8 / freql mod */
-    if (reg >= 0xA0 && reg <= 0xA8) {
-        ch = reg - 0xA0;
-        opl_ch[ch].fnum = (opl_ch[ch].fnum & 0x300) | val;
-    } else if (reg >= 0xB0 && reg <= 0xB8) {
-        ch = reg - 0xB0;
-        opl_ch[ch].fnum = (opl_ch[ch].fnum & 0xFF) | ((val & 3) << 8);
-        opl_ch[ch].block = (val >> 2) & 7;
-        opl_ch[ch].keyon = (val & 0x20) ? 1 : 0;
-        if (!opl_ch[ch].keyon) {
-            opl_ch[ch].phase = 0;
-        }
-    } else if (reg >= 0x40 && reg <= 0x55) {
-        /* total level of op — approximate channel volume via carrier ops */
-        int op = reg - 0x40;
-        static const int op_to_ch[22] = {
-            0, 1, 2, 0, 1, 2, 3, 4, 5, 3, 4, 5, 6, 7, 8, 6, 7, 8, 0, 0, 0, 0
-        };
-        if (op < 18) {
-            ch = op_to_ch[op];
-            /* carriers rough 3,4,5,9,10,11,... — treat all as volume tags */
-            opl_ch[ch].vol = 63 - (val & 63);
-        }
+    if (!audiot_blob || chunk < 0 || chunk + 1 >= audiot_chunks) {
+        return NULL;
     }
-}
-
-static word rd_le16(const byte *p)
-{
-    return (word)(p[0] | (p[1] << 8));
-}
-
-/*
- * Original ID_SD SDL_ALService (MusicGroup stream):
- *   while (len && sqHackTime <= alTimeCount) {
- *     cmd = *ptr++; delay = *ptr++;  // words
- *     alOut(cmd&0xff, cmd>>8);
- *     sqHackTime = alTimeCount + delay;
- *     len -= 4;
- *   }
- *   alTimeCount++;
- * AdLib ISR runs ~700 Hz.
- */
-static void imf_advance(double samples_at_mix)
-{
-    double ticks = samples_at_mix * (IMF_HZ / (double)MIX_RATE);
-    music_tick_acc += ticks;
-
-    while (music_on && music_data && music_seq_len > 0 && music_tick_acc >= 1.0) {
-        /* Drain all events due at this alTimeCount. */
-        while (music_remaining >= 4 && music_sq_time <= music_al_time) {
-            word cmd, delay;
-            byte reg, val;
-            if (music_pos + 4 > music_len) {
-                music_remaining = 0;
-                break;
-            }
-            cmd = rd_le16(music_data + music_pos);
-            delay = rd_le16(music_data + music_pos + 2);
-            music_pos += 4;
-            music_remaining -= 4;
-            reg = (byte)(cmd & 0xFF);
-            val = (byte)((cmd >> 8) & 0xFF);
-            al_out(reg, val);
-            music_sq_time = music_al_time + (long)delay;
-        }
-
-        music_al_time += 1;
-        music_tick_acc -= 1.0;
-
-        if (music_remaining < 4) {
-            /* Loop MusicGroup values (original rewinds pointer). */
-            music_pos = (music_seq_len > 0 && music_len >= music_seq_len + 2)
-                            ? 2
-                            : 0;
-            music_remaining = music_seq_len;
-            music_al_time = 0;
-            music_sq_time = 0;
-        }
+    start = audiot_starts[chunk];
+    end = audiot_starts[chunk + 1];
+    if (start < 0 || end <= start || end > audiot_size) {
+        return NULL;
     }
-}
-
-static float opl_sample(void)
-{
-    int ch;
-    float sum = 0.0f;
-    for (ch = 0; ch < 9; ++ch) {
-        double freq, step, s;
-        if (!opl_ch[ch].keyon || opl_ch[ch].fnum == 0) {
-            continue;
-        }
-        /* AdLib formula-ish */
-        freq = (double)opl_ch[ch].fnum * (14318180.0 / 288.0) /
-               (double)(1 << (20 - opl_ch[ch].block));
-        if (freq < 20.0 || freq > 4000.0) {
-            continue;
-        }
-        step = freq / (double)MIX_RATE;
-        opl_ch[ch].phase += step;
-        if (opl_ch[ch].phase >= 1.0) {
-            opl_ch[ch].phase -= floor(opl_ch[ch].phase);
-        }
-        s = (opl_ch[ch].phase < 0.5) ? 1.0 : -1.0;
-        sum += (float)(s * ((opl_ch[ch].vol > 0 ? opl_ch[ch].vol : 32) / 63.0) * 0.22);
-    }
-    return sum;
+    *size = (size_t)(end - start);
+    return audiot_blob + start;
 }
 
 /* ---- mixer ---- */
 
 static void mix_callback(void *userdata, Uint8 *stream, int len)
 {
-    int samples = len / (int)sizeof(float); /* we use F32 stereo? mono F32 */
+    static int32_t opl[MIX_SAMPLES];
     float *out = (float *)stream;
-    int i, v;
+    int frames = len / (int)(2 * sizeof(float));
+    const uint32_t step = (uint32_t)(((uint64_t)DIGI_RATE << 16) / MIX_RATE);
     (void)userdata;
 
-    memset(stream, 0, (size_t)len);
-
-    if (SD_Silent) {
-        return;
-    }
-
     SDL_LockMutex(audio_mx);
+    while (frames > 0) {
+        const int n = frames > MIX_SAMPLES ? MIX_SAMPLES : frames;
+        int i;
 
-    if (music_on && MusicMode == smm_AdLib) {
-        imf_advance((double)samples);
-    }
+        SDA_Render(opl, n);
+        for (i = 0; i < n; i++) {
+            float l = (float)opl[i] * OPL_GAIN;
+            float r = l;
 
-    for (i = 0; i < samples; ++i) {
-        float mix = 0.0f;
+            if (digi_data) {
+                /* linear interpolation between the 7 kHz samples */
+                const int s = (int)(digi_pos >> 16);
+                const float frac = (float)(digi_pos & 0xffff) / 65536.0f;
+                const int a = digi_data[s] - 128;
+                const int b = (s + 1 < digi_len ? digi_data[s + 1] : 128) - 128;
+                const float d = ((float)a + (float)(b - a) * frac) * DIGI_GAIN;
 
-        if (music_on && MusicMode == smm_AdLib) {
-            mix += opl_sample();
-        }
-
-        for (v = 0; v < MAX_VOICE; ++v) {
-            voice_t *vc = &voices[v];
-            int spos;
-            int sample_u8;
-            float s;
-            if (!vc->active || !vc->data) {
-                continue;
+                l += d * digi_left;
+                r += d * digi_right;
+                digi_pos += step;
+                if ((int)(digi_pos >> 16) >= digi_len) {
+                    digi_data = NULL; /* SDL_DigitizedDone */
+                    DigiNumber = DigiPriority = 0;
+                    SoundPositioned = false;
+                }
             }
-            spos = vc->pos >> 16;
-            if (spos >= vc->len) {
-                vc->active = 0;
-                continue;
-            }
-            sample_u8 = vc->data[spos];
-            s = ((float)sample_u8 - 128.0f) / 128.0f;
-            mix += s * (vc->vol / 128.0f) * 0.85f * DIGI_VOICE_GAIN;
-            /* step source at DIGI_SRC_RATE → MIX_RATE */
-            vc->pos += (int)((DIGI_SRC_RATE << 16) / MIX_RATE);
+            out[0] = l > 1.0f ? 1.0f : l < -1.0f ? -1.0f : l;
+            out[1] = r > 1.0f ? 1.0f : r < -1.0f ? -1.0f : r;
+            out += 2;
         }
-
-        if (mix > 1.0f) {
-            mix = 1.0f;
-        }
-        if (mix < -1.0f) {
-            mix = -1.0f;
-        }
-        out[i] = mix;
+        frames -= n;
     }
-
     SDL_UnlockMutex(audio_mx);
 }
 
-static void play_digi_index(int which, int vol)
+/* SDL_PositionSBP: the SB Pro voice volume is 15 - position per side */
+static void set_digi_position(int leftpos, int rightpos)
 {
-    int v;
+    digi_left = (float)(15 - leftpos) / 15.0f;
+    digi_right = (float)(15 - rightpos) / 15.0f;
+}
+
+/* SD_PlayDigitized */
+static void play_digitized(int which, int leftpos, int rightpos)
+{
     if (which < 0 || which >= num_digi || !digi[which].data || digi[which].len <= 0) {
         return;
     }
-    if (SD_Silent || DigiMode == sds_Off) {
-        return;
-    }
-    SDL_LockMutex(audio_mx);
-    for (v = 0; v < MAX_VOICE; ++v) {
-        if (!voices[v].active) {
-            break;
-        }
-    }
-    if (v == MAX_VOICE) {
-        v = 0; /* steal */
-    }
-    voices[v].data = digi[which].data;
-    voices[v].len = digi[which].len;
-    voices[v].pos = 0;
-    voices[v].vol = vol;
-    voices[v].active = 1;
-    SDL_UnlockMutex(audio_mx);
+    digi_data = digi[which].data;
+    digi_len = digi[which].len;
+    digi_pos = 0;
+    set_digi_position(leftpos, rightpos);
 }
 
 /* ---- public API ---- */
 
 void SD_Startup(void)
 {
-    int i;
     init_digimap();
-    for (i = 0; i < MAX_VOICE; ++i) {
-        voices[i].active = 0;
-    }
+    digi_data = NULL;
+    DigiNumber = DigiPriority = 0;
+    LeftPosition = RightPosition = 0;
+    nextsoundpos = SoundPositioned = false;
     SoundMode = sdm_Off;
     MusicMode = smm_Off;
     DigiMode = sds_Off;
@@ -486,8 +358,11 @@ void SD_Startup(void)
 
 void SD_SetSilent(boolean silent)
 {
+    /* no sound effects; music has its own switch (MusicMode) */
     SD_Silent = silent;
-    /* Do not permanently clobber device modes — silent only mutes the mixer. */
+    if (silent) {
+        SD_StopSound();
+    }
 }
 
 boolean SD_SetupFromData(const wolf_data_dir_t *dir)
@@ -506,8 +381,9 @@ boolean SD_SetupFromData(const wolf_data_dir_t *dir)
         fprintf(stderr, "SD: digi table load failed - silent digi\n");
     }
     if (!load_audiot(dir)) {
-        fprintf(stderr, "SD: AUDIOT load failed - no music bank\n");
+        fprintf(stderr, "SD: AUDIOT load failed - no AdLib effects or music\n");
     }
+    SDA_Startup();
 
     if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
@@ -522,28 +398,27 @@ boolean SD_SetupFromData(const wolf_data_dir_t *dir)
     SDL_zero(want);
     want.freq = MIX_RATE;
     want.format = AUDIO_F32SYS;
-    want.channels = 1;
+    want.channels = 2;
     want.samples = MIX_SAMPLES;
     want.callback = mix_callback;
     want.userdata = NULL;
 
+    /* no allowed changes: SDL converts our rate and format to the device's */
     audio_dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
     if (!audio_dev) {
         fprintf(stderr, "SD: OpenAudioDevice failed: %s - silent\n", SDL_GetError());
         SD_Silent = true;
-        DigiMode = sds_Off;
-        MusicMode = smm_Off;
         sd_started = true;
         return true;
     }
 
-    DigiMode = sds_SoundBlaster;
-    SoundMode = sdm_AdLib; /* digi preferred for mapped effects */
-    MusicMode = smm_AdLib;
+    DigiMode = num_digi > 0 ? sds_SoundBlaster : sds_Off;
+    SoundMode = audiot_blob ? sdm_AdLib : sdm_Off;
+    MusicMode = audiot_blob ? smm_AdLib : smm_Off;
     SDL_PauseAudioDevice(audio_dev, 0);
     sd_started = true;
-    printf("SD: audio device OK rate=%d silent=%d digi=%d\n", have.freq,
-           (int)SD_Silent, num_digi);
+    printf("SD: audio device OK rate=%d (mixing at %d) digi=%d adlib=%d\n", have.freq,
+           MIX_RATE, num_digi, (int)(SoundMode == sdm_AdLib));
     return true;
 }
 
@@ -554,7 +429,7 @@ void SD_Shutdown(void)
         SDL_CloseAudioDevice(audio_dev);
         audio_dev = 0;
     }
-    free_music();
+    digi_data = NULL;
     for (i = 0; i < MAX_DIGI; ++i) {
         free(digi[i].data);
         digi[i].data = NULL;
@@ -563,9 +438,13 @@ void SD_Shutdown(void)
     num_digi = 0;
     free(audiot_blob);
     audiot_blob = NULL;
+    audiot_size = 0;
     free(audiot_starts);
     audiot_starts = NULL;
     audiot_chunks = 0;
+    SoundMode = sdm_Off;
+    MusicMode = smm_Off;
+    DigiMode = sds_Off;
     if (audio_mx) {
         SDL_DestroyMutex(audio_mx);
         audio_mx = NULL;
@@ -573,133 +452,152 @@ void SD_Shutdown(void)
     sd_started = false;
 }
 
-void SD_PlaySound(word sound)
+void SD_PositionSound(int leftvol, int rightvol)
 {
-    int digi_idx;
-    if (sound >= LASTSOUND) {
-        return;
+    LeftPosition = leftvol;
+    RightPosition = rightvol;
+    nextsoundpos = true;
+}
+
+void SD_SetPosition(int leftpos, int rightpos)
+{
+    if (leftpos < 0 || leftpos > 15 || rightpos < 0 || rightpos > 15 ||
+        (leftpos == 15 && rightpos == 15)) {
+        return; /* the original quits: "Illegal position" */
     }
-    digi_idx = DigiMap[sound];
-    if (digi_idx >= 0 && digi_idx < num_digi && digi[digi_idx].data) {
-        play_digi_index(digi_idx, 140);
-        return;
+    LOCK();
+    if (DigiMode == sds_SoundBlaster) {
+        set_digi_position(leftpos, rightpos);
     }
-    /*
-     * No DigiMap entry (pickups/treasure/etc.): original plays AdLib, not digi.
-     * Do NOT fall back to pistol digi — that made ammo pickups sound like shots.
-     */
-    (void)sound;
+    UNLOCK();
+}
+
+boolean SD_SoundPositioned(void)
+{
+    boolean positioned;
+
+    LOCK();
+    positioned = SoundPositioned;
+    UNLOCK();
+    return positioned;
+}
+
+/*
+ * SD_PlaySound: digitized when the sound has one, otherwise the AdLib
+ * effect. The two channels keep separate priorities; either is only
+ * replaced by a sound of at least the same priority. True when a
+ * digitized sound started (the caller then tracks its position).
+ */
+boolean SD_PlaySound(word sound)
+{
+    const byte *s;
+    size_t size = 0;
+    int priority;
+    int lp = LeftPosition, rp = RightPosition;
+    boolean ispos = nextsoundpos;
+    boolean played = false;
+
+    LeftPosition = RightPosition = 0;
+    nextsoundpos = false;
+
+    if (sound >= LASTSOUND || SD_Silent || !audio_dev) {
+        return false;
+    }
+    s = audio_chunk(STARTADLIBSOUNDS + sound, &size);
+    if (!s || size < 6) {
+        return false; /* the original quits: "Uncached sound" */
+    }
+    priority = s[4] | (s[5] << 8);
+
+    LOCK();
+    if (DigiMode != sds_Off && DigiMap[sound] >= 0 && DigiMap[sound] < num_digi &&
+        digi[DigiMap[sound]].data) {
+        if (priority >= DigiPriority) {
+            play_digitized(DigiMap[sound], lp, rp);
+            SoundPositioned = ispos;
+            DigiNumber = sound;
+            DigiPriority = priority;
+            played = true;
+        }
+    } else if (SoundMode == sdm_AdLib && priority >= SDA_SoundPriority()) {
+        (void)SDA_PlaySound(s, size, sound, priority);
+    }
+    UNLOCK();
+    return played;
 }
 
 void SD_StopSound(void)
 {
-    int v;
-    if (!audio_mx) {
-        return;
-    }
-    SDL_LockMutex(audio_mx);
-    for (v = 0; v < MAX_VOICE; ++v) {
-        voices[v].active = 0;
-    }
-    SDL_UnlockMutex(audio_mx);
+    LOCK();
+    digi_data = NULL; /* SD_StopDigitized */
+    DigiNumber = DigiPriority = 0;
+    SDA_StopSound();
+    SoundPositioned = false;
+    UNLOCK();
+}
+
+word SD_SoundPlaying(void)
+{
+    int playing;
+
+    LOCK();
+    playing = SDA_SoundPlaying(); /* the AdLib effect only, as in the original */
+    UNLOCK();
+    return (word)playing;
 }
 
 void SD_WaitSoundDone(void)
 {
-    /* non-blocking port — no wait */
+    /* the original spins; give up after 10 s in case the device stalled */
+    const Uint32 start = SDL_GetTicks();
+
+    while (SD_SoundPlaying() && SDL_GetTicks() - start < 10000) {
+        SDL_Delay(1);
+    }
 }
 
 void SD_StartMusic(word music_index)
 {
-    int chunk;
-    long start, end, len;
-    free_music();
-    if (SD_Silent || MusicMode == smm_Off || !audiot_blob || !audiot_starts) {
+    const byte *chunk;
+    size_t size = 0;
+
+    if (MusicMode != smm_AdLib || music_index >= LASTMUSIC) {
         return;
     }
-    chunk = STARTMUSIC + (int)music_index;
-    if (chunk + 1 >= audiot_chunks) {
+    chunk = audio_chunk(STARTMUSIC + (int)music_index, &size);
+    if (!chunk) {
         return;
     }
-    start = audiot_starts[chunk];
-    end = audiot_starts[chunk + 1];
-    if (end <= start || start < 0) {
-        return;
-    }
-    len = end - start;
-    music_data = (byte *)malloc((size_t)len);
-    if (!music_data) {
-        return;
-    }
-    memcpy(music_data, audiot_blob + start, (size_t)len);
-    music_len = (int)len;
-    /* MusicGroup (ID_SD.H): first word = byte length of values[], then
-         * pairs of words (cmd, delay). cmd low=reg, high=val. */
-        music_pos = 0;
-        music_seq_len = 0;
-    if (music_len >= 6) {
-        word nest = (word)(music_data[0] | (music_data[1] << 8));
-        if (nest >= 4 && (int)nest + 2 <= music_len && (nest % 4) == 0) {
-            music_seq_len = (int)nest;
-            music_pos = 2; /* start of values[] */
-        } else {
-            /* Fallback: whole chunk is the values stream. */
-            music_seq_len = music_len & ~3;
-            music_pos = 0;
-        }
-    }
-    music_remaining = music_seq_len;
-    music_tick_acc = 0;
-    music_al_time = 0;
-    music_sq_time = 0;
-    music_on = true;
-    music_index_cur = (int)music_index;
-    memset(opl_ch, 0, sizeof(opl_ch));
-    memset(opl_reg, 0, sizeof(opl_reg));
-    /* Default operator volume so notes sound before first level write. */
-    {
-        int ch;
-        for (ch = 0; ch < 9; ++ch) {
-            opl_ch[ch].vol = 48;
-        }
-    }
-    printf("SD: music start index=%u chunk=%d bytes=%ld seq_len=%d values_off=%d\n",
-           music_index, chunk, len, music_seq_len, music_pos);
+    LOCK();
+    SDA_StartMusic(chunk, size);
+    UNLOCK();
 }
 
 void SD_MusicOn(void)
 {
-    if (music_data) {
-        music_on = true;
+    if (MusicMode != smm_AdLib) {
+        return;
     }
+    LOCK();
+    SDA_MusicOn();
+    UNLOCK();
 }
 
 void SD_MusicOff(void)
 {
-    music_on = false;
-}
-
-boolean SD_SoundPlaying(void)
-{
-    int v;
-    boolean any = false;
-    if (!audio_mx) {
-        return false;
-    }
-    SDL_LockMutex(audio_mx);
-    for (v = 0; v < MAX_VOICE; ++v) {
-        if (voices[v].active) {
-            any = true;
-            break;
-        }
-    }
-    SDL_UnlockMutex(audio_mx);
-    return any;
+    LOCK();
+    SDA_MusicOff();
+    UNLOCK();
 }
 
 boolean SD_MusicPlaying(void)
 {
-    return music_on && music_data != NULL;
+    boolean active;
+
+    LOCK();
+    active = SDA_MusicActive();
+    UNLOCK();
+    return active;
 }
 
 longword SD_GetTimeCount(void)
@@ -723,11 +621,28 @@ boolean SD_HasDigiFor(word sound)
            digi[DigiMap[sound]].data != NULL;
 }
 
+/* channels of the chip with a note keyed on */
+static int keyed_channels(void)
+{
+    const opl2_t *chip;
+    int ch, keyed = 0;
+
+    LOCK();
+    chip = SDA_Chip();
+    for (ch = 0; ch < 9; ++ch) {
+        if (chip->ch[ch].keyon) {
+            keyed++;
+        }
+    }
+    UNLOCK();
+    return keyed;
+}
+
 boolean SD_AudioSmokeVerify(void)
 {
     boolean ok = true;
-    printf("Audio smoke: silent=%d digiMode=%d musicMode=%d num_digi=%d\n",
-           (int)SD_Silent, (int)DigiMode, (int)MusicMode, num_digi);
+    printf("Audio smoke: silent=%d digiMode=%d soundMode=%d musicMode=%d num_digi=%d\n",
+           (int)SD_Silent, (int)DigiMode, (int)SoundMode, (int)MusicMode, num_digi);
     printf("  digi pistol=%d door=%d open_mapped=%d\n",
            (int)SD_HasDigiFor(ATKPISTOLSND), (int)SD_HasDigiFor(OPENDOORSND),
            DigiMap[OPENDOORSND]);
@@ -737,8 +652,7 @@ boolean SD_AudioSmokeVerify(void)
         boolean old = SD_Silent;
         SD_SetSilent(true);
         SD_PlaySound(ATKPISTOLSND);
-        SD_StartMusic(CORNER_MUS);
-        SD_MusicOff();
+        SD_PlaySound(GETAMMOSND);
         SD_SetSilent(old);
         printf("  silent fallback play: OK\n");
     }
@@ -756,39 +670,45 @@ boolean SD_AudioSmokeVerify(void)
         }
     }
 
-    if (!SD_Silent && MusicMode == smm_AdLib && audiot_blob) {
-            SD_StartMusic(GETTHEM_MUS);
-            if (!SD_MusicPlaying() || music_seq_len < 4 || music_pos != 2) {
-                fprintf(stderr,
-                        "Audio smoke: music failed (playing=%d seq_len=%d off=%d)\n",
-                        (int)SD_MusicPlaying(), music_seq_len, music_pos);
-                ok = false;
-            } else {
-                int max_keyed = 0;
-                int sample;
-                /* Sample several mix windows — notes are not continuous. */
-                for (sample = 0; sample < 12; ++sample) {
-                    int ch, keyed = 0;
-                    SDL_Delay(40);
-                    for (ch = 0; ch < 9; ++ch) {
-                        if (opl_ch[ch].keyon && opl_ch[ch].fnum != 0) {
-                            keyed++;
-                        }
-                    }
-                    if (keyed > max_keyed) {
-                        max_keyed = keyed;
-                    }
-                }
-                printf("  music start/stop: OK seq_len=%d values_off=%d max_keyed=%d\n",
-                       music_seq_len, music_pos, max_keyed);
-                if (max_keyed == 0) {
-                    fprintf(stderr,
-                            "Audio smoke: music stream advanced but soft-OPL never key-on\n");
-                    ok = false;
-                }
-                SD_MusicOff();
+    if (!SD_Silent && SoundMode == sdm_AdLib) {
+        /* an AdLib-only effect: plays on channel 0 and ends by itself */
+        Uint32 start;
+
+        SD_PlaySound(BONUS1SND);
+        if (SD_SoundPlaying() != BONUS1SND) {
+            fprintf(stderr, "Audio smoke: AdLib effect did not start\n");
+            ok = false;
+        }
+        start = SDL_GetTicks();
+        SD_WaitSoundDone();
+        printf("  AdLib effect: %u ms\n", (unsigned)(SDL_GetTicks() - start));
+        if (SD_SoundPlaying()) {
+            fprintf(stderr, "Audio smoke: AdLib effect never ended\n");
+            ok = false;
+        }
+    }
+
+    if (MusicMode == smm_AdLib) {
+        int max_keyed = 0;
+        int sample;
+
+        SD_StartMusic(GETTHEM_MUS);
+        /* Sample several mix windows — notes are not continuous. */
+        for (sample = 0; sample < 12; ++sample) {
+            int keyed;
+            SDL_Delay(40);
+            keyed = keyed_channels();
+            if (keyed > max_keyed) {
+                max_keyed = keyed;
             }
         }
+        printf("  music: playing=%d max_keyed=%d\n", (int)SD_MusicPlaying(), max_keyed);
+        if (!SD_MusicPlaying() || max_keyed == 0) {
+            fprintf(stderr, "Audio smoke: music never keyed a note\n");
+            ok = false;
+        }
+        SD_MusicOff();
+    }
 
     return ok;
 }

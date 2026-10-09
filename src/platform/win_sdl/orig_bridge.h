@@ -41,8 +41,11 @@ int Bridge_Pic(bridge_pic_t pic); /* VGAGRAPH chunk of the loaded pack */
 void Bridge_DrawPic(int x, int y, int chunk);
 void Bridge_DrawString(int x, int y, const char *text, int color);
 
-void Bridge_PlaySound(int sound);
-boolean Bridge_SoundPlaying(void);
+boolean Bridge_PlaySound(int sound); /* true: a digitized sound started */
+int Bridge_SoundPlaying(void);        /* the AdLib effect playing, 0 when none */
+void Bridge_PositionSound(int left, int right);    /* 0-15 per side, for the next sound */
+void Bridge_SetSoundPosition(int left, int right); /* for the placed sound playing */
+boolean Bridge_SoundPositioned(void);
 void Bridge_WaitSoundDone(void);
 void Bridge_StartMusic(int song);
 void Bridge_MusicOff(void);

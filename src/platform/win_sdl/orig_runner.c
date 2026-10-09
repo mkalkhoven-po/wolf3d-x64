@@ -27,7 +27,6 @@ static boolean g_fast;      /* no clock: smoke tests */
 static boolean g_quit;      /* window closed or Esc */
 static boolean g_paused;    /* the Pause key */
 static int g_mousedx, g_mousedy;
-static int g_cursound;      /* the last sound started, for SD_SoundPlaying */
 static int g_frames;
 
 /* -------------------------------------------------------------- arguments */
@@ -536,21 +535,32 @@ static void HookPaletteShift(int red, int white)
 
 static void HookPlaySound(int sound)
 {
-    g_cursound = sound;
-    Bridge_PlaySound(sound);
+    (void)Bridge_PlaySound(sound);
 }
 
-/* stereo placement (SetSoundLoc) is not wired up yet: centred */
+/* PlaySoundLocGlobal (WL_GAME.C): place the sound, remember where it is */
 static void HookPlaySoundLoc(int sound, fixed gx, fixed gy)
 {
-    (void)gx;
-    (void)gy;
-    HookPlaySound(sound);
+    SetSoundLoc(gx, gy);
+    Bridge_PositionSound(leftchannel, rightchannel);
+    if (Bridge_PlaySound(sound)) {
+        globalsoundx = gx;
+        globalsoundy = gy;
+    }
+}
+
+/* UpdateSoundLoc (WL_GAME.C), once a frame: keep a placed sound where it was */
+static void HookSoundUpdate(void)
+{
+    if (Bridge_SoundPositioned()) {
+        SetSoundLoc(globalsoundx, globalsoundy);
+        Bridge_SetSoundPosition(leftchannel, rightchannel);
+    }
 }
 
 static int HookSoundPlaying(void)
 {
-    return Bridge_SoundPlaying() ? g_cursound : 0;
+    return Bridge_SoundPlaying();
 }
 
 static void HookWaitSoundDone(void)
@@ -703,6 +713,7 @@ static void InstallHooks(void)
     orig_hooks.play_sound = HookPlaySound;
     orig_hooks.play_sound_loc = HookPlaySoundLoc;
     orig_hooks.sound_playing = HookSoundPlaying;
+    orig_hooks.sound_update = HookSoundUpdate;
     orig_hooks.wait_sound_done = HookWaitSoundDone;
     orig_hooks.play_music = HookPlayMusic;
     orig_hooks.stop_music = HookStopMusic;
