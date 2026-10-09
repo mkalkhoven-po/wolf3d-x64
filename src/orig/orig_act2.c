@@ -1149,7 +1149,7 @@ void T_Bite(objtype *ob)
  * throwing and death-cam code: atan2 in double, kept in a float, scaled to
  * ANGLES and truncated. Keep the float: rounding to float changes results.
  */
-static int AtanAngle(int32_t deltax, int32_t deltay)
+int AtanAngle(int32_t deltax, int32_t deltay)
 {
     float angle;
 

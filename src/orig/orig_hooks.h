@@ -87,6 +87,21 @@ typedef struct {
     void (*set_palette_shift)(int red, int white);
 
     void (*present_frame)(void); /* show screenbuf (the page flip) */
+
+    /*
+     * The level loop (S5b). status_bar draws STATUSBARPIC; draw_level the
+     * level number; get_psyched is PreloadGraphics; died_fade the red
+     * fizzle and wait after dying. The intermission, game over (high scores)
+     * and victory screens are P5's.
+     */
+    void (*fade_out)(void);
+    void (*status_bar)(void);
+    void (*draw_level)(void);
+    void (*get_psyched)(void);
+    void (*died_fade)(void);
+    void (*level_completed)(void);
+    void (*game_over)(void);
+    void (*victory)(void);
     void (*sound_update)(void);  /* SD_Poll and UpdateSoundLoc, once a frame */
 } orig_hooks_t;
 
@@ -108,6 +123,7 @@ void DrawHealth(void);
 void DrawFace(void);
 void DrawScore(void);
 void DrawLives(void);
+void DrawLevel(void);
 void DrawWeapon(void);
 void DrawKeys(void);
 void DrawAmmo(void);

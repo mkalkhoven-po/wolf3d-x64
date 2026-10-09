@@ -150,6 +150,8 @@ void SpawnFakeHitler(int tilex, int tiley);
 void SpawnHitler(int tilex, int tiley);
 boolean ProjectileTryMove(objtype *ob);
 void SelectPathDir(objtype *ob);
+/* the angle (0..ANGLES) of a point, via atan2 kept in a float as in the original */
+int AtanAngle(int32_t deltax, int32_t deltay);
 void SpawnBJVictory(void);
 boolean CheckPosition(objtype *ob);
 
@@ -262,6 +264,14 @@ void UpdatePaletteShifts(void);
 void FinishPaletteShifts(void);
 void PlayLoop(void);
 boolean PlayDemo(const byte *demo, size_t demosize);
+
+/* the level loop (S5b): WL_GAME.C */
+extern boolean ingame;
+extern boolean abortgame; /* set by the platform to leave GameLoop (until P5's menus) */
+void DrawPlayBorder(void);
+void DrawPlayScreen(void);
+void Died(void);
+void GameLoop(void);
 
 /* WL_AGENT */
 extern statetype s_player, s_attack;

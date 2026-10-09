@@ -98,3 +98,8 @@ void FizzleIn(void)
 {
     CALL_HOOK(fizzle_in);
 }
+
+void DrawLevel(void)
+{
+    CALL_HOOK(draw_level);
+}

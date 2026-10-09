@@ -15,6 +15,11 @@ set WOLF3D_DATA=D:\path\to\your\wolfdata
 build\wolf3d.exe --data "%WOLF3D_DATA%"
 ```
 
+Faithful engine preview (P4, no menus yet; Esc quits):
+```bat
+build\wolf3d.exe --data "%WOLF3D_DATA%" --engine=orig
+```
+
 Smoke:
 ```bat
 build\wolf3d.exe --data "%WOLF3D_DATA%" --smoke-only

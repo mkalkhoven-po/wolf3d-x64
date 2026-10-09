@@ -1,0 +1,55 @@
+#pragma once
+
+/*
+ * What the faithful-engine runner needs from the shared platform layer
+ * (window, palette, pictures, text, sound, data), as plain functions. The
+ * legacy headers and src/orig/orig.h define some of the same names (sound
+ * enums, sprite numbers), so the two sides meet only here.
+ */
+
+#include <stddef.h>
+
+#include "wl_types.h"
+
+typedef enum {
+    BRIDGE_STATUSBARPIC,
+    BRIDGE_FACE1APIC,
+    BRIDGE_FACE8APIC,
+    BRIDGE_MUTANTBJPIC,
+    BRIDGE_GOTGATLINGPIC,
+    BRIDGE_N_BLANKPIC,
+    BRIDGE_N_0PIC,
+    BRIDGE_KNIFEPIC,
+    BRIDGE_NOKEYPIC,
+    BRIDGE_GOLDKEYPIC,
+    BRIDGE_SILVERKEYPIC,
+    BRIDGE_GETPSYCHEDPIC,
+    BRIDGE_PAUSEDPIC
+} bridge_pic_t;
+
+/* window (config scale / fullscreen); false if SDL video fails */
+boolean Bridge_OpenWindow(const char *title);
+void Bridge_CloseWindow(void);
+boolean Bridge_ToggleFullscreen(void);
+
+byte *Bridge_Framebuffer(void); /* the 320x200 8-bit frame the window shows */
+void Bridge_Present(void);
+void Bridge_SetPalette(const byte *palette); /* 768 bytes, 6-bit VGA */
+const byte *Bridge_GamePalette(void);
+
+int Bridge_Pic(bridge_pic_t pic); /* VGAGRAPH chunk of the loaded pack */
+void Bridge_DrawPic(int x, int y, int chunk);
+void Bridge_DrawString(int x, int y, const char *text, int color);
+
+void Bridge_PlaySound(int sound);
+boolean Bridge_SoundPlaying(void);
+void Bridge_WaitSoundDone(void);
+void Bridge_StartMusic(int song);
+void Bridge_MusicOff(void);
+
+const byte *Bridge_Page(int page); /* VSWAP page */
+int Bridge_SpriteStart(void);
+const byte *Bridge_DemoLump(int demo, size_t *length);
+boolean Bridge_IsShareware(void); /* a WL1 pack */
+boolean Bridge_MapExists(int map); /* 0-59, in this pack's MAPHEAD */
+int Bridge_MouseLook(void);       /* config: mouse turns */
