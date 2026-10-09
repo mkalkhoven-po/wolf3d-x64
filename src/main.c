@@ -166,7 +166,16 @@ int main(int argc, char *argv[])
     int i;
     int rc;
 
+#ifdef _MSC_VER
+    /*
+     * The Microsoft CRT has no line buffering, and _IOLBF with size 0 is an
+     * invalid parameter there: the default handler ends the program with
+     * 0xC0000409. Unbuffered keeps logs complete if the game crashes.
+     */
+    setvbuf(stdout, NULL, _IONBF, 0);
+#else
     setvbuf(stdout, NULL, _IOLBF, 0);
+#endif
     Wolf_EnableDpiAwareness();
     Wolf_ConfigSetDefaults();
     (void)Wolf_ConfigLoad();
