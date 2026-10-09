@@ -105,6 +105,29 @@ With `mouse_look` on in `config.ini` the mouse turns and moves, and its
 buttons shoot, strafe and open doors. When you die, BJ turns towards the
 killer and the level restarts; out of lives ends the run.
 
+### Game pad
+
+An Xbox (XInput) pad works out of the box; PlayStation and other pads that
+SDL knows work too. Plug it in before or during play. The layout is
+twin-stick, analog on both sticks:
+
+| Pad | Action |
+|-----|--------|
+| Left stick | Walk and strafe |
+| Right stick | Turn |
+| Left stick click (hold) | Run |
+| RT or A | Shoot |
+| X | Open door / elevator |
+| LB / RB | Previous / next weapon |
+| D-pad | As the arrow keys |
+| Start | Back to the menu (as Esc) |
+| Back | Pause |
+| In the menu | D-pad or left stick, **A** chooses, **B** goes back |
+
+Walking and strafing at the same time as turning is not something the
+original controls could do; it is added for pads only, and demos (which
+cannot store it) never use it.
+
 ## Saving
 
 **F8** saves the game in slot 0 and **F9** loads it, from anywhere in a

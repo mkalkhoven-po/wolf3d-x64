@@ -16,6 +16,7 @@ objtype *actorat[MAPSIZE][MAPSIZE];
 boolean demorecord, demoplayback;
 
 int16_t controlx, controly; /* range from -100 to 100 per tic */
+int16_t controlstrafe;      /* not in the original: see orig.h */
 boolean buttonstate[NUMBUTTONS];
 boolean buttonheld[NUMBUTTONS];
 

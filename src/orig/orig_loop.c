@@ -327,6 +327,7 @@ void PollControls(void)
 
     controlx = 0;
     controly = 0;
+    controlstrafe = 0;
     memcpy(buttonheld, buttonstate, sizeof(buttonstate));
     memset(buttonstate, 0, sizeof(buttonstate));
 
@@ -392,7 +393,16 @@ void PollControls(void)
         controly = (int16_t)min;
     }
 
+    /* not in the original: the pad's sideways move, bounded the same way */
+    if (controlstrafe > max) {
+        controlstrafe = (int16_t)max;
+    } else if (controlstrafe < min) {
+        controlstrafe = (int16_t)min;
+    }
+
     if (demorecord) {
+        controlstrafe = 0; /* a demo cannot hold it */
+
         /* save info out to demo buffer */
         controlx = (int16_t)(controlx / (int)tics);
         controly = (int16_t)(controly / (int)tics);

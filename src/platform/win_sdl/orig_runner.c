@@ -20,6 +20,7 @@
 
 #include "orig.h"
 #include "orig_bridge.h"
+#include "wolf_pad.h"
 #include "wolf_userdata.h"
 #include "wl_tics.h"
 
@@ -254,15 +255,57 @@ static void PumpEvents(void)
         case SDL_MOUSEBUTTONDOWN:
             orig_lastscan = 0xff; /* any button counts as an acknowledge */
             break;
+        case SDL_CONTROLLERDEVICEADDED:
+        case SDL_CONTROLLERDEVICEREMOVED:
+            Wolf_PadEvent(&ev);
+            break;
+        case SDL_CONTROLLERBUTTONDOWN:
+            if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK) {
+                g_paused = true;
+                break;
+            }
+            /* Start is Esc; any other button acknowledges, as a key would */
+            orig_lastscan = ev.cbutton.button == SDL_CONTROLLER_BUTTON_START ? 0x01 : 0xff;
+            break;
         default:
             break;
         }
     }
 }
 
+/* The pad, twin-stick (pad_map.h), added to what the keyboard and mouse give. */
+static pad_state_t g_padbefore;
+
 static void PollInput(void)
 {
+    pad_state_t pad;
+    pad_controls_t c;
+
     PumpEvents();
+    if (!Wolf_PadRead(&pad)) {
+        memset(&g_padbefore, 0, sizeof(g_padbefore));
+        return;
+    }
+    Pad_Map(&pad, &g_padbefore, tics, &c);
+    g_padbefore = pad;
+
+    controlx = (int16_t)(controlx + c.controlx);
+    controly = (int16_t)(controly + c.controly);
+    controlstrafe = (int16_t)(controlstrafe + c.controlstrafe);
+    if (c.attack) {
+        buttonstate[bt_attack] = true;
+    }
+    if (c.use) {
+        buttonstate[bt_use] = true;
+    }
+    if (c.run) {
+        buttonstate[bt_run] = true;
+    }
+    if (c.weaponstep && (int)gamestate.weapon >= 0) {
+        /* as pressing 1-4: the engine still decides (no bullets, no change) */
+        buttonstate[bt_readyknife + Pad_NextWeapon(gamestate.weapon, gamestate.bestweapon,
+                                                   c.weaponstep)] = true;
+    }
 }
 
 static int MouseButtons(void)
