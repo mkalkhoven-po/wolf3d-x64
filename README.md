@@ -112,6 +112,7 @@ Runtime dependency: **`SDL2.dll`** is copied next to `wolf3d.exe` when using the
 | +/- | Integer scale |
 | F8 / F9 | Quick save / load (slot 0) |
 | Esc | Back to the menu / quit |
+| Game pad | Twin-stick (XInput and SDL-known pads); layout in [QUICKSTART](docs/player/QUICKSTART.md#game-pad) |
 
 ## Roadmap
 

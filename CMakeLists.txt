@@ -55,6 +55,8 @@ set(WOLF_PLATFORM_SOURCES
   src/platform/win_sdl/wolf_userdata.c
   src/platform/win_sdl/wolf_present.c
   src/platform/win_sdl/wolf_winutil.c
+  src/platform/win_sdl/wolf_pad.c
+  src/platform/win_sdl/pad_map.c
 )
 
 # Faithful engine (P4, ADR-002). No SDL dependency; built next to the legacy engine.
@@ -220,6 +222,13 @@ if(WOLF_BUILD_TESTS)
   add_test(NAME engine_legacy_refused COMMAND wolf3d --engine=legacy)
   set_tests_properties(engine_legacy_refused PROPERTIES WILL_FAIL TRUE)
   add_test(NAME opl2 COMMAND test_opl2)
+  add_executable(test_pad_map tests/test_pad_map.c src/platform/win_sdl/pad_map.c)
+  target_include_directories(test_pad_map PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl)
+  if(UNIX OR MINGW)
+    target_link_libraries(test_pad_map PRIVATE m)
+  endif()
+  wolf_apply_hardening(test_pad_map)
+  add_test(NAME pad_map COMMAND test_pad_map)
   add_test(NAME sd_adlib COMMAND test_sd_adlib)
 
   add_executable(test_demo_chunks

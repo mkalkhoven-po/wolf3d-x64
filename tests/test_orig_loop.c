@@ -362,6 +362,58 @@ static void test_sound_loc(void)
     CHECK(leftchannel == 7 && rightchannel == 0);
 }
 
+/*
+ * controlstrafe (not in the original, for twin-stick pads): strafes while
+ * controlx turns, bounded like the others, never recorded in a demo.
+ */
+static void pad_strafe(void)
+{
+    controlstrafe = 32000; /* far past the bound */
+}
+
+static void test_twin_stick_strafe(void)
+{
+    fixed x, y;
+    int angle;
+    static byte buf[64];
+
+    empty_map();
+    AT(plane1, 10, 10) = 20; /* the player, facing east */
+    load_level(gd_hard);
+    x = player->x;
+    y = player->y;
+    angle = player->angle;
+
+    /* strafing right while facing east moves south, no turn */
+    controlx = controly = 0;
+    controlstrafe = 50;
+    ControlMovement(player);
+    CHECK(player->x == x && player->y > y && player->angle == angle);
+
+    /* and at the same time as a turn */
+    y = player->y;
+    controlx = 100;
+    controlstrafe = -50;
+    ControlMovement(player);
+    CHECK(player->y < y && player->angle != angle);
+    controlx = controlstrafe = 0;
+
+    /* PollControls clears it, bounds what the input hook adds */
+    orig_hooks.poll_input = pad_strafe;
+    memset(orig_keys, 0, sizeof(orig_keys));
+    lasttimecount = TimeCount = 0;
+    demorecord = true; /* fixed tics */
+    StartDemoRecording(buf, sizeof(buf));
+    PollControls();
+    CHECK(controlstrafe == 0); /* recording: a demo cannot hold it */
+    demorecord = false;
+    PollControls();
+    CHECK(controlstrafe == 100 * (int)tics);
+    orig_hooks.poll_input = NULL;
+    PollControls();
+    CHECK(controlstrafe == 0);
+}
+
 static void test_play_loop(void)
 {
     /* a synthetic demo on map 0 of the synthetic map: 30 frames forward */
@@ -677,6 +729,7 @@ int main(int argc, char **argv)
         test_palette_shifts();
         test_cheat_and_music();
         test_play_loop();
+        test_twin_stick_strafe();
         test_sound_loc();
     }
 

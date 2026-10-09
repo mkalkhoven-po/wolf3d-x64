@@ -18,6 +18,7 @@
 #include "id/id_vl.h"
 #include "id/wl_data.h"
 #include "platform/win_sdl/orig_runner.h"
+#include "platform/win_sdl/wolf_pad.h"
 #include "platform/win_sdl/wolf_present.h"
 #include "platform/win_sdl/wolf_userdata.h"
 #include "platform/win_sdl/wolf_winutil.h"
@@ -267,12 +268,14 @@ int main(int argc, char *argv[])
     printf("Data ready: %s (%s)\n", data_dir.path, data_dir.extension);
     fflush(stdout);
 
+    Wolf_PadInit(); /* XInput and other game pads, alongside keyboard and mouse */
     if (OrigRunner_Direct(argc, argv)) {
         rc = OrigRunner_Run(&g_game_opts);
     } else {
         static const wolf_menu_actions_t actions = {menu_new_game, menu_load_game};
         rc = Wolf_RunIntroMenu(&actions);
     }
+    Wolf_PadShutdown();
     ID_Engine_Shutdown();
     if (rc != 0) {
         fprintf(stderr, "wolf3d-win64 exited with error %d\n", rc);

@@ -14,6 +14,7 @@
 #include "id/id_sd.h"
 #include "id/id_vh.h"
 #include "id/id_vl.h"
+#include "wolf_pad.h"
 #include "wolf_present.h"
 #include "wolf_userdata.h"
 
@@ -179,6 +180,10 @@ int Wolf_RunIntroMenu(const wolf_menu_actions_t *actions)
     while (running && state != UI_QUIT) {
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
+            /* the pad drives the menu as the keys it stands for (wolf_pad.h) */
+            const SDL_Keycode padkey = Wolf_PadMenuKey(&ev);
+
+            Wolf_PadEvent(&ev);
             if (ev.type == SDL_QUIT) {
                 state = UI_QUIT;
                 running = 0;
@@ -186,8 +191,8 @@ int Wolf_RunIntroMenu(const wolf_menu_actions_t *actions)
                        (ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
                         ev.window.event == SDL_WINDOWEVENT_RESIZED)) {
                 Wolf_PresentHandleResize(&pr);
-            } else if (ev.type == SDL_KEYDOWN) {
-                SDL_Keycode k = ev.key.keysym.sym;
+            } else if (ev.type == SDL_KEYDOWN || padkey) {
+                SDL_Keycode k = ev.type == SDL_KEYDOWN ? ev.key.keysym.sym : padkey;
                 if (k == SDLK_F11) {
                     if (Wolf_PresentToggleFullscreen(&pr)) {
                         g_config.fullscreen = pr.fullscreen;

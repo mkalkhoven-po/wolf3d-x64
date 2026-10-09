@@ -161,6 +161,21 @@ void ControlMovement(objtype *ob)
         Thrust(angle, controly * BACKMOVESCALE); /* move backwards */
     }
 
+    /* not in the original: a twin-stick pad strafes while turning (controlstrafe) */
+    if (controlstrafe > 0) {
+        angle = ob->angle - ANGLES / 4;
+        if (angle < 0) {
+            angle += ANGLES;
+        }
+        Thrust(angle, controlstrafe * MOVESCALE); /* to the right, as controlx > 0 above */
+    } else if (controlstrafe < 0) {
+        angle = ob->angle + ANGLES / 4;
+        if (angle >= ANGLES) {
+            angle -= ANGLES;
+        }
+        Thrust(angle, -controlstrafe * MOVESCALE);
+    }
+
     if (gamestate.victoryflag) { /* watching the BJ actor */
         return;
     }

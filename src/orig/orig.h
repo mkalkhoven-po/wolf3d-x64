@@ -62,6 +62,14 @@ enum {
     bt_readychaingun
 };
 extern int16_t controlx, controly; /* range from -100 to 100 per tic */
+/*
+ * Not in the original: a sideways move next to turning, for a twin-stick
+ * game pad (left stick strafes while the right stick turns). The original
+ * has one sideways value, controlx, that turns or (with bt_strafe) strafes.
+ * Same units as controlx (right is positive); always 0 while a demo plays or
+ * records, since the demo format cannot hold it.
+ */
+extern int16_t controlstrafe;
 extern boolean buttonstate[NUMBUTTONS];
 extern boolean buttonheld[NUMBUTTONS];
 extern uint16_t tics;

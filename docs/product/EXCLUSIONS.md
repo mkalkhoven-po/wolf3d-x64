@@ -26,7 +26,6 @@ These are **out of scope** for the MVP and must not appear as acceptance criteri
 - [ ] Modern physically based renderer
 - [ ] Map editor / scripting / ZDoom-like mod platform
 - [ ] Spear of Destiny, Japanese, Spanish SKUs (post-MVP)
-- [ ] Controller support (nice-to-have after keyboard/mouse)
 - [ ] Online leaderboards, achievements, cloud saves
 
 ## Legal / content
