@@ -28,6 +28,10 @@ The game looks for:
 
 If data is still missing, a **message box** explains how to fix it (window no longer just flashes closed).
 
+The examples use Command Prompt (`cmd`). In **PowerShell**, start the exe with
+`.\` in front (`.\build\wolf3d.exe --data Wolf3dgame`); without it PowerShell
+reports "The module 'build' could not be loaded".
+
 ### Explicit path (always works)
 ```bat
 cd /d D:\wolf3d-master
