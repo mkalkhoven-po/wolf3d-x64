@@ -49,6 +49,45 @@ typedef struct {
 
     /* ThreeDRefresh after a level start or the death cam: fizzle the new view in */
     void (*fizzle_in)(void);
+
+    /*
+     * The 70 Hz timer interrupt (S5). read_time returns TimeCount as the
+     * clock has it now; write_time is called when the game sets TimeCount;
+     * wait_time blocks until TimeCount reaches target (the original's busy
+     * loop for demo pacing). Without them the engine runs headless: time
+     * advances only as the game needs it.
+     */
+    int32_t (*read_time)(void);
+    void (*write_time)(int32_t count);
+    void (*wait_time)(int32_t target);
+
+    /*
+     * Input (S5). poll_input refreshes orig_keys / orig_lastscan (the keyboard
+     * interrupt's table) before PollControls reads them. Mouse buttons: bit
+     * 0-2; joystick buttons: bit 0-3; deltas as the drivers report them.
+     */
+    void (*poll_input)(void);
+    int (*mouse_buttons)(void);
+    void (*mouse_delta)(int *dx, int *dy);
+    int (*joy_buttons)(void);
+    void (*joy_delta)(int *dx, int *dy);
+    boolean (*check_ack)(void); /* any key / button: ends demo playback */
+
+    /*
+     * The non-game part of CheckKeys: pause, the control panel (F1-F10,
+     * Esc), the other cheat keys, debug keys. It may set playstate.
+     */
+    void (*check_keys)(byte lastscan);
+    void (*cheat_message)(void); /* after the MLI cheat */
+
+    void (*play_music)(int song); /* musicnames */
+    void (*stop_music)(void);
+
+    /* palette: red shift 1-6, white shift 1-3, or 0 / 0 for the game palette */
+    void (*set_palette_shift)(int red, int white);
+
+    void (*present_frame)(void); /* show screenbuf (the page flip) */
+    void (*sound_update)(void);  /* SD_Poll and UpdateSoundLoc, once a frame */
 } orig_hooks_t;
 
 extern orig_hooks_t orig_hooks;

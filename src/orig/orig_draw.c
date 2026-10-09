@@ -1152,7 +1152,8 @@ void ThreeDRefresh(void)
         FizzleIn();
         fizzlein = false;
 
-        lasttimecount = TimeCount = 0; /* don't make a big tic count */
+        lasttimecount = 0;
+        SetTimeCount(0); /* don't make a big tic count */
     }
 
     frameon++;

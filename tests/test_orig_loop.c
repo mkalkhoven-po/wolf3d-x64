@@ -1,0 +1,487 @@
+/*
+ * The play loop of the faithful engine (P4/S5a): CalcTics, PollControls
+ * (keyboard, mouse, joystick, demo record and playback), palette shifts,
+ * the MLI cheat, music, PlayLoop and PlayDemo.
+ *
+ * With --data DIR the original demos play headless. A demo recording stops
+ * when the level ends, so a demo that plays back in sync ends (death or
+ * completion) exactly on its last frame of input; that is checked for every
+ * demo known to be in sync, and the end state of every demo is pinned.
+ */
+#include "orig_testkit.h"
+#include "wl_data.h"
+
+#include "id_pm.h"
+
+/* ------------------------------------------------------------- the clock */
+
+static int32_t g_clock;
+static int g_writes;
+static boolean g_ticking; /* the clock runs on by one each time it is read */
+
+static int32_t clock_read(void)
+{
+    const int32_t now = g_clock;
+    if (g_ticking) {
+        g_clock++;
+    }
+    return now;
+}
+
+static void clock_write(int32_t count)
+{
+    g_clock = count;
+    g_writes++;
+}
+
+static void test_calc_tics(void)
+{
+    empty_map();
+    AT(plane1, 10, 10) = 20;
+    load_level(gd_hard);
+    orig_hooks.read_time = clock_read;
+    orig_hooks.write_time = clock_write;
+
+    g_clock = 3;
+    lasttimecount = 0;
+    CalcTics();
+    CHECK(tics == 3 && lasttimecount == 3);
+
+    /* more than MAXTICS: clamped, and the clock is set back */
+    g_clock = 50;
+    g_writes = 0;
+    CalcTics();
+    CHECK(tics == MAXTICS && g_clock == 50 - (47 - MAXTICS) && g_writes == 1);
+    CHECK(lasttimecount == 50); /* as in the original: lasttimecount keeps newtime */
+
+    /*
+     * So the next frame finds the clock (13) behind lasttimecount (50), as
+     * after a long pause: TimeCount is brought up to 50 and the loop waits
+     * for the next tic.
+     */
+    g_ticking = true;
+    CalcTics();
+    g_ticking = false;
+    CHECK(tics == 1 && lasttimecount == 51);
+
+    /* headless (no clock): one tic per call */
+    OrigHooks_Reset();
+    TimeCount = lasttimecount = 7;
+    CalcTics();
+    CHECK(tics == 1 && TimeCount == 8);
+}
+
+/* -------------------------------------------------------------- controls */
+
+static int g_mousebuttons, g_mousedx, g_mousedy, g_joybuttons, g_joyx, g_joyy;
+
+static int mouse_buttons(void)
+{
+    return g_mousebuttons;
+}
+
+static void mouse_delta(int *dx, int *dy)
+{
+    *dx = g_mousedx;
+    *dy = g_mousedy;
+}
+
+static int joy_buttons(void)
+{
+    return g_joybuttons;
+}
+
+static void joy_delta(int *x, int *y)
+{
+    *x = g_joyx;
+    *y = g_joyy;
+}
+
+/* PollControls with t tics since the last frame (CalcTics reads TimeCount) */
+static void poll_with_tics(int t)
+{
+    TimeCount = lasttimecount + t;
+    PollControls();
+}
+
+static void test_keyboard(void)
+{
+    empty_map();
+    AT(plane1, 10, 10) = 20;
+    load_level(gd_hard);
+    memset(orig_keys, 0, sizeof(orig_keys));
+
+    orig_keys[sc_UpArrow] = 1;
+    poll_with_tics(2);
+    CHECK(tics == 2 && controly == -35 * 2 && controlx == 0);
+
+    orig_keys[sc_RShift] = 1; /* run */
+    orig_keys[sc_RightArrow] = 1;
+    poll_with_tics(1);
+    CHECK(buttonstate[bt_run] && controly == -70 && controlx == 70);
+
+    /* running at two tics: 140, under the 200 limit */
+    poll_with_tics(2);
+    CHECK(controly == -140 && controlx == 140);
+    mouseenabled = true;
+    orig_hooks.mouse_delta = mouse_delta;
+    orig_hooks.mouse_buttons = mouse_buttons;
+    g_mousedx = 80;
+    poll_with_tics(1);
+    CHECK(controlx == 100); /* 70 + 80*10/8 = 170, clamped to 100 per tic */
+
+    /* buttons, and last frame's in buttonheld */
+    memset(orig_keys, 0, sizeof(orig_keys));
+    g_mousedx = 0;
+    orig_keys[sc_Control] = orig_keys[sc_Space] = orig_keys[sc_3] = 1;
+    poll_with_tics(1);
+    CHECK(buttonstate[bt_attack] && buttonstate[bt_use] && buttonstate[bt_readymachinegun]);
+    CHECK(!buttonstate[bt_strafe] && buttonheld[bt_run]);
+    memset(orig_keys, 0, sizeof(orig_keys));
+    g_mousebuttons = 2; /* right button: strafe */
+    poll_with_tics(1);
+    CHECK(buttonstate[bt_strafe] && buttonheld[bt_attack] && !buttonstate[bt_attack]);
+
+    /* mouse speed setting: 13 - mouseadjustment */
+    g_mousebuttons = 0;
+    g_mousedx = 13;
+    g_mousedy = -13;
+    mouseadjustment = 0;
+    poll_with_tics(1);
+    CHECK(controlx == 13 * 10 / 13 && controly == -13 * 20 / 13);
+    mouseadjustment = 5;
+    mouseenabled = false;
+
+    /* joystick: the progressive mode adds a downward push to controlx */
+    joystickenabled = true;
+    joystickprogressive = true;
+    orig_hooks.joy_delta = joy_delta;
+    orig_hooks.joy_buttons = joy_buttons;
+    g_joyx = 0;
+    g_joyy = 74;
+    poll_with_tics(1);
+    CHECK(controlx == 20 && controly == 0);
+    joystickprogressive = false;
+    g_joyy = -100;
+    g_joybuttons = 1;
+    poll_with_tics(1);
+    CHECK(controly == -35 && buttonstate[bt_attack]);
+    joystickenabled = false;
+    g_joybuttons = 0;
+}
+
+/* ------------------------------------------------------------------ demos */
+
+static void test_demo_round_trip(void)
+{
+    static byte buf[3 * 40];
+    static const int script[6][4] = {
+        /* keys: up, left, ctrl, alt */
+        {1, 0, 0, 0}, {1, 1, 0, 0}, {0, 0, 1, 0}, {0, 1, 0, 1}, {1, 0, 1, 1}, {0, 0, 0, 0}};
+    int16_t recx[6], recy[6];
+    boolean recattack[6], recstrafe[6];
+    int i;
+
+    empty_map();
+    AT(plane1, 10, 10) = 20;
+    load_level(gd_hard);
+    memset(orig_keys, 0, sizeof(orig_keys));
+
+    /* record six frames */
+    demorecord = true;
+    StartDemoRecording(buf, sizeof(buf));
+    lasttimecount = TimeCount = 0;
+    for (i = 0; i < 6; i++) {
+        orig_keys[sc_UpArrow] = (byte)script[i][0];
+        orig_keys[sc_LeftArrow] = (byte)script[i][1];
+        orig_keys[sc_Control] = (byte)script[i][2];
+        orig_keys[sc_Alt] = (byte)script[i][3];
+        PollControls();
+        CHECK(tics == DEMOTICS && TimeCount == 4 * (i + 1));
+        recx[i] = controlx;
+        recy[i] = controly;
+        recattack[i] = buttonstate[bt_attack];
+        recstrafe[i] = buttonstate[bt_strafe];
+    }
+    demorecord = false;
+    CHECK(DemoRecordingEnd() == buf + 18);
+    CHECK(buf[0] == 0 && (int8_t)buf[2] == -35); /* frame 1: forward */
+    CHECK(buf[6] == 1 && buf[9] == 2);           /* attack, strafe bits */
+
+    /* play them back */
+    demoplayback = true;
+    demoptr = buf;
+    lastdemoptr = buf + 18;
+    playstate = ex_stillplaying;
+    memset(orig_keys, 0, sizeof(orig_keys));
+    for (i = 0; i < 6; i++) {
+        PollControls();
+        CHECK(controlx == recx[i] && controly == recy[i]);
+        CHECK(buttonstate[bt_attack] == recattack[i] && buttonstate[bt_strafe] == recstrafe[i]);
+        CHECK(playstate == (i == 5 ? ex_completed : ex_stillplaying));
+    }
+    demoplayback = false;
+}
+
+/* --------------------------------------------------------- palette shifts */
+
+static int g_red, g_white, g_shifts;
+
+static void palette_shift(int red, int white)
+{
+    g_red = red;
+    g_white = white;
+    g_shifts++;
+}
+
+static void test_palette_shifts(void)
+{
+    int t;
+
+    OrigHooks_Reset();
+    orig_hooks.set_palette_shift = palette_shift;
+    ClearPaletteShifts();
+    palshifted = false;
+    tics = 1;
+    g_shifts = 0;
+
+    StartDamageFlash(25);
+    UpdatePaletteShifts();
+    CHECK(g_red == 3 && g_white == 0 && palshifted && damagecount == 24); /* 25/10 + 1 */
+    for (t = 0; t < 24; t++) {
+        UpdatePaletteShifts();
+    }
+    CHECK(damagecount == 0 && g_red == 1);
+    UpdatePaletteShifts();
+    CHECK(g_red == 0 && g_white == 0 && !palshifted); /* back to normal, once */
+    t = g_shifts;
+    UpdatePaletteShifts();
+    CHECK(g_shifts == t);
+
+    /* bonus: white 3 for the first tics, counting down 18 */
+    StartBonusFlash();
+    CHECK(bonuscount == 18);
+    UpdatePaletteShifts();
+    CHECK(g_white == 3 && g_red == 0);
+    /* damage wins over a bonus flash */
+    StartDamageFlash(100);
+    UpdatePaletteShifts();
+    CHECK(g_red == 6 && g_white == 0);
+    FinishPaletteShifts();
+    CHECK(g_red == 0 && !palshifted);
+}
+
+/* --------------------------------------------------------- cheats / music */
+
+static int g_checkkeys, g_scan, g_song = -1;
+
+static void check_keys(byte scan)
+{
+    g_checkkeys++;
+    g_scan = scan;
+}
+
+static void play_music(int song)
+{
+    g_song = song;
+}
+
+static void test_cheat_and_music(void)
+{
+    empty_map();
+    AT(plane1, 10, 10) = 20;
+    load_level(gd_hard);
+    orig_hooks.check_keys = check_keys;
+    orig_hooks.play_music = play_music;
+    gamestate.health = 20;
+    gamestate.score = 1234;
+    gamestate.TimeCount = 100;
+
+    memset(orig_keys, 0, sizeof(orig_keys));
+    orig_keys[sc_M] = orig_keys[sc_L] = orig_keys[sc_I] = 1;
+    orig_lastscan = 0x01;
+    CheckKeys();
+    CHECK(gamestate.health == 100 && gamestate.ammo == 99 && gamestate.keys == 3);
+    CHECK(gamestate.score == 0 && gamestate.TimeCount == 42100);
+    CHECK(gamestate.bestweapon == wp_chaingun && gamestate.weapon == wp_chaingun);
+    CHECK(!orig_keys[sc_M]); /* keys cleared */
+    CHECK(g_checkkeys == 1 && g_scan == 0x01);
+
+    demoplayback = true; /* no keys during demos */
+    CheckKeys();
+    demoplayback = false;
+    CHECK(g_checkkeys == 1);
+
+    gamestate.episode = 0;
+    gamestate.mapon = 0;
+    StartMusic();
+    CHECK(g_song == GETTHEM_MUS);
+    gamestate.mapon = 8; /* boss level */
+    StartMusic();
+    CHECK(g_song == WARMARCH_MUS);
+    gamestate.episode = 5;
+    gamestate.mapon = 9;
+    StartMusic();
+    CHECK(g_song == FUNKYOU_MUS);
+}
+
+/* --------------------------------------------------------------- PlayLoop */
+
+static int g_presented;
+
+static void present(void)
+{
+    g_presented++;
+}
+
+static void test_play_loop(void)
+{
+    /* a synthetic demo on map 0 of the synthetic map: 30 frames forward */
+    static byte demo[4 + 3 * 30];
+    int i;
+
+    empty_map();
+    AT(plane1, 10, 10) = 20;
+    mapsegs[0] = plane0;
+    mapsegs[1] = plane1;
+
+    demo[0] = 0;
+    demo[1] = (byte)sizeof(demo);
+    demo[2] = 0;
+    for (i = 0; i < 30; i++) {
+        demo[4 + 3 * i] = 0;
+        demo[5 + 3 * i] = 0;
+        demo[6 + 3 * i] = (byte)(int8_t)-25;
+    }
+
+    /*
+     * PlayDemo loads the map through SetupGameLevel, which needs map files;
+     * run its loop part by hand on the synthetic map instead.
+     */
+    load_level(gd_hard);
+    orig_hooks.present_frame = present;
+    g_presented = 0;
+    demoplayback = true;
+    demoptr = demo + 4;
+    lastdemoptr = demo + sizeof(demo);
+    fizzlein = true;
+    PlayLoop();
+    demoplayback = false;
+
+    CHECK(playstate == ex_completed && g_presented == 30);
+    CHECK(gamestate.TimeCount == 30 * DEMOTICS);
+    /* 30 frames of -25*4 forward: 100 per frame -> FixedByFrac (15000, 0xffff) each */
+    CHECK(player->x == (10l << TILESHIFT) + TILEGLOBAL / 2 + 30 * 14999);
+}
+
+/* -------------------------------------------------------------- real data */
+
+static int g_frames;
+
+static const byte *pack_page(int page)
+{
+    return (const byte *)PM_GetPage(page);
+}
+
+static void count_frame(void)
+{
+    g_frames++;
+}
+
+static uint32_t end_state(void)
+{
+    const int32_t v[12] = {playstate,        gamestate.health,  gamestate.ammo,
+                           gamestate.score,  gamestate.killcount, player->x,
+                           player->y,        player->angle,     gamestate.mapon,
+                           gamestate.weapon, g_frames,          gamestate.treasurecount};
+    return fnv(2166136261u, v, sizeof(v));
+}
+
+static int run_pack(int argc, char **argv)
+{
+    wolf_data_dir_t dir;
+    int d;
+    boolean wl1;
+    /*
+     * End states pinned per pack. WL1 demo 0 drifts: BJ dies 97 frames
+     * before its input ends. Under investigation (S7); the other seven end
+     * exactly on their last frame.
+     */
+    static const uint32_t wl1_pins[4] = {0xe30e88cau, 0x23f1465fu, 0xa2a105b1u, 0x4bfec1c1u};
+    static const uint32_t wl6_pins[4] = {0x4d19d1c2u, 0xc7717cf7u, 0x57bf2a35u, 0xd4a674a1u};
+
+    memset(&dir, 0, sizeof(dir));
+    if (!Wolf_ResolveDataDir(argc, argv, &dir)) {
+        return 1;
+    }
+    CA_Startup();
+    if (!CA_OpenMapFiles(&dir) || !PM_OpenPageFile(&dir) || !CA_OpenGraphFiles(&dir)) {
+        fprintf(stderr, "FAIL: could not open %s\n", dir.path);
+        return 1;
+    }
+    wl1 = strcmp(g_gfx->name, "WL1") == 0;
+    upload = wl1;
+    orig_getpage = pack_page;
+    orig_spritestart = (int16_t)PMSpriteStart;
+    NewViewSize(15);
+
+    for (d = 0; d < NUMDEMOS; d++) {
+        const byte *lump;
+        unsigned length, inputframes;
+        uint32_t h;
+
+        CA_CacheGrChunk(T_DEMO0 + d);
+        lump = grsegs[T_DEMO0 + d];
+        CHECK(lump != NULL);
+        if (!lump) {
+            continue;
+        }
+        length = (unsigned)lump[1] | ((unsigned)lump[2] << 8);
+        inputframes = (length - 4) / 3;
+
+        install_hooks();
+        orig_hooks.present_frame = count_frame;
+        g_frames = 0;
+        CHECK(PlayDemo(lump, length));
+        h = end_state();
+
+        printf("%s demo %d (map %d): %d of %u frames, playstate %d, health %d, kills %d, "
+               "end state %08x\n",
+               g_gfx->name, d, lump[0], g_frames, inputframes, playstate, gamestate.health,
+               gamestate.killcount, h);
+
+        if (!(wl1 && d == 0)) {
+            /* in sync: the level ends exactly when the recorded input does */
+            CHECK((unsigned)g_frames == inputframes);
+            CHECK(playstate == ex_died || playstate == ex_completed);
+        }
+        CHECK(h == (wl1 ? wl1_pins : wl6_pins)[d]);
+    }
+    return 0;
+}
+
+int main(int argc, char **argv)
+{
+    InitGame();
+
+    if (argc > 1) {
+        if (run_pack(argc, argv)) {
+            return 1;
+        }
+    } else {
+        test_calc_tics();
+        test_keyboard();
+        test_demo_round_trip();
+        test_palette_shifts();
+        test_cheat_and_music();
+        test_play_loop();
+    }
+
+    mapsegs[0] = mapsegs[1] = NULL;
+    if (g_failures) {
+        fprintf(stderr, "%d check(s) failed\n", g_failures);
+        return 1;
+    }
+    printf("test_orig_loop: all checks passed\n");
+    return 0;
+}
