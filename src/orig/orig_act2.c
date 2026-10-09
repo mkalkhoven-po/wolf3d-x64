@@ -597,7 +597,11 @@ void T_Projectile(objtype *ob)
 
 void A_DeathScream(objtype *ob)
 {
-    if (gamestate.mapon == 9 && !US_RndT()) {
+    /*
+     * #ifndef UPLOAD: the shareware build has no secret-level scream, so it
+     * draws no random number here on map 9.
+     */
+    if (!upload && gamestate.mapon == 9 && !US_RndT()) {
         switch (ob->obclass) {
         case mutantobj:
         case guardobj:
@@ -622,7 +626,8 @@ void A_DeathScream(objtype *ob)
                                       DEATHSCREAM4SND, DEATHSCREAM5SND, DEATHSCREAM7SND,
                                       DEATHSCREAM8SND, DEATHSCREAM9SND};
 
-        PlaySoundLocActor(sounds[US_RndT() % 8], ob);
+        /* the shareware build (UPLOAD) picks from the first two only */
+        PlaySoundLocActor(sounds[US_RndT() % (upload ? 2 : 8)], ob);
     } break;
     case officerobj:
         PlaySoundLocActor(NEINSOVASSND, ob);

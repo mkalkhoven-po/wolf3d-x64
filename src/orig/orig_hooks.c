@@ -79,18 +79,6 @@ void DrawGotGatling(void)
     CALL_HOOK(draw_got_gatling);
 }
 
-void StartDamageFlash(int damage)
-{
-    if (orig_hooks.start_damage_flash) {
-        orig_hooks.start_damage_flash(damage);
-    }
-}
-
-void StartBonusFlash(void)
-{
-    CALL_HOOK(start_bonus_flash);
-}
-
 void DeathCamPause(void)
 {
     CALL_HOOK(death_cam_pause);

@@ -78,6 +78,24 @@
 #define MAXWALLTILES    64 /* max number of wall tiles */
 #define PMPAGESIZE      4096 /* VSWAP page: a 64x64 wall texture, column-major */
 
+/* keyboard scan codes (ID_IN.H) the game logic uses */
+#define NUMCODES        128
+#define sc_Control      0x1d
+#define sc_Alt          0x38
+#define sc_RShift       0x36
+#define sc_Space        0x39
+#define sc_1            0x02
+#define sc_2            0x03
+#define sc_3            0x04
+#define sc_4            0x05
+#define sc_UpArrow      0x48
+#define sc_DownArrow    0x50
+#define sc_LeftArrow    0x4b
+#define sc_RightArrow   0x4d
+#define sc_I            0x17
+#define sc_L            0x26
+#define sc_M            0x32
+
 #define SPDPATROL   512
 #define SPDDOG      1500
 

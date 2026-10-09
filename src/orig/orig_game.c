@@ -11,6 +11,9 @@
 gametype gamestate;
 boolean loadedgame;
 
+/* the shareware EXE was built with UPLOAD defined; the platform sets this for WL1 packs */
+boolean upload;
+
 int16_t mapwidth, mapheight;
 boolean fizzlein;
 int32_t spearx, speary;

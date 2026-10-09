@@ -16,6 +16,7 @@
 /* WL_MAIN */
 extern gametype gamestate;
 extern boolean loadedgame;
+extern boolean upload; /* shareware build (UPLOAD): set for WL1 packs */
 void InitGame(void);
 void NewGame(int difficulty, int episode);
 
@@ -237,6 +238,30 @@ void ScaleColumn(const byte *src, int height, byte *dest, int pitch);
 int TexelWidth(int height, int src);
 int MaskedColumns(int x, int width, int cols[12]);
 void SimpleScaleShape(int xcenter, int shapenum, unsigned height);
+
+/* the play loop (S5): WL_PLAY.C controls / palette / music / PlayLoop, WL_GAME.C PlayDemo */
+extern byte orig_keys[NUMCODES]; /* Keyboard[], filled by the platform layer */
+extern byte orig_lastscan;        /* LastScan */
+extern boolean mouseenabled, joystickenabled, joypadenabled, joystickprogressive;
+extern int16_t joystickport, mouseadjustment;
+extern int16_t dirscan[4], buttonscan[NUMBUTTONS], buttonmouse[4], buttonjoy[4];
+extern const byte *demoptr, *lastdemoptr;
+extern int16_t damagecount, bonuscount;
+extern boolean palshifted, screenfaded, startgame;
+
+void SetTimeCount(int32_t count);
+void CalcTics(void);
+void PollControls(void);
+void StartDemoRecording(byte *buf, size_t len);
+byte *DemoRecordingEnd(void);
+void CheckKeys(void);
+void StopMusic(void);
+void StartMusic(void);
+void ClearPaletteShifts(void);
+void UpdatePaletteShifts(void);
+void FinishPaletteShifts(void);
+void PlayLoop(void);
+boolean PlayDemo(const byte *demo, size_t demosize);
 
 /* WL_AGENT */
 extern statetype s_player, s_attack;
