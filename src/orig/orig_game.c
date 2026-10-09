@@ -21,6 +21,7 @@ boolean spearflag;
 int16_t viewsize = 15; /* the original's default when there is no config */
 int16_t viewwidth, viewheight;
 int16_t centerx, shootdelta;
+uint16_t screenofs;
 
 /* projection constants (WL_MAIN.C) */
 fixed focallength;
@@ -57,6 +58,7 @@ void InitGame(void)
     }
 
     BuildTables(); /* trig tables */
+    SetupWalls();
 
     NewViewSize(viewsize);
 }
@@ -140,8 +142,15 @@ boolean SetViewSize(unsigned width, unsigned height)
     centerx = (int16_t)(viewwidth / 2 - 1);
     shootdelta = (int16_t)(viewwidth / 10);
 
+    /* top left of the view window in the 320x200 frame (pixels) */
+    screenofs = (uint16_t)((200 - STATUSLINES - viewheight) / 2 * SCREENWIDTH +
+                           (320 - viewwidth) / 2);
+
     /* calculate trace angles and projection constants */
     CalcProjection(FOCALLENGTH);
+
+    /* the table of scalers (no compiled code needed) */
+    SetupScaling((int)(viewwidth * 1.5));
 
     return true;
 }

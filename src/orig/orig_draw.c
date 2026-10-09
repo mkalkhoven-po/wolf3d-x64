@@ -9,6 +9,8 @@
  */
 #include "orig.h"
 
+#include <string.h>
+
 #include "wl_fixed.h"
 
 #define ACTORSIZE 0x4000
@@ -394,5 +396,717 @@ void DrawScaleds(void)
         ScaleShape(farthest->viewx, farthest->shapenum, farthest->viewheight);
 
         farthest->viewheight = 32000;
+    }
+}
+
+/*
+=============================================================================
+
+                    WALLS (S4b): raycaster, posts, floor/ceiling
+
+=============================================================================
+*/
+
+/* the canonical 320x200 frame (ADR-002); the view window starts at screenofs */
+byte screenbuf[SCREENHEIGHT * SCREENWIDTH];
+
+/* wall textures: VSWAP pages, 64x64 column-major; set by the platform layer */
+const byte *(*orig_getpage)(int page);
+int16_t orig_spritestart; /* PMSpriteStart of the loaded VSWAP */
+
+#define DOORWALL (orig_spritestart - 8)
+
+int16_t horizwall[MAXWALLTILES], vertwall[MAXWALLTILES];
+
+int16_t lastside; /* true for vertical */
+int32_t lastintercept;
+int16_t lasttilehit;
+
+uint16_t tilehit;
+uint16_t pixx;
+
+int16_t xtile, ytile;
+int16_t xtilestep, ytilestep;
+int32_t xstep, ystep;
+
+/* postsource was a far pointer: segment = page, offset = texture column */
+static struct {
+    const byte *page;
+    uint16_t texture;
+} postsource;
+uint16_t postx;
+uint16_t postwidth;
+
+static const byte *GetPage(int page)
+{
+    static const byte blank[PMPAGESIZE];
+    const byte *p = orig_getpage ? orig_getpage(page) : NULL;
+    return p ? p : blank;
+}
+
+/*
+==================
+=
+= SetupWalls
+=
+= Map tile values to scaled pics
+=
+==================
+*/
+
+void SetupWalls(void)
+{
+    int i;
+
+    for (i = 1; i < MAXWALLTILES; i++) {
+        horizwall[i] = (int16_t)((i - 1) * 2);
+        vertwall[i] = (int16_t)((i - 1) * 2 + 1);
+    }
+}
+
+/*
+===================
+=
+= ScalePost
+=
+= The VGA version draws a post of postwidth columns from postx, all with the
+= height of the first one, through the compiled scaler picked by
+= wallheight[postx] (low 3 bits fraction). Which pixels of the 4-pixel VGA
+= bytes it writes comes from the mapmasks tables, indexed by
+= (postx & 3) * 8 + postwidth - 1. The tables cover widths up to 8, the most
+= a texel column can span in practice; a larger index reads on into the
+= following table as in the original (and 0 past the last one).
+=
+===================
+*/
+
+static const byte mapmasks[3][4][8] = {
+    {{1, 3, 7, 15, 15, 15, 15, 15},
+     {2, 6, 14, 14, 14, 14, 14, 14},
+     {4, 12, 12, 12, 12, 12, 12, 12},
+     {8, 8, 8, 8, 8, 8, 8, 8}},
+    {{0, 0, 0, 0, 1, 3, 7, 15},
+     {0, 0, 0, 1, 3, 7, 15, 15},
+     {0, 0, 1, 3, 7, 15, 15, 15},
+     {0, 1, 3, 7, 15, 15, 15, 15}},
+    {{0, 0, 0, 0, 0, 0, 0, 0},
+     {0, 0, 0, 0, 0, 0, 0, 1},
+     {0, 0, 0, 0, 0, 0, 1, 3},
+     {0, 0, 0, 0, 0, 1, 3, 7}}};
+
+static byte MapMask(int table, int index)
+{
+    const byte *flat = &mapmasks[0][0][0];
+    const int at = table * 32 + index;
+    return at < (int)sizeof(mapmasks) ? flat[at] : 0;
+}
+
+static void ScaleMaskedBytes(int firstbyte, int index, int height, const byte *src)
+{
+    int b, plane;
+
+    for (b = 0; b < 3; b++) {
+        const byte mask = MapMask(b, index);
+        if (!mask) {
+            break; /* or al,al / jz nomore */
+        }
+        for (plane = 0; plane < 4; plane++) {
+            const int x = (firstbyte + b) * 4 + plane;
+            if ((mask & (1 << plane)) && x < viewwidth) {
+                ScaleColumn(src, height, &screenbuf[screenofs + x], SCREENWIDTH);
+            }
+        }
+    }
+}
+
+void ScalePost(void)
+{
+    int index;
+
+    index = (wallheight[postx] & 0xfff8) >> 3; /* heightscaler */
+    if (index > maxscale) {
+        index = maxscale;
+    }
+
+    ScaleMaskedBytes(postx >> 2, (postx & 3) * 8 + postwidth - 1, ScalerHeight(index),
+                     postsource.page + postsource.texture);
+}
+
+/*
+ * The shared tail of the Hit* functions: extend the post or start a new one.
+ *
+ * WallRefresh resets lastside but not lasttilehit, so a door or pushwall
+ * hit in column 0 that matches the previous frame's last post lands here
+ * with pixx 0; the original then read wallheight[-1]. Column 0 keeps its own
+ * height instead (not in the original).
+ */
+static boolean SamePost(uint16_t texture)
+{
+    if (texture == postsource.texture) {
+        /* wide scale */
+        postwidth++;
+        if (pixx > 0) {
+            wallheight[pixx] = wallheight[pixx - 1];
+        }
+        return true;
+    }
+    ScalePost();
+    postsource.texture = texture;
+    postwidth = 1;
+    postx = pixx;
+    return false;
+}
+
+static void NewPost(int page, uint16_t texture)
+{
+    if (lastside != -1) { /* if not the first scaled post */
+        ScalePost();
+    }
+    lasttilehit = (int16_t)tilehit;
+    postx = pixx;
+    postwidth = 1;
+    postsource.page = GetPage(page);
+    postsource.texture = texture;
+}
+
+/*
+====================
+=
+= HitVertWall
+=
+= tilehit bit 7 is 0, because it's not a door tile
+= if bit 6 is 1 and the adjacent tile is a door tile, use door side pic
+=
+====================
+*/
+
+void HitVertWall(void)
+{
+    int wallpic;
+    uint16_t texture;
+
+    texture = (uint16_t)((yintercept >> 4) & 0xfc0);
+    if (xtilestep == -1) {
+        texture = (uint16_t)(0xfc0 - texture);
+        xintercept += TILEGLOBAL;
+    }
+    wallheight[pixx] = (uint16_t)CalcHeight();
+
+    if (lastside == 1 && lastintercept == xtile && lasttilehit == (int16_t)tilehit) {
+        /* in the same wall type as last time, so check for optimized draw */
+        SamePost(texture);
+        return;
+    }
+
+    /* new wall */
+    if (tilehit & 0x40) { /* check for adjacent doors */
+        ytile = (int16_t)(yintercept >> TILESHIFT);
+        if (tilemap[xtile - xtilestep][ytile] & 0x80) {
+            wallpic = DOORWALL + 3;
+        } else {
+            wallpic = vertwall[tilehit & ~0x40];
+        }
+    } else {
+        wallpic = vertwall[tilehit];
+    }
+
+    NewPost(wallpic, texture);
+    lastside = true;
+    lastintercept = xtile;
+}
+
+/*
+====================
+=
+= HitHorizWall
+=
+= tilehit bit 7 is 0, because it's not a door tile
+= if bit 6 is 1 and the adjacent tile is a door tile, use door side pic
+=
+====================
+*/
+
+void HitHorizWall(void)
+{
+    int wallpic;
+    uint16_t texture;
+
+    texture = (uint16_t)((xintercept >> 4) & 0xfc0);
+    if (ytilestep == -1) {
+        yintercept += TILEGLOBAL;
+    } else {
+        texture = (uint16_t)(0xfc0 - texture);
+    }
+    wallheight[pixx] = (uint16_t)CalcHeight();
+
+    if (lastside == 0 && lastintercept == ytile && lasttilehit == (int16_t)tilehit) {
+        /* in the same wall type as last time, so check for optimized draw */
+        SamePost(texture);
+        return;
+    }
+
+    /* new wall */
+    if (tilehit & 0x40) { /* check for adjacent doors */
+        xtile = (int16_t)(xintercept >> TILESHIFT);
+        if (tilemap[xtile][ytile - ytilestep] & 0x80) {
+            wallpic = DOORWALL + 2;
+        } else {
+            wallpic = horizwall[tilehit & ~0x40];
+        }
+    } else {
+        wallpic = horizwall[tilehit];
+    }
+
+    NewPost(wallpic, texture);
+    lastside = 0;
+    lastintercept = ytile;
+}
+
+static int DoorPage(unsigned doornum)
+{
+    switch (doorobjlist[doornum].lock) {
+    case dr_lock1:
+    case dr_lock2:
+    case dr_lock3:
+    case dr_lock4:
+        return DOORWALL + 6;
+    case dr_elevator:
+        return DOORWALL + 4;
+    case dr_normal:
+    default:
+        return DOORWALL;
+    }
+}
+
+/*
+====================
+=
+= HitHorizDoor
+=
+====================
+*/
+
+void HitHorizDoor(void)
+{
+    uint16_t texture, doornum;
+
+    doornum = tilehit & 0x7f;
+    texture = (uint16_t)(((xintercept - doorposition[doornum]) >> 4) & 0xfc0);
+
+    wallheight[pixx] = (uint16_t)CalcHeight();
+
+    if (lasttilehit == (int16_t)tilehit) {
+        /* in the same door as last time, so check for optimized draw */
+        SamePost(texture);
+        return;
+    }
+
+    /* first pixel in this door */
+    NewPost(DoorPage(doornum), texture);
+    lastside = 2;
+}
+
+/*
+====================
+=
+= HitVertDoor
+=
+====================
+*/
+
+void HitVertDoor(void)
+{
+    uint16_t texture, doornum;
+
+    doornum = tilehit & 0x7f;
+    texture = (uint16_t)(((yintercept - doorposition[doornum]) >> 4) & 0xfc0);
+
+    wallheight[pixx] = (uint16_t)CalcHeight();
+
+    if (lasttilehit == (int16_t)tilehit) {
+        /* in the same door as last time, so check for optimized draw */
+        SamePost(texture);
+        return;
+    }
+
+    /* first pixel in this door */
+    NewPost(DoorPage(doornum) + 1, texture);
+    lastside = 2;
+}
+
+/*
+====================
+=
+= HitHorizPWall
+=
+= A pushable wall in action has been hit
+=
+====================
+*/
+
+void HitHorizPWall(void)
+{
+    uint16_t texture, offset;
+
+    texture = (uint16_t)((xintercept >> 4) & 0xfc0);
+    offset = (uint16_t)(pwallpos << 10);
+    if (ytilestep == -1) {
+        yintercept += TILEGLOBAL - offset;
+    } else {
+        texture = (uint16_t)(0xfc0 - texture);
+        yintercept += offset;
+    }
+
+    wallheight[pixx] = (uint16_t)CalcHeight();
+
+    if (lasttilehit == (int16_t)tilehit) {
+        /* in the same wall type as last time, so check for optimized draw */
+        SamePost(texture);
+        return;
+    }
+
+    /* new wall; lastside is left as it was, as in the original */
+    NewPost(horizwall[tilehit & 63], texture);
+}
+
+/*
+====================
+=
+= HitVertPWall
+=
+= A pushable wall in action has been hit
+=
+====================
+*/
+
+void HitVertPWall(void)
+{
+    uint16_t texture, offset;
+
+    texture = (uint16_t)((yintercept >> 4) & 0xfc0);
+    offset = (uint16_t)(pwallpos << 10);
+    if (xtilestep == -1) {
+        xintercept += TILEGLOBAL - offset;
+        texture = (uint16_t)(0xfc0 - texture);
+    } else {
+        xintercept += offset;
+    }
+
+    wallheight[pixx] = (uint16_t)CalcHeight();
+
+    if (lasttilehit == (int16_t)tilehit) {
+        /* in the same wall type as last time, so check for optimized draw */
+        SamePost(texture);
+        return;
+    }
+
+    /* new wall */
+    NewPost(vertwall[tilehit & 63], texture);
+}
+
+/*
+============================
+=
+= AsmRefresh (WL_DR_A.ASM)
+=
+= Casts one ray per view column and calls the Hit* routine for the first
+= wall, door or pushwall it meets, marking every tile it passes in spotvis.
+=
+= Register-level port: the intercepts are 32-bit, but the tile numbers the
+= loop compares and indexes with are their 16-bit high words, and the
+= tilemap / spotvis index is (tile << 6) + tile in 16 bits, as in the
+= assembly. The two jumps the original patched into its code per quadrant
+= (jle / jge) are the horizjge / vertjge flags.
+=
+============================
+*/
+
+#define DEG90  900
+#define DEG180 1800
+#define DEG270 2700
+#define DEG360 3600
+
+/* long [step] * word partial, sign-magnitude (xpartialbyystep / ypartialbyxstep) */
+static int32_t PartialByStep(int32_t step, uint16_t partial)
+{
+    uint32_t mag = (uint32_t)step;
+    uint32_t result;
+    const int negative = step < 0;
+
+    if (negative) {
+        mag = 0u - mag;
+    }
+    result = (uint32_t)(((uint64_t)mag * partial) >> 16);
+    if (negative) {
+        result = 0u - result;
+    }
+    return (int32_t)result;
+}
+
+/* step * pwallpos / 64: unsigned 16-bit multiplies, low 32 bits, six sar */
+static int32_t PWallStepPart(int32_t step)
+{
+    const uint32_t product = (uint32_t)step * (uint32_t)pwallpos;
+    return (int32_t)product >> 6;
+}
+
+/*
+ * (tile << 6) + tile in 16 bits. The first intercept of a steep ray can have
+ * any high word, negative included; the assembly shifts it anyway (the
+ * loop's comparisons keep it from being used). A multiply keeps that
+ * defined in C.
+ */
+static int16_t Spot(int16_t hi, int16_t lo)
+{
+    return (int16_t)((int32_t)hi * 64 + lo);
+}
+
+static int16_t HighWord(int32_t v)
+{
+    return (int16_t)((uint32_t)v >> 16);
+}
+
+/*
+ * tilemap / spotvis as the flat 64*64 arrays the assembly indexes. Valid maps
+ * have solid borders, so the index stays inside; anything outside reads as
+ * a plain wall and is not marked (not in the original).
+ */
+static byte TileAtSpot(int16_t spot)
+{
+    if (spot < 0 || spot >= MAPSIZE * MAPSIZE) {
+        return 1;
+    }
+    return tilemap[spot >> 6][spot & 63];
+}
+
+static void MarkSpot(int16_t spot)
+{
+    if (spot >= 0 && spot < MAPSIZE * MAPSIZE) {
+        spotvis[spot >> 6][spot & 63] = 1;
+    }
+}
+
+void AsmRefresh(void)
+{
+    for (pixx = 0; pixx < (uint16_t)viewwidth; pixx++) {
+        int angle;
+        uint16_t xpartial, ypartial;
+        boolean horizjge, vertjge;
+        int16_t bx, bp, cx, dx; /* xtile, ytile, xintercept / yintercept high words */
+        int16_t xspot, yspot;   /* si, di */
+
+        /* Setup to trace a ray through pixx view pixel */
+        angle = midangle + pixelangle[pixx];
+        if (angle < 0) {
+            angle += FINEANGLES; /* -90 is the same as 270 */
+        } else if (angle >= DEG360) {
+            angle -= FINEANGLES; /* -449 is the same as 89 */
+        }
+
+        if (angle < DEG90) {
+            /* 0-89 degree arc */
+            xtilestep = 1;
+            ytilestep = -1;
+            xstep = finetangent[DEG90 - 1 - angle];
+            ystep = -finetangent[angle];
+            xpartial = xpartialup;
+            ypartial = ypartialdown;
+        } else if (angle < DEG180) {
+            /* 90-179 degree arc */
+            xtilestep = -1;
+            ytilestep = -1;
+            xstep = -finetangent[angle - DEG90];
+            ystep = -finetangent[DEG180 - 1 - angle];
+            xpartial = xpartialdown;
+            ypartial = ypartialdown;
+        } else if (angle < DEG270) {
+            /* 180-269 degree arc */
+            xtilestep = -1;
+            ytilestep = 1;
+            xstep = -finetangent[DEG270 - 1 - angle];
+            ystep = finetangent[angle - DEG180];
+            xpartial = xpartialdown;
+            ypartial = ypartialup;
+        } else {
+            /* 270-359 degree arc */
+            xtilestep = 1;
+            ytilestep = 1;
+            xstep = finetangent[angle - DEG270];
+            ystep = finetangent[DEG360 - 1 - angle];
+            xpartial = xpartialup;
+            ypartial = ypartialup;
+        }
+        horizjge = xtilestep == 1;
+        vertjge = ytilestep == 1;
+
+        /* initialise variables for intersection testing */
+        yintercept = PartialByStep(ystep, xpartial) + viewy;
+        bx = (int16_t)(focaltx + xtilestep);
+        xtile = bx;
+        dx = HighWord(yintercept);
+        xspot = Spot(bx, dx); /* xspot = (xtile<<6) + yinttile */
+
+        xintercept = PartialByStep(xstep, ypartial) + viewx;
+        cx = HighWord(xintercept);
+        bp = (int16_t)(focalty + ytilestep); /* ytile = focalty+ytilestep */
+        yspot = Spot(cx, bp); /* yspot = (xinttile<<6) + ytile */
+
+        /* trace along this angle until we hit a wall */
+        for (;;) {
+            int32_t t;
+
+            /* check intersections with vertical walls */
+            if (vertjge ? dx >= bp : dx <= bp) {
+                goto horizentry;
+            }
+        vertentry:
+            if (TileAtSpot(xspot)) {
+                tilehit = TileAtSpot(xspot);
+                if (!(tilehit & 0x80)) {
+                    xintercept = (int32_t)((uint32_t)(uint16_t)bx << 16);
+                    xtile = bx;
+                    ytile = dx;
+                    HitVertWall();
+                    break;
+                }
+
+                /* vertdoor */
+                xtile = bx;
+                if (tilehit & 0x40) {
+                    /* hit a sliding vertical wall */
+                    t = yintercept + PWallStepPart(ystep);
+                    if (HighWord(yintercept) != HighWord(t)) {
+                        goto continuevert; /* no, it hit the side */
+                    }
+                    yintercept = t;
+                    xintercept = (int32_t)((uint32_t)(uint16_t)xtile << 16);
+                    HitVertPWall();
+                    break;
+                }
+                /* half a step gets to the door position */
+                t = yintercept + (ystep >> 1);
+                if (HighWord(yintercept) == HighWord(t) &&
+                    (uint16_t)t >= doorposition[tilehit & 0x7f]) {
+                    /* the trace hit the door plane at t, and the door is closed that much */
+                    yintercept = t;
+                    xintercept = (int32_t)(((uint32_t)(uint16_t)xtile << 16) | 0x8000);
+                    HitVertDoor();
+                    break;
+                }
+            continuevert:
+                bx = xtile;
+                dx = HighWord(yintercept);
+            }
+            /* passvert */
+            MarkSpot(xspot);
+            bx = (int16_t)(bx + xtilestep);
+            yintercept += ystep;
+            dx = HighWord(yintercept);
+            xspot = Spot(bx, dx);
+            continue;
+
+        horizcheck:
+            /* check intersections with horizontal walls */
+            if (horizjge ? cx >= bx : cx <= bx) {
+                goto vertentry;
+            }
+        horizentry:
+            if (TileAtSpot(yspot)) {
+                tilehit = TileAtSpot(yspot);
+                if (!(tilehit & 0x80)) {
+                    xtile = cx;
+                    yintercept = (int32_t)((uint32_t)(uint16_t)bp << 16);
+                    ytile = bp;
+                    HitHorizWall();
+                    break;
+                }
+
+                /* horizdoor */
+                xtile = bx;
+                if (tilehit & 0x40) {
+                    /* hit a sliding horizontal wall */
+                    t = xintercept + PWallStepPart(xstep);
+                    if (cx != HighWord(t)) {
+                        goto continuehoriz; /* no, it hit the side */
+                    }
+                    xintercept = t;
+                    yintercept = (int32_t)((uint32_t)(uint16_t)bp << 16);
+                    HitHorizPWall();
+                    break;
+                }
+                /* half a step gets to the door position */
+                t = xintercept + (xstep >> 1);
+                if (cx == HighWord(t) && (uint16_t)t >= doorposition[tilehit & 0x7f]) {
+                    /* the trace hit the door plane at t, and the door is closed that much */
+                    xintercept = t;
+                    yintercept = (int32_t)(((uint32_t)(uint16_t)bp << 16) | 0x8000);
+                    HitHorizDoor();
+                    break;
+                }
+            continuehoriz:
+                bx = xtile;
+                dx = HighWord(yintercept);
+            }
+            /* passhoriz */
+            MarkSpot(yspot);
+            bp = (int16_t)(bp + ytilestep);
+            xintercept += xstep;
+            cx = HighWord(xintercept);
+            yspot = Spot(cx, bp);
+            goto horizcheck;
+        }
+    }
+}
+
+/*
+====================
+=
+= WallRefresh
+=
+====================
+*/
+
+void WallRefresh(void)
+{
+    CalcViewVariables(); /* set up variables for this view */
+
+    lastside = -1; /* the first pixel is on a new wall */
+    AsmRefresh();
+    ScalePost(); /* no more optimization on last post */
+}
+
+/*
+=====================
+=
+= VGAClearScreen
+=
+= Ceiling colour per map (vgaCeiling, non-SPEAR), floor 0x19, over the view
+= window: the top half and the bottom half of viewheight.
+=
+=====================
+*/
+
+static const byte vgaCeiling[60] = {
+    0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0xbf,
+    0x4e, 0x4e, 0x4e, 0x1d, 0x8d, 0x4e, 0x1d, 0x2d, 0x1d, 0x8d,
+    0x1d, 0x1d, 0x1d, 0x1d, 0x1d, 0x2d, 0xdd, 0x1d, 0x1d, 0x98,
+
+    0x1d, 0x9d, 0x2d, 0xdd, 0xdd, 0x9d, 0x2d, 0x4d, 0x1d, 0xdd,
+    0x7d, 0x1d, 0x2d, 0x2d, 0xdd, 0xd7, 0x1d, 0x1d, 0x1d, 0x2d,
+    0x1d, 0x1d, 0x1d, 0x1d, 0xdd, 0xdd, 0x7d, 0xdd, 0xdd, 0xdd};
+
+void VGAClearScreen(void)
+{
+    int y, mapindex;
+    byte ceiling;
+
+    mapindex = gamestate.episode * 10 + gamestate.mapon;
+    ceiling = (mapindex >= 0 && mapindex < 60) ? vgaCeiling[mapindex] : 0x1d;
+
+    for (y = 0; y < viewheight / 2; y++) {
+        memset(&screenbuf[screenofs + y * SCREENWIDTH], ceiling, (size_t)viewwidth);
+    }
+    for (; y < (viewheight / 2) * 2; y++) {
+        memset(&screenbuf[screenofs + y * SCREENWIDTH], 0x19, (size_t)viewwidth);
     }
 }
