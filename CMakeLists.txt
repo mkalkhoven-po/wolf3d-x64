@@ -75,9 +75,11 @@ set(WOLF_ORIG_SOURCES
   src/orig/orig_act1.c
   src/orig/orig_act2.c
   src/orig/orig_agent.c
+  src/orig/orig_draw.c
   src/orig/orig_game.c
   src/orig/orig_hooks.c
   src/orig/orig_play.c
+  src/orig/orig_scale.c
   src/orig/orig_state.c
   src/orig/orig_states.c
 )
@@ -167,7 +169,7 @@ if(WOLF_BUILD_TESTS)
 
   # Faithful-engine tests: the engine plus the shared id layer for map loading.
   # Each takes an optional --data DIR to run over a real pack.
-  set(WOLF_ORIG_TESTS orig_level orig_ai orig_player)
+  set(WOLF_ORIG_TESTS orig_level orig_ai orig_player orig_draw)
   foreach(name IN LISTS WOLF_ORIG_TESTS)
     add_executable(test_${name}
       tests/test_${name}.c

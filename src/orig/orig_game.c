@@ -1,6 +1,7 @@
-/* Game setup (WL_MAIN.C NewGame/InitGame, WL_GAME.C level setup). */
+/* Game setup (WL_MAIN.C NewGame/InitGame/view size, WL_GAME.C level setup). */
 #include "orig.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -16,15 +17,33 @@ int32_t spearx, speary;
 uint16_t spearangle;
 boolean spearflag;
 
+/* view size (WL_MAIN.C / WL_PLAY.C) */
+int16_t viewsize = 15; /* the original's default when there is no config */
+int16_t viewwidth, viewheight;
 int16_t centerx, shootdelta;
+
+/* projection constants (WL_MAIN.C) */
+fixed focallength;
+fixed scale, maxslope;
+int32_t heightnumerator;
+int16_t minheightdiv;
+int16_t pixelangle[MAXVIEWWIDTH];
+
+const int16_t dirangle[9] = {0,             ANGLES / 8,     2 * ANGLES / 8,
+                             3 * ANGLES / 8, 4 * ANGLES / 8, 5 * ANGLES / 8,
+                             6 * ANGLES / 8, 7 * ANGLES / 8, ANGLES};
+
+#define FOCALLENGTH (0x5700l) /* in global coordinates */
+#define VIEWGLOBAL  0x10000   /* globals visable flush to wall */
 
 /*
 ==========================
 =
 = InitGame
 =
-= Only the engine-core part of the original InitGame: map row lookups and
-= the trig tables. Video, sound and memory setup stay with the platform layer.
+= Only the engine-core part of the original InitGame: map row lookups, the
+= trig tables and the view size. Video, sound and memory setup stay with the
+= platform layer.
 =
 ==========================
 */
@@ -38,6 +57,109 @@ void InitGame(void)
     }
 
     BuildTables(); /* trig tables */
+
+    NewViewSize(viewsize);
+}
+
+/*
+====================
+=
+= CalcProjection
+=
+= Uses focallength
+=
+= Floating point as in the original: scale is truncated from a double, the
+= pixel angles come from atan in a float multiplied by radtoint. The x87
+= forms that product exactly before truncating, so it is done in double
+= here (a float product could round up to the next integer).
+=
+====================
+*/
+
+void CalcProjection(int32_t focal)
+{
+    int i;
+    int32_t intang;
+    float angle;
+    double tang;
+    int halfview;
+    double facedist;
+    const float radtoint = (float)FINEANGLES / 2 / PI;
+
+    focallength = focal;
+    facedist = focal + MINDIST;
+    halfview = viewwidth / 2; /* half view in pixels */
+
+    /*
+     * calculate scale value for vertical height calculations
+     * and sprite x calculations
+     */
+    scale = (fixed)(halfview * facedist / (VIEWGLOBAL / 2));
+
+    /*
+     * divide heightnumerator by a posts distance to get the posts height for
+     * the heightbuffer.  The pixel height is height>>2
+     */
+    heightnumerator = (TILEGLOBAL * scale) >> 6;
+    minheightdiv = (int16_t)(heightnumerator / 0x7fff + 1);
+
+    /* calculate the angle offset from view angle of each pixel's ray */
+
+    for (i = 0; i < halfview; i++) {
+        /* start 1/2 pixel over, so viewangle bisects two middle pixels */
+        tang = ((int32_t)i * VIEWGLOBAL / viewwidth) / facedist;
+        angle = (float)atan(tang);
+        intang = (int32_t)((double)angle * (double)radtoint);
+        pixelangle[halfview - 1 - i] = (int16_t)intang;
+        pixelangle[halfview + i] = (int16_t)-intang;
+    }
+
+    /*
+     * if a point's abs(y/x) is greater than maxslope, the point is outside
+     * the view area
+     */
+    maxslope = finetangent[pixelangle[0]];
+    maxslope >>= 8;
+}
+
+/*
+==========================
+=
+= SetViewSize
+=
+= The compiled scalers of the original are not needed: the scaler is
+= ported as plain C (S4c).
+=
+==========================
+*/
+
+boolean SetViewSize(unsigned width, unsigned height)
+{
+    viewwidth = (int16_t)(width & ~15u); /* must be divisable by 16 */
+    viewheight = (int16_t)(height & ~1u); /* must be even */
+    centerx = (int16_t)(viewwidth / 2 - 1);
+    shootdelta = (int16_t)(viewwidth / 10);
+
+    /* calculate trace angles and projection constants */
+    CalcProjection(FOCALLENGTH);
+
+    return true;
+}
+
+/*
+==========================
+=
+= NewViewSize
+=
+= width is the menu's view size 4-20; the window is width*16 by width*8.
+=
+==========================
+*/
+
+void NewViewSize(int width)
+{
+    viewsize = (int16_t)width;
+    SetViewSize((unsigned)(width * 16), (unsigned)(width * 16 * HEIGHTRATIO));
 }
 
 /*
