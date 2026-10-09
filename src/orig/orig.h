@@ -19,9 +19,18 @@ extern boolean loadedgame;
 void InitGame(void);
 void NewGame(int difficulty, int episode);
 
+/*
+ * Set from the view size by the renderer setup (CalcProjection / SetViewSize,
+ * S4). The player's hit test compares actors' viewx with them.
+ */
+extern int16_t centerx, shootdelta;
+
 /* WL_GAME */
 extern int16_t mapwidth, mapheight;
 extern boolean fizzlein; /* renderer fizzles the next frame in */
+extern int32_t spearx, speary;
+extern uint16_t spearangle;
+extern boolean spearflag;
 void ScanInfoPlane(void);
 boolean SetupGameLevel(void);
 void SetupLoadedLevel(void);
@@ -37,6 +46,23 @@ extern byte spotvis[MAPSIZE][MAPSIZE];
 extern objtype *actorat[MAPSIZE][MAPSIZE];
 extern boolean singlestep, godmode, noclip;
 extern boolean demorecord, demoplayback;
+
+/* current user input (PollControls, S5) */
+#define NUMBUTTONS 8
+enum {
+    bt_nobutton = -1,
+    bt_attack = 0,
+    bt_strafe,
+    bt_run,
+    bt_use,
+    bt_readyknife,
+    bt_readypistol,
+    bt_readymachinegun,
+    bt_readychaingun
+};
+extern int16_t controlx, controly; /* range from -100 to 100 per tic */
+extern boolean buttonstate[NUMBUTTONS];
+extern boolean buttonheld[NUMBUTTONS];
 extern uint16_t tics;
 
 /*
@@ -126,13 +152,36 @@ void SpawnBJVictory(void);
 boolean CheckPosition(objtype *ob);
 
 /* WL_AGENT */
-extern statetype s_player;
+extern statetype s_player, s_attack;
+extern boolean running;
 extern int32_t thrustspeed;
 extern uint16_t plux, pluy; /* player coordinates scaled to unsigned */
+extern int16_t anglefrac;
 extern int16_t gotgatgun;
 extern objtype *LastAttacker;
+extern int16_t facecount;
+extern int32_t playerxmove, playerymove;
 
-void SpawnPlayer(int tilex, int tiley, int dir);
+void T_Player(objtype *ob);
+void T_Attack(objtype *ob);
+void CheckWeaponChange(void);
+void ControlMovement(objtype *ob);
+void UpdateFace(void);
 void TakeDamage(int points, objtype *attacker);
+void HealSelf(int points);
 void GiveExtraMan(void);
 void GivePoints(int32_t points);
+void GiveWeapon(int weapon);
+void GiveAmmo(int ammo);
+void GiveKey(int key);
+void GetBonus(statobj_t *check);
+boolean TryMove(objtype *ob);
+void ClipMove(objtype *ob, int32_t xmove, int32_t ymove);
+void VictoryTile(void);
+void Thrust(int angle, int32_t speed);
+void Cmd_Fire(void);
+void Cmd_Use(void);
+void SpawnPlayer(int tilex, int tiley, int dir);
+void KnifeAttack(objtype *ob);
+void GunAttack(objtype *ob);
+void VictorySpin(void);
