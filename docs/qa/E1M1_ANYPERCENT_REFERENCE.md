@@ -27,6 +27,27 @@ Use with the F1–F3 ladder and Q3 stories — **not** a substitute for stills o
 
 ---
 
+## Automated run on the faithful engine (P4/S7)
+
+`tests/test_orig_fidelity.c` plays E1M1 to the elevator with a bot that uses
+the real controls (arrow keys, Space, Ctrl as DOS scan codes through
+`PollControls`), on hard, while the run is recorded as a demo:
+
+- Path: shortest walk through floor and doors (pushwalls and blocking statics
+  avoided), so it takes the long way round through the north rooms rather
+  than the 19 s route above; it shoots what blocks it and switches to the
+  knife when out of bullets.
+- Result: the elevator after **1381 frames** (about 79 s), 17 kills, both
+  packs (E1M1 is the same map). Godmode is on: a bot does not dodge, and this
+  checks that the floor can be finished, not survival.
+- The recorded demo then plays back (PlayDemo) to the same frame and ends at
+  the elevator, which also checks demo recording against playback.
+
+A human any% run (doors, elevator switch from the east/west side, the
+status bar during play) remains the manual check.
+
+---
+
 ## Route class
 
 **Any% / blind-kill thin route** on E1M1:

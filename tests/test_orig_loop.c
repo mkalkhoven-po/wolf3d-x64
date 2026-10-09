@@ -600,9 +600,11 @@ static int run_pack(int argc, char **argv)
     int d;
     boolean wl1;
     /*
-     * End states pinned per pack. WL1 demo 0 drifts: BJ dies 97 frames
-     * before its input ends. Under investigation (S7); the other seven end
-     * exactly on their last frame.
+     * End states pinned per pack, at view size 15 (the original's default).
+     * At that size WL1 demo 0 ends 97 frames before its input does: the
+     * view size changes play (hit test, which tiles the rays reach) and the
+     * demo was recorded at another size. All eight demos are in sync at
+     * view sizes 7, 12, 14, 17 and 19 (test_orig_fidelity).
      */
     static const uint32_t wl1_pins[4] = {0xe30e88cau, 0x23f1465fu, 0xa2a105b1u, 0x4bfec1c1u};
     static const uint32_t wl6_pins[4] = {0x4d19d1c2u, 0xc7717cf7u, 0x57bf2a35u, 0xd4a674a1u};
