@@ -604,3 +604,310 @@ void SetupLoadedLevel(void)
         }
     }
 }
+
+/*
+=============================================================================
+
+                    PLAY SCREEN AND GAME LOOP (S5b)
+
+=============================================================================
+*/
+
+boolean ingame;
+boolean abortgame; /* not in the original: the platform's way out until P5's menus */
+
+/* back from each episode's secret level (WL_GAME.C) */
+static const int16_t ElevatorBackTo[6] = {1, 1, 7, 3, 5, 3};
+
+#define DEATHROTATE 2
+
+static void Bar(int x, int y, int width, int height, byte color)
+{
+    int row;
+
+    for (row = 0; row < height; row++) {
+        memset(&screenbuf[(y + row) * SCREENWIDTH + x], color, (size_t)width);
+    }
+}
+
+/*
+===================
+=
+= DrawPlayBorder
+=
+= The grey border around the view window, with its bevel, in screenbuf.
+=
+===================
+*/
+
+void DrawPlayBorder(void)
+{
+    int xl, yl, i;
+
+    Bar(0, 0, 320, 200 - STATUSLINES, 127);
+
+    xl = 160 - viewwidth / 2;
+    yl = (200 - STATUSLINES - viewheight) / 2;
+    Bar(xl, yl, viewwidth, viewheight, 0);
+
+    if (xl > 0 && yl > 0) {
+        for (i = xl - 1; i <= xl + viewwidth; i++) {
+            screenbuf[(yl - 1) * SCREENWIDTH + i] = 0;                /* VWB_Hlin */
+            screenbuf[(yl + viewheight) * SCREENWIDTH + i] = 125;
+        }
+        for (i = yl - 1; i <= yl + viewheight; i++) {
+            screenbuf[i * SCREENWIDTH + xl - 1] = 0;                  /* VWB_Vlin */
+            screenbuf[i * SCREENWIDTH + xl + viewwidth] = 125;
+        }
+        screenbuf[(yl + viewheight) * SCREENWIDTH + xl - 1] = 124;   /* VWB_Plot */
+    }
+}
+
+/*
+===================
+=
+= DrawPlayScreen
+=
+= The status bar picture is the platform's (status_bar hook); the numbers
+= and pictures on it come from the Draw* hooks.
+=
+===================
+*/
+
+void DrawPlayScreen(void)
+{
+    if (orig_hooks.fade_out) {
+        orig_hooks.fade_out();
+    }
+
+    DrawPlayBorder();
+    if (orig_hooks.status_bar) {
+        orig_hooks.status_bar();
+    }
+
+    DrawFace();
+    DrawHealth();
+    DrawLives();
+    DrawLevel();
+    DrawAmmo();
+    DrawKeys();
+    DrawWeapon();
+    DrawScore();
+}
+
+/*
+===================
+=
+= Died
+=
+= Swing around to face the attacker, fade to red (died_fade hook: the red
+= bar, the fizzle and the short wait), then take a life.
+=
+===================
+*/
+
+void Died(void)
+{
+    int iangle, curangle, clockwise, counter, change;
+
+    gamestate.weapon = (weapontype)-1; /* take away weapon */
+    OrigSD_PlaySound(PLAYERDEATHSND);
+
+    /* swing around to face attacker */
+    if (killerobj) {
+        iangle = AtanAngle(killerobj->x - player->x, player->y - killerobj->y);
+    } else {
+        iangle = player->angle; /* not in the original: nothing to face */
+    }
+
+    if (player->angle > iangle) {
+        counter = player->angle - iangle;
+        clockwise = ANGLES - player->angle + iangle;
+    } else {
+        clockwise = iangle - player->angle;
+        counter = player->angle + ANGLES - iangle;
+    }
+
+    curangle = player->angle;
+
+    if (clockwise < counter) {
+        /* rotate clockwise */
+        if (curangle > iangle) {
+            curangle -= ANGLES;
+        }
+        do {
+            change = tics * DEATHROTATE;
+            if (curangle + change > iangle) {
+                change = iangle - curangle;
+            }
+
+            curangle += change;
+            player->angle = (int16_t)(player->angle + change);
+            if (player->angle >= ANGLES) {
+                player->angle -= ANGLES;
+            }
+
+            ThreeDRefresh();
+            if (orig_hooks.present_frame) {
+                orig_hooks.present_frame();
+            }
+            CalcTics();
+        } while (curangle != iangle);
+    } else {
+        /* rotate counterclockwise */
+        if (curangle < iangle) {
+            curangle += ANGLES;
+        }
+        do {
+            change = -tics * DEATHROTATE;
+            if (curangle + change < iangle) {
+                change = iangle - curangle;
+            }
+
+            curangle += change;
+            player->angle = (int16_t)(player->angle + change);
+            if (player->angle < 0) {
+                player->angle += ANGLES;
+            }
+
+            ThreeDRefresh();
+            if (orig_hooks.present_frame) {
+                orig_hooks.present_frame();
+            }
+            CalcTics();
+        } while (curangle != iangle);
+    }
+
+    /* fade to red */
+    FinishPaletteShifts();
+    if (orig_hooks.died_fade) {
+        orig_hooks.died_fade();
+    }
+    OrigSD_WaitSoundDone();
+
+    gamestate.lives--;
+
+    if (gamestate.lives > -1) {
+        gamestate.health = 100;
+        gamestate.weapon = gamestate.bestweapon = gamestate.chosenweapon = wp_pistol;
+        gamestate.ammo = STARTAMMO;
+        gamestate.keys = 0;
+        gamestate.attackframe = gamestate.attackcount = gamestate.weaponframe = 0;
+
+        DrawKeys();
+        DrawWeapon();
+        DrawAmmo();
+        DrawHealth();
+        DrawFace();
+        DrawLives();
+    }
+}
+
+/*
+===================
+=
+= GameLoop
+=
+= The original's level loop: set up the level, play it, then go on by how
+= it ended. The intermission (level_completed), the end of the game
+= (game_over, victory) and the high scores are P5's screens and come
+= through hooks; so does "Get Psyched" (get_psyched). Returns when the game
+= is over, won, or the platform set abortgame.
+=
+===================
+*/
+
+void GameLoop(void)
+{
+    boolean died;
+
+restartgame:
+    DrawPlayScreen();
+    died = false;
+
+    do {
+        if (!loadedgame) {
+            gamestate.score = gamestate.oldscore;
+        }
+        DrawScore();
+
+        startgame = false;
+        if (loadedgame) {
+            loadedgame = false;
+        } else if (!SetupGameLevel()) {
+            return;
+        }
+
+        ingame = true;
+        StartMusic();
+        if (!died) {
+            if (orig_hooks.get_psyched) {
+                orig_hooks.get_psyched(); /* PreloadGraphics */
+            }
+            DrawPlayBorder();
+        } else {
+            died = false;
+        }
+
+        fizzlein = true;
+        DrawLevel();
+
+        PlayLoop();
+
+        StopMusic();
+        ingame = false;
+
+        if (abortgame) {
+            return;
+        }
+        if (startgame || loadedgame) {
+            goto restartgame;
+        }
+
+        switch (playstate) {
+        case ex_completed:
+        case ex_secretlevel:
+            gamestate.keys = 0;
+            DrawKeys();
+            if (orig_hooks.level_completed) {
+                orig_hooks.level_completed(); /* do the intermission */
+            }
+
+            gamestate.oldscore = gamestate.score;
+
+            if (gamestate.mapon == 9) {
+                /* COMING BACK FROM SECRET LEVEL */
+                gamestate.mapon = ElevatorBackTo[gamestate.episode % 6];
+            } else if (playstate == ex_secretlevel) {
+                /* GOING TO SECRET LEVEL */
+                gamestate.mapon = 9;
+            } else {
+                /* GOING TO NEXT LEVEL */
+                gamestate.mapon++;
+            }
+            break;
+
+        case ex_died:
+            Died();
+            died = true; /* don't "get psyched!" */
+
+            if (gamestate.lives > -1) {
+                break; /* more lives left */
+            }
+
+            if (orig_hooks.game_over) {
+                orig_hooks.game_over(); /* CheckHighScore */
+            }
+            return;
+
+        case ex_victorious:
+            if (orig_hooks.victory) {
+                orig_hooks.victory(); /* Victory, CheckHighScore */
+            }
+            return;
+
+        default:
+            break;
+        }
+    } while (1);
+}

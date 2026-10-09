@@ -815,6 +815,8 @@ boolean PlayDemo(const byte *demo, size_t demosize)
     demoptr = demo + 4;
     lastdemoptr = demo + length;
 
+    DrawPlayScreen(); /* after NewGame, so the status bar shows the new game */
+
     startgame = false;
     demoplayback = true;
 

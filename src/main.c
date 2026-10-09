@@ -20,6 +20,7 @@
 #include "id/id_vh.h"
 #include "id/id_vl.h"
 #include "id/wl_data.h"
+#include "platform/win_sdl/orig_runner.h"
 #include "platform/win_sdl/wolf_present.h"
 #include "platform/win_sdl/wolf_userdata.h"
 #include "platform/win_sdl/wolf_winutil.h"
@@ -248,6 +249,19 @@ int main(int argc, char *argv[])
     if (!g_config.music_on) {
         SD_MusicOff();
         MusicMode = smm_Off;
+    }
+
+    /* The faithful engine (ADR-002); becomes the default in P4/S6. */
+    if (OrigRunner_Requested(argc, argv)) {
+        orig_run_options_t opts;
+
+        if (!OrigRunner_ParseArgs(argc, argv, &opts)) {
+            ID_Engine_Shutdown();
+            return 2;
+        }
+        rc = OrigRunner_Run(&opts);
+        ID_Engine_Shutdown();
+        return rc;
     }
 
     if (smoke_only) {

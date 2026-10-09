@@ -397,6 +397,101 @@ static uint32_t end_state(void)
     return fnv(2166136261u, v, sizeof(v));
 }
 
+/*
+ * GameLoop over a scripted game: each level run ends on its first frame with
+ * the next playstate. Completed, secret elevator, back via ElevatorBackTo,
+ * then four deaths: three restarts and game over.
+ */
+static const exit_t g_script[] = {ex_completed, ex_secretlevel, ex_completed,
+                                  ex_died,      ex_died,        ex_died,
+                                  ex_died};
+#define SCRIPTRUNS ((int)(sizeof(g_script) / sizeof(g_script[0])))
+static int g_runs, g_runmap[16], g_runlives[16];
+static int32_t g_runscore[16];
+static boolean g_inrun;
+static int g_psyched, g_completed, g_gameover, g_diedfade, g_victory;
+
+static void script_level(void) /* the fizzle-in that starts every level run */
+{
+    if (g_runs < 16) {
+        g_runmap[g_runs] = gamestate.mapon;
+        g_runlives[g_runs] = gamestate.lives;
+        g_runscore[g_runs] = gamestate.score;
+    }
+    g_runs++;
+    g_inrun = true;
+}
+
+static void script_frame(void)
+{
+    if (!g_inrun) {
+        return; /* Died's turn towards the killer */
+    }
+    g_inrun = false;
+    if (g_runs > SCRIPTRUNS) {
+        abortgame = true; /* the script ran out: GameLoop did not stop */
+        playstate = ex_abort;
+        return;
+    }
+    gamestate.score += g_runs == 1 ? 100 : 500; /* kept at level end, lost on death */
+    playstate = g_script[g_runs - 1];
+}
+
+static void count_psyched(void) { g_psyched++; }
+static void count_completed(void) { g_completed++; }
+static void count_gameover(void) { g_gameover++; }
+static void count_diedfade(void) { g_diedfade++; }
+static void count_victory(void) { g_victory++; }
+
+static void test_game_loop(void)
+{
+    static const int maps[SCRIPTRUNS] = {0, 1, 9, 1, 1, 1, 1};
+    static const int lives[SCRIPTRUNS] = {3, 3, 3, 3, 2, 1, 0};
+    int i;
+
+    install_hooks();
+    orig_hooks.fizzle_in = script_level;
+    orig_hooks.present_frame = script_frame;
+    orig_hooks.get_psyched = count_psyched;
+    orig_hooks.level_completed = count_completed;
+    orig_hooks.game_over = count_gameover;
+    orig_hooks.died_fade = count_diedfade;
+    orig_hooks.victory = count_victory;
+    g_runs = g_psyched = g_completed = g_gameover = g_diedfade = g_victory = 0;
+    g_inrun = false;
+    abortgame = false;
+    killerobj = NULL;
+
+    NewGame(gd_medium, 0);
+    GameLoop();
+
+    printf("GameLoop: %d level runs, %d completed, %d died, lives %d, score %ld\n", g_runs,
+           g_completed, g_diedfade, gamestate.lives, (long)gamestate.score);
+    CHECK(g_runs == SCRIPTRUNS && !abortgame);
+    for (i = 0; i < SCRIPTRUNS && i < g_runs; i++) {
+        CHECK(g_runmap[i] == maps[i]);
+        CHECK(g_runlives[i] == lives[i]);
+    }
+    /* the score at a level's end carries over; points from a lost life do not */
+    CHECK(g_runscore[0] == 0 && g_runscore[1] == 100 && g_runscore[2] == 600);
+    CHECK(g_runscore[3] == 1100 && g_runscore[4] == 1100 && g_runscore[6] == 1100);
+    CHECK(gamestate.lives == -1);
+    CHECK(g_psyched == 4); /* no "get psyched" after a death */
+    CHECK(g_completed == 3 && g_diedfade == 4 && g_gameover == 1 && g_victory == 0);
+
+    /* Esc (abortgame) leaves GameLoop at once */
+    install_hooks();
+    orig_hooks.fizzle_in = script_level;
+    orig_hooks.present_frame = script_frame;
+    g_runs = SCRIPTRUNS; /* the next frame aborts */
+    g_inrun = false;
+    abortgame = false;
+    NewGame(gd_medium, 0);
+    GameLoop();
+    CHECK(abortgame && g_runs == SCRIPTRUNS + 1);
+    abortgame = false;
+}
+
 static int run_pack(int argc, char **argv)
 {
     wolf_data_dir_t dir;
@@ -457,6 +552,8 @@ static int run_pack(int argc, char **argv)
         }
         CHECK(h == (wl1 ? wl1_pins : wl6_pins)[d]);
     }
+
+    test_game_loop(); /* SetupGameLevel needs the pack's maps */
     return 0;
 }
 

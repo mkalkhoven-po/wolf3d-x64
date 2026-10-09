@@ -90,12 +90,16 @@ add_executable(wolf3d
   ${WOLF_ID_SOURCES}
   ${WOLF_GAME_SOURCES}
   ${WOLF_PLATFORM_SOURCES}
+  ${WOLF_ORIG_SOURCES}
+  src/platform/win_sdl/orig_bridge.c
+  src/platform/win_sdl/orig_runner.c
 )
 
 target_include_directories(wolf3d PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src/id
   ${CMAKE_CURRENT_SOURCE_DIR}/src/game
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/orig
   ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
 )
 
@@ -208,8 +212,21 @@ if(WOLF_BUILD_TESTS)
   )
   wolf_apply_hardening(test_demo_chunks)
 
+  # The faithful engine in the real executable: one demo and 300 frames of a game,
+  # unclocked and without a visible window. Demo fidelity is checked by orig_loop_maps.
+  function(wolf_add_orig_runner_tests suffix data)
+    add_test(NAME orig_runner_demo${suffix}
+      COMMAND wolf3d --data "${data}" --engine=orig --demo 0 --fast)
+    add_test(NAME orig_runner_game${suffix}
+      COMMAND wolf3d --data "${data}" --engine=orig --fast --frames 300
+              --screenshot 300 "${CMAKE_CURRENT_BINARY_DIR}/orig_runner_game${suffix}.bmp")
+    set_tests_properties(orig_runner_demo${suffix} orig_runner_game${suffix} PROPERTIES
+      ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+  endfunction()
+
   # Needs a user-supplied pack; skipped when WOLF3D_DATA is not set at configure time.
   if(DEFINED ENV{WOLF3D_DATA})
+    wolf_add_orig_runner_tests("" "$ENV{WOLF3D_DATA}")
     add_test(NAME smoke_only COMMAND wolf3d --data "$ENV{WOLF3D_DATA}" --smoke-only)
     set_tests_properties(smoke_only PROPERTIES
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
@@ -219,6 +236,7 @@ if(WOLF_BUILD_TESTS)
     endforeach()
   endif()
   if(DEFINED ENV{WOLF3D_DATA_WL1})
+    wolf_add_orig_runner_tests("_wl1" "$ENV{WOLF3D_DATA_WL1}")
     add_test(NAME smoke_only_wl1 COMMAND wolf3d --data "$ENV{WOLF3D_DATA_WL1}" --smoke-only)
     set_tests_properties(smoke_only_wl1 PROPERTIES
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")

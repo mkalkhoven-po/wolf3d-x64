@@ -49,6 +49,47 @@ or:
 build\wolf3d.exe --data "%WOLF3D_DATA%" --smoke-only
 ```
 
+## Faithful engine preview (`--engine=orig`)
+
+The faithful port of the original engine (fixed point, 70 Hz, original AI and
+renderer; see ADR-002) can already be played. Menus, the intermission
+screens and the title/demo loop arrive in P5, so for now it starts straight
+into a level and **Esc quits**.
+
+```bat
+build\wolf3d.exe --data "%WOLF3D_DATA%" --engine=orig
+build\wolf3d.exe --data "%WOLF3D_DATA%" --engine=orig --map 10 --skill 3
+build\wolf3d.exe --data "%WOLF3D_DATA%" --engine=orig --demo 0
+```
+
+| Option | Meaning |
+|--------|---------|
+| `--map N` | 0-59: episode × 10 + level (`--map 10` is episode 2, floor 1). WL1 has maps 0-9 |
+| `--skill 0-3` | Can I play, Daddy? … I am Death incarnate! (default 2) |
+| `--viewsize 4-20` | View size as in the original (default 15; 20 fills the play area) |
+| `--demo 0-3` | Watch one of the pack's demos, then quit |
+| `--screenshot N file.bmp` | Save frame N as an 8-bit BMP (handy for bug reports) |
+| `--frames N` | Stop after N frames; with `--fast` (no clock) used by the smoke tests |
+
+Controls are the original defaults:
+
+| Key | Action |
+|-----|--------|
+| Arrows | Move / turn |
+| Ctrl | Shoot |
+| Alt + Left/Right | Strafe |
+| Right Shift | Run |
+| Space | Open door / elevator |
+| 1-4 | Knife, pistol, machine gun, chain gun |
+| Pause | Pause |
+| F11 | Fullscreen toggle |
+| Esc | Quit (until the menus land in P5) |
+
+The mouse turns and moves when `mouse_look` is on in `config.ini`. `scale`,
+`fullscreen`, `music_on` and `sfx_on` apply as for the default engine. When
+you die, BJ turns towards the killer and the level restarts; out of lives
+ends the run.
+
 ## Where settings live
 ```
 %APPDATA%\Wolf3DWin64\
