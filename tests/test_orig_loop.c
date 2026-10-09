@@ -334,6 +334,34 @@ static void present(void)
     g_presented++;
 }
 
+/* SetSoundLoc: 0 is full volume, 8 the quietest, per ear */
+static void test_sound_loc(void)
+{
+    const fixed cx = (10l << TILESHIFT) + TILEGLOBAL / 2, cy = cx;
+
+    viewx = cx;
+    viewy = cy;
+    viewcos = costable[0]; /* facing east: south is to the right */
+    viewsin = sintable[0];
+
+    SetSoundLoc(cx, cy);
+    CHECK(leftchannel == 0 && rightchannel == 0);
+    SetSoundLoc(cx, cy + 3 * TILEGLOBAL);
+    CHECK(leftchannel == 7 && rightchannel == 0);
+    SetSoundLoc(cx, cy - 3 * TILEGLOBAL);
+    CHECK(leftchannel == 0 && rightchannel == 7);
+    SetSoundLoc(cx + 20 * TILEGLOBAL, cy); /* far ahead: quiet on both sides */
+    CHECK(leftchannel == 8 && rightchannel == 8);
+    /* behind and to the right is still on the right (the tables have no back) */
+    SetSoundLoc(cx - 2 * TILEGLOBAL, cy + TILEGLOBAL);
+    CHECK(leftchannel > rightchannel);
+
+    viewcos = costable[ANGLES / 4]; /* facing north: east is to the right */
+    viewsin = sintable[ANGLES / 4];
+    SetSoundLoc(cx + 3 * TILEGLOBAL, cy);
+    CHECK(leftchannel == 7 && rightchannel == 0);
+}
+
 static void test_play_loop(void)
 {
     /* a synthetic demo on map 0 of the synthetic map: 30 frames forward */
@@ -572,6 +600,7 @@ int main(int argc, char **argv)
         test_palette_shifts();
         test_cheat_and_music();
         test_play_loop();
+        test_sound_loc();
     }
 
     mapsegs[0] = mapsegs[1] = NULL;

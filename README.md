@@ -4,7 +4,7 @@ Native **Windows 11 x64** port of the 1992 id Software *Wolfenstein 3D* engine s
 
 > **Status:** Playable desktop build through **E8** (AppData config/saves, integer scale, fullscreen).  
 > **Repo visibility:** Private (sign in as an account with access — guests see “Page not found”)  
-> **MVP:** Shareware **WL1** first (WL6 is supported for development and testing today; WL1 support lands in P3) via SDL2 software renderer + digitized audio. See [ADR-002](docs/adr/002-faithful-fixed-point-port.md).
+> **MVP:** Shareware **WL1** first (WL6 is supported for development and testing today; WL1 support lands in P3) via SDL2 software renderer, digitized sound and an emulated AdLib (OPL2) for music and effects ([ADR-003](docs/adr/003-own-opl2-emulator.md)). See [ADR-002](docs/adr/002-faithful-fixed-point-port.md).
 
 ## Player quickstart
 
@@ -71,6 +71,8 @@ Phase 2 after E8: automated smoke, playtest checklists, FR matrix, bug burn-down
 - [**Player quickstart**](docs/player/QUICKSTART.md)
 - [**QA index**](docs/qa/README.md)
 - [ADR-001 Platform backend](docs/adr/001-platform-backend.md)
+- [ADR-002 Faithful fixed-point port](docs/adr/002-faithful-fixed-point-port.md)
+- [ADR-003 Own OPL2 emulator](docs/adr/003-own-opl2-emulator.md)
 - [Epic index](docs/epics/README.md)
 - [ID module map](docs/architecture/ID_MODULE_MAP.md)
 
