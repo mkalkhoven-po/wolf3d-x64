@@ -520,6 +520,80 @@ static void test_game_loop(void)
     abortgame = false;
 }
 
+/*
+ * Save format v2: stop a demo halfway and save. Run A plays on from there;
+ * run B first loads another map, then loads the save and plays on. Loading
+ * restarts PlayLoop in both, as after F9 in the game, so they must end the
+ * same. Also: the stream survives a load byte for byte, and a damaged one
+ * is refused without touching the engine.
+ */
+static int g_stopat;
+static byte g_save[64 * 1024], g_save2[64 * 1024];
+
+static void stop_frame(void)
+{
+    if (++g_frames == g_stopat) {
+        playstate = ex_abort;
+    }
+}
+
+static void test_save_load(int d, const byte *lump, unsigned length, unsigned inputframes)
+{
+    const byte *resume;
+    size_t size, size2;
+    uint32_t a, b;
+    gametype before;
+    unsigned other;
+
+    install_hooks();
+    orig_hooks.present_frame = stop_frame;
+    g_frames = 0;
+    g_stopat = (int)inputframes / 2;
+    CHECK(PlayDemo(lump, length));
+    CHECK(g_frames == g_stopat && playstate == ex_abort);
+    resume = demoptr;
+    size = SaveTheGame(g_save, sizeof(g_save));
+    CHECK(size > 0 && size <= sizeof(g_save));
+
+    /* A: on from the stop */
+    orig_hooks.present_frame = count_frame;
+    g_frames = 0;
+    demoplayback = true;
+    PlayLoop();
+    demoplayback = false;
+    a = end_state();
+
+    /* B: another map first, then the save */
+    other = (lump[0] + 1) % 10;
+    gamestate.mapon = (int16_t)other;
+    CHECK(SetupGameLevel());
+    CHECK(LoadTheGame(g_save, size));
+    size2 = SaveTheGame(g_save2, sizeof(g_save2));
+    CHECK(size2 == size && memcmp(g_save, g_save2, size) == 0);
+    g_frames = 0;
+    demoptr = resume;
+    lastdemoptr = lump + length;
+    demoplayback = true;
+    loadedgame = false;
+    PlayLoop();
+    demoplayback = false;
+    b = end_state();
+    printf("  demo %d saved at frame %d (%u bytes): on %08x, loaded %08x\n", d, g_stopat,
+           (unsigned)size, a, b);
+    CHECK(a == b);
+
+    /* damaged saves are refused and leave the game alone */
+    before = gamestate;
+    CHECK(!LoadTheGame(g_save, size - 1)); /* truncated */
+    CHECK(!LoadTheGame(NULL, 0));
+    g_save[0] = 1; /* version 1: the legacy format */
+    CHECK(!LoadTheGame(g_save, size));
+    g_save[0] = 2;
+    g_save[4] = 60; /* gamestate.mapon (after version and difficulty): past the last map */
+    CHECK(!LoadTheGame(g_save, size));
+    CHECK(memcmp(&before, &gamestate, sizeof(before)) == 0 && !loadedgame);
+}
+
 static int run_pack(int argc, char **argv)
 {
     wolf_data_dir_t dir;
@@ -579,6 +653,7 @@ static int run_pack(int argc, char **argv)
             CHECK(playstate == ex_died || playstate == ex_completed);
         }
         CHECK(h == (wl1 ? wl1_pins : wl6_pins)[d]);
+        test_save_load(d, lump, length, inputframes);
     }
 
     test_game_loop(); /* SetupGameLevel needs the pack's maps */

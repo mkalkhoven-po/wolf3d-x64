@@ -14,7 +14,6 @@
 #include "id/id_sd.h"
 #include "id/id_vh.h"
 #include "id/id_vl.h"
-#include "wl_game.h"
 #include "wolf_present.h"
 #include "wolf_userdata.h"
 
@@ -140,7 +139,27 @@ static void draw_menu(int cursor)
     VH_DrawString(8, 170, line, 7);
 }
 
-int Wolf_RunIntroMenu(void)
+/* Leave the menu for the game: close the window, run it, open the window again. */
+static int run_outside(wolf_present_t *pr, int (*action)(void))
+{
+    int rc;
+
+    g_config.scale = pr->scale;
+    g_config.fullscreen = pr->fullscreen;
+    (void)Wolf_ConfigSave();
+    Wolf_PresentDestroy(pr);
+    SDL_QuitSubSystem(SDL_INIT_VIDEO);
+    rc = action();
+    if (rc != 0) {
+        return rc;
+    }
+    if (!Wolf_PresentCreate(pr, "Wolf3D Win64", g_config.scale, g_config.fullscreen)) {
+        return 1;
+    }
+    return 0;
+}
+
+int Wolf_RunIntroMenu(const wolf_menu_actions_t *actions)
 {
     ui_state_t state = UI_TITLE;
     int cursor = 0;
@@ -224,22 +243,12 @@ int Wolf_RunIntroMenu(void)
                         }
                     } else if (k == SDLK_RETURN) {
                         SD_PlaySound(SELECTITEMSND);
-                        if (cursor == 0) { /* New Game */
-                            g_config.scale = pr.scale;
-                            g_config.fullscreen = pr.fullscreen;
-                            (void)Wolf_ConfigSave();
-                            Wolf_PresentDestroy(&pr);
-                            SDL_QuitSubSystem(SDL_INIT_VIDEO);
-                            {
-                                int grc = Wolf_RunGame();
-                                if (grc != 0) {
-                                    return grc;
-                                }
-                            }
-                            if (!Wolf_PresentCreate(&pr, "Wolf3D Win64",
-                                                    g_config.scale,
-                                                    g_config.fullscreen)) {
-                                return 1;
+                        if (cursor == 0 || (cursor == 3 && Wolf_SaveExists(0))) {
+                            /* New Game, or Load Game from the quick save slot */
+                            const int rc = run_outside(
+                                &pr, cursor == 0 ? actions->new_game : actions->load_game);
+                            if (rc != 0) {
+                                return rc < 0 ? 0 : rc; /* negative: quit normally */
                             }
                             state = UI_MENU;
                             draw_menu(cursor);
@@ -250,11 +259,14 @@ int Wolf_RunIntroMenu(void)
                             state = UI_QUIT;
                             running = 0;
                         } else {
-                            /* NYI stubs for Sound/Control/Load/View. */
+                            /* Sound/Control/View/Scores arrive with the menus in P5. */
                             VL_Bar(40, 140, 240, 16, 0);
-                            VH_DrawString(50, 142, "NOT IMPLEMENTED YET", 14);
+                            VH_DrawString(50, 142,
+                                          cursor == 3 ? "NO SAVED GAME (F8 SAVES)"
+                                                      : "NOT IMPLEMENTED YET",
+                                          14);
                             Wolf_PresentFrame(&pr);
-                            SDL_Delay(450);
+                            SDL_Delay(cursor == 3 ? 900 : 450);
                             draw_menu(cursor);
                         }
                     }

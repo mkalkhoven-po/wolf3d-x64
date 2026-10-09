@@ -1,17 +1,14 @@
 /*
  * Wolf3D Win64 — application entry.
- * Interactive: title/menu/game. Use --smoke-only for harness checks.
+ * Interactive: title and menu, then the faithful engine (ADR-002). Any game
+ * option (--map, --demo, --load, ...) starts the engine directly.
+ * Use --smoke-only for harness checks.
  */
 
 #include <stdio.h>
 #include <string.h>
 
-#include "game/wl_draw.h"
 #include "game/wl_menu_simple.h"
-#include "game/wl_play.h"
-#include "game/wl_status.h"
-#include "game/wl_weapon.h"
-#include "id/wl_sprite.h"
 #include "id/audio_wl6.h"
 #include "id/gfxv.h"
 #include "id/id_ca.h"
@@ -24,6 +21,8 @@
 #include "platform/win_sdl/wolf_present.h"
 #include "platform/win_sdl/wolf_userdata.h"
 #include "platform/win_sdl/wolf_winutil.h"
+
+static orig_run_options_t g_game_opts; /* --map, --skill, --viewsize for New Game */
 
 static int has_data_cli_arg(int argc, char **argv)
 {
@@ -104,18 +103,10 @@ static int run_smoke_suite(void)
         return 10;
     }
 
-    Wolf_ResetPlayerStats();
-    if (!Wolf_SetupLevel(0)) {
-        fprintf(stderr, "Level setup failed\n");
+    /* the faithful engine: demo 0 with all hooks, then a save v2 roundtrip */
+    if (!OrigRunner_SmokeVerify()) {
+        fprintf(stderr, "Engine smoke verify failed\n");
         return 11;
-    }
-    if (!Wolf_RaycastSmokeVerify()) {
-        fprintf(stderr, "Raycast smoke verify failed\n");
-        return 12;
-    }
-    if (!Wolf_CombatSmokeVerify()) {
-        fprintf(stderr, "Combat smoke verify failed\n");
-        return 13;
     }
     if (!SD_AudioSmokeVerify()) {
         fprintf(stderr, "Audio smoke verify failed\n");
@@ -125,22 +116,6 @@ static int run_smoke_suite(void)
         fprintf(stderr, "UserData smoke verify failed\n");
         return 17;
     }
-    if (!Wolf_StatusSmokeVerify()) {
-        fprintf(stderr, "Status HUD smoke verify failed\n");
-        return 20;
-    }
-    if (!Wolf_WeaponSmokeVerify()) {
-        fprintf(stderr, "Weapon smoke verify failed\n");
-        return 21;
-    }
-    if (!Wolf_SpriteSmokeVerify()) {
-        fprintf(stderr, "Sprite smoke verify failed\n");
-        return 22;
-    }
-    if (!Wolf_PushwallSmokeVerify()) {
-        fprintf(stderr, "Pushwall smoke verify failed\n");
-        return 23;
-    }
 
     if (!Wolf_PresentCreate(&pr, "Wolf3D present smoke", g_config.scale, 0)) {
         fprintf(stderr, "Present create failed\n");
@@ -149,13 +124,6 @@ static int run_smoke_suite(void)
     VL_ClearScreen(0);
     VL_SetPalette(gamepal);
     VWB_DrawPic(0, 0, TITLEPIC);
-    Wolf_PresentFrame(&pr);
-    /* Brief Get Psyched paint path (short_mode skips long wait). */
-    (void)Wolf_ShowGetPsyched(&pr, true);
-    Wolf_DrawStatusBar();
-    g_level.active = true;
-    Wolf_DrawPlayerWeapon();
-    Wolf_DrawStatusBar();
     Wolf_PresentFrame(&pr);
     if (pr.scale < 1 || pr.logical_w != 320 || pr.logical_h != 200) {
         fprintf(stderr, "Present logical size wrong\n");
@@ -170,6 +138,25 @@ static int run_smoke_suite(void)
     Wolf_PresentDestroy(&pr);
     (void)Wolf_ConfigLoad();
     return 0;
+}
+
+/* the menu's New Game and Load Game */
+static int menu_new_game(void)
+{
+    orig_run_options_t opts = g_game_opts;
+
+    opts.load = -1;
+    (void)OrigRunner_Run(&opts); /* back to the menu, unless the window was closed */
+    return OrigRunner_QuitRequested() ? -1 : 0;
+}
+
+static int menu_load_game(void)
+{
+    orig_run_options_t opts = g_game_opts;
+
+    opts.load = 0;
+    (void)OrigRunner_Run(&opts);
+    return OrigRunner_QuitRequested() ? -1 : 0;
 }
 
 int main(int argc, char *argv[])
@@ -197,47 +184,52 @@ int main(int argc, char *argv[])
            smoke_only ? " (smoke-only)" : " (interactive)");
     fflush(stdout);
 
-    if (!resolve_data_or_die(argc, argv, &data_dir, smoke_only)) {
-            return 2;
-        }
+    /* game options are checked before anything is loaded */
+    if (!OrigRunner_ParseArgs(argc, argv, &g_game_opts)) {
+        return 2;
+    }
 
-        if (!Wolf_CheckRequiredFiles(&data_dir)) {
-            if (!smoke_only) {
-                Wolf_ShowDataError(
-                    "Data folder was found, but required pack files are missing.\n"
-                    "Check the console/log for the MISSING: list.");
-            }
-            return 3;
+    if (!resolve_data_or_die(argc, argv, &data_dir, smoke_only)) {
+        return 2;
+    }
+
+    if (!Wolf_CheckRequiredFiles(&data_dir)) {
+        if (!smoke_only) {
+            Wolf_ShowDataError(
+                "Data folder was found, but required pack files are missing.\n"
+                "Check the console/log for the MISSING: list.");
         }
+        return 3;
+    }
     snprintf(g_config.last_data, sizeof(g_config.last_data), "%s", data_dir.path);
     (void)Wolf_ConfigSave();
 
     ID_Engine_Startup();
 
     if (!CA_OpenMapFiles(&data_dir)) {
-            fprintf(stderr, "Failed to open map files\n");
-            if (!smoke_only) {
-                Wolf_ShowDataError("Failed to open map files (MAPHEAD/GAMEMAPS).");
-            }
-            ID_Engine_Shutdown();
-            return 4;
+        fprintf(stderr, "Failed to open map files\n");
+        if (!smoke_only) {
+            Wolf_ShowDataError("Failed to open map files (MAPHEAD/GAMEMAPS).");
         }
-        if (!PM_OpenPageFile(&data_dir)) {
-            fprintf(stderr, "Failed to open VSWAP\n");
-            if (!smoke_only) {
-                Wolf_ShowDataError("Failed to open VSWAP page file.");
-            }
-            ID_Engine_Shutdown();
-            return 5;
+        ID_Engine_Shutdown();
+        return 4;
+    }
+    if (!PM_OpenPageFile(&data_dir)) {
+        fprintf(stderr, "Failed to open VSWAP\n");
+        if (!smoke_only) {
+            Wolf_ShowDataError("Failed to open VSWAP page file.");
         }
-        if (!CA_OpenGraphFiles(&data_dir)) {
-            fprintf(stderr, "Failed to open VGAGRAPH assets\n");
-            if (!smoke_only) {
-                Wolf_ShowDataError("Failed to open VGAGRAPH graphics.");
-            }
-            ID_Engine_Shutdown();
-            return 8;
+        ID_Engine_Shutdown();
+        return 5;
+    }
+    if (!CA_OpenGraphFiles(&data_dir)) {
+        fprintf(stderr, "Failed to open VGAGRAPH assets\n");
+        if (!smoke_only) {
+            Wolf_ShowDataError("Failed to open VGAGRAPH graphics.");
         }
+        ID_Engine_Shutdown();
+        return 8;
+    }
     if (!SD_SetupFromData(&data_dir)) {
         fprintf(stderr, "Audio setup failed\n");
         ID_Engine_Shutdown();
@@ -249,19 +241,6 @@ int main(int argc, char *argv[])
     if (!g_config.music_on) {
         SD_MusicOff();
         MusicMode = smm_Off;
-    }
-
-    /* The faithful engine (ADR-002); becomes the default in P4/S6. */
-    if (OrigRunner_Requested(argc, argv)) {
-        orig_run_options_t opts;
-
-        if (!OrigRunner_ParseArgs(argc, argv, &opts)) {
-            ID_Engine_Shutdown();
-            return 2;
-        }
-        rc = OrigRunner_Run(&opts);
-        ID_Engine_Shutdown();
-        return rc;
     }
 
     if (smoke_only) {
@@ -276,10 +255,15 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    /* Interactive: go straight to title/menu/game. */
     printf("Data ready: %s (%s)\n", data_dir.path, data_dir.extension);
     fflush(stdout);
-    rc = Wolf_RunIntroMenu();
+
+    if (OrigRunner_Direct(argc, argv)) {
+        rc = OrigRunner_Run(&g_game_opts);
+    } else {
+        static const wolf_menu_actions_t actions = {menu_new_game, menu_load_game};
+        rc = Wolf_RunIntroMenu(&actions);
+    }
     ID_Engine_Shutdown();
     if (rc != 0) {
         fprintf(stderr, "wolf3d-win64 exited with error %d\n", rc);

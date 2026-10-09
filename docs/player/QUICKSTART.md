@@ -35,10 +35,18 @@ set WOLF3D_DATA=D:\wolf3d-master\Wolf3dgame
 build\wolf3d.exe --data "%WOLF3D_DATA%"
 ```
 
-### Play a level
-1. Double-click `build\wolf3d.exe` (with pack as above), or use `--data`.
+### Play
+1. Double-click `build\wolf3d.exe` (with the pack as above), or use `--data`.
+   In PowerShell start it as `.\build\wolf3d.exe`.
 2. **Enter** on the title → main menu.
-3. **NEW GAME** → Enter → map 0.
+3. **NEW GAME** → episode 1, floor 1 on "Bring 'em on", or **LOAD GAME** to
+   continue from your quick save.
+
+The game is a faithful port of the original engine (fixed point, 70 Hz, the
+original AI and renderer; see ADR-002). The original menus (episode and skill
+choice, sound, controls, save slots), the intermission screens and the
+title/demo loop arrive in P5; until then the menu above is a stand-in, and
+**Esc** in the game returns to it.
 
 Smoke harness (no full play loop):
 ```bat
@@ -49,17 +57,14 @@ or:
 build\wolf3d.exe --data "%WOLF3D_DATA%" --smoke-only
 ```
 
-## Faithful engine preview (`--engine=orig`)
+### Starting the game directly
 
-The faithful port of the original engine (fixed point, 70 Hz, original AI and
-renderer; see ADR-002) can already be played. Menus, the intermission
-screens and the title/demo loop arrive in P5, so for now it starts straight
-into a level and **Esc quits**.
+Any of these options skips the menu:
 
 ```bat
-build\wolf3d.exe --data "%WOLF3D_DATA%" --engine=orig
-build\wolf3d.exe --data "%WOLF3D_DATA%" --engine=orig --map 10 --skill 3
-build\wolf3d.exe --data "%WOLF3D_DATA%" --engine=orig --demo 0
+build\wolf3d.exe --data "%WOLF3D_DATA%" --map 10 --skill 3
+build\wolf3d.exe --data "%WOLF3D_DATA%" --demo 0
+build\wolf3d.exe --data "%WOLF3D_DATA%" --load 0
 ```
 
 | Option | Meaning |
@@ -68,10 +73,16 @@ build\wolf3d.exe --data "%WOLF3D_DATA%" --engine=orig --demo 0
 | `--skill 0-3` | Can I play, Daddy? … I am Death incarnate! (default 2) |
 | `--viewsize 4-20` | View size as in the original (default 15; 20 fills the play area) |
 | `--demo 0-3` | Watch one of the pack's demos, then quit |
+| `--load 0-5` | Continue from a save slot (F8 saves to slot 0) |
 | `--screenshot N file.bmp` | Save frame N as an 8-bit BMP (handy for bug reports) |
 | `--frames N` | Stop after N frames; with `--fast` (no clock) used by the smoke tests |
 
-Controls are the original defaults:
+`--engine=orig` still works and does nothing; the legacy engine and
+`--engine=legacy` were removed in P4/S6.
+
+## Controls
+
+The original defaults:
 
 | Key | Action |
 |-----|--------|
@@ -81,44 +92,45 @@ Controls are the original defaults:
 | Right Shift | Run |
 | Space | Open door / elevator |
 | 1-4 | Knife, pistol, machine gun, chain gun |
+| F8 | Quick save (slot 0) |
+| F9 | Quick load (slot 0) |
 | Pause | Pause |
 | F11 | Fullscreen toggle |
-| Esc | Quit (until the menus land in P5) |
+| Esc | Back to the menu (the original control panel is P5) |
 
-The mouse turns and moves when `mouse_look` is on in `config.ini`. `scale`,
-`fullscreen`, `music_on` and `sfx_on` apply as for the default engine. When
-you die, BJ turns towards the killer and the level restarts; out of lives
-ends the run.
+In the menu: arrows and **Enter**, **+ / -** change the window scale, **Esc**
+goes back to the title and from there quits.
+
+With `mouse_look` on in `config.ini` the mouse turns and moves, and its
+buttons shoot, strafe and open doors. When you die, BJ turns towards the
+killer and the level restarts; out of lives ends the run.
+
+## Saving
+
+**F8** saves the game in slot 0 and **F9** loads it, from anywhere in a
+level; the menu's **LOAD GAME** and `--load 0` start from it too. The save
+holds the whole level as the original's did (every actor, door, pushwall
+and pickup), so a loaded game carries on exactly where it was. A save only
+loads with the data it was made with (WL1 or WL6). Saves from before P4/S6
+(the old engine) cannot be loaded.
 
 ## Sound
 
-Both engines play the music and the AdLib-only effects (treasure, ammo,
-health, keys, extra life) through an emulated AdLib (OPL2) chip, and the
-digitized effects (guns, doors, voices) like a Sound Blaster Pro, placed left
-or right by where they happen. In `config.ini`, `sfx_on=0` turns the effects
-off and `music_on=0` the music; each leaves the other alone.
+Music and the AdLib-only effects (treasure, ammo, health, keys, extra life)
+play through an emulated AdLib (OPL2) chip, and the digitized effects (guns,
+doors, voices) like a Sound Blaster Pro, placed left or right by where they
+happen. In `config.ini`, `sfx_on=0` turns the effects off and `music_on=0`
+the music; each leaves the other alone.
 
 ## Where settings live
 ```
 %APPDATA%\Wolf3DWin64\
   config.ini        scale, fullscreen, mouse, audio toggles, last_data
   highscores.dat
-  save0.w64 …       modern save slots (F5/F9 in-game)
+  save0.w64 …       save slots (F8 / F9 in the game)
 ```
 
 The game does **not** need write access next to Program Files.
-
-## Desktop controls
-| Key | Action |
-|-----|--------|
-| Enter | Title → menu / menu select |
-| WASD / arrows | Move / turn |
-| Ctrl or LMB | Shoot |
-| E / Space | Open door / elevator |
-| F5 / F9 | Save / load slot 0 |
-| F11 | Fullscreen toggle |
-| + / - | Integer scale |
-| Esc | Back / quit |
 
 ## Build (developers)
 See root `README.md`. Typical MinGW path:

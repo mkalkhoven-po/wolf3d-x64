@@ -278,6 +278,16 @@ extern fixed globalsoundx, globalsoundy;
 extern int leftchannel, rightchannel;
 void SetSoundLoc(fixed gx, fixed gy);
 
+/*
+ * SaveTheGame / LoadTheGame (WL_MAIN.C), save format v2 as a byte stream.
+ * SaveTheGame returns the size it needs (writing only what fits in cap; 0 if
+ * an actor state cannot be named). LoadTheGame checks the whole stream, then
+ * loads the level and restores it; the caller then sets playstate so
+ * GameLoop restarts on it (loadedgame is set).
+ */
+size_t SaveTheGame(byte *buf, size_t cap);
+boolean LoadTheGame(const byte *buf, size_t len);
+
 /* WL_AGENT */
 extern statetype s_player, s_attack;
 extern boolean running;

@@ -14,3 +14,7 @@ void US_InitRndT(boolean randomize);
 
 /* Next value 0-255. The index is advanced before the read. */
 int US_RndT(void);
+
+/* The table position, for save games (the original did not save it). */
+int US_GetRndIndex(void);
+void US_SetRndIndex(int index);

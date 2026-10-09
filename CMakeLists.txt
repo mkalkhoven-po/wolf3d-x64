@@ -44,16 +44,10 @@ set(WOLF_ID_SOURCES
   src/id/sd_adlib.c
   src/id/wl_data.c
   src/id/gamepal.c
-  src/id/wl_sprite.c
 )
 
 set(WOLF_GAME_SOURCES
   src/game/wl_menu_simple.c
-  src/game/wl_play.c
-  src/game/wl_draw.c
-  src/game/wl_game.c
-  src/game/wl_status.c
-  src/game/wl_weapon.c
 )
 
 set(WOLF_PLATFORM_SOURCES
@@ -82,6 +76,7 @@ set(WOLF_ORIG_SOURCES
   src/orig/orig_hooks.c
   src/orig/orig_loop.c
   src/orig/orig_play.c
+  src/orig/orig_save.c
   src/orig/orig_scale.c
   src/orig/orig_state.c
   src/orig/orig_states.c
@@ -221,6 +216,9 @@ if(WOLF_BUILD_TESTS)
     endif()
     wolf_apply_hardening(${name})
   endforeach()
+  # The legacy engine is gone (P4/S6): asking for it fails before any data is read.
+  add_test(NAME engine_legacy_refused COMMAND wolf3d --engine=legacy)
+  set_tests_properties(engine_legacy_refused PROPERTIES WILL_FAIL TRUE)
   add_test(NAME opl2 COMMAND test_opl2)
   add_test(NAME sd_adlib COMMAND test_sd_adlib)
 
