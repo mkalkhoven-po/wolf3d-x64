@@ -68,6 +68,16 @@
 #define MAXVIEWWIDTH    320
 #define HEIGHTRATIO     0.50
 
+/* the canonical frame (ADR-002): 320x200, 8-bit, status bar at the bottom */
+#define SCREENWIDTH     320
+#define SCREENHEIGHT    200
+#ifndef STATUSLINES
+#define STATUSLINES     40
+#endif
+
+#define MAXWALLTILES    64 /* max number of wall tiles */
+#define PMPAGESIZE      4096 /* VSWAP page: a 64x64 wall texture, column-major */
+
 #define SPDPATROL   512
 #define SPDDOG      1500
 

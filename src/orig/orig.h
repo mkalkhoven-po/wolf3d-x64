@@ -190,12 +190,44 @@ int16_t CalcHeight(void);
 int CalcRotate(objtype *ob);
 void DrawScaleds(void);
 
+/* WL_DRAW walls (S4b) */
+extern byte screenbuf[SCREENHEIGHT * SCREENWIDTH]; /* the canonical frame */
+extern uint16_t screenofs; /* view window's top left in screenbuf */
+extern const byte *(*orig_getpage)(int page); /* VSWAP page data, set by the platform */
+extern int16_t orig_spritestart; /* PMSpriteStart of the loaded VSWAP */
+extern int16_t horizwall[MAXWALLTILES], vertwall[MAXWALLTILES];
+extern int16_t lastside;
+extern int32_t lastintercept;
+extern int16_t lasttilehit;
+extern uint16_t tilehit, pixx;
+extern int16_t xtile, ytile, xtilestep, ytilestep;
+extern int32_t xstep, ystep;
+extern uint16_t postx, postwidth;
+
+void SetupWalls(void);
+void ScalePost(void);
+void HitVertWall(void);
+void HitHorizWall(void);
+void HitHorizDoor(void);
+void HitVertDoor(void);
+void HitHorizPWall(void);
+void HitVertPWall(void);
+void AsmRefresh(void);
+void WallRefresh(void);
+void VGAClearScreen(void);
+
 /* WL_SCALE: the draw calls made, in order (cleared by the caller) */
 typedef visobj_t scaledraw_t;
 extern scaledraw_t scaledraws[MAXVISABLE];
 extern int numscaledraws;
 
 void ScaleShape(int xcenter, int shapenum, unsigned height);
+
+/* scaler table (SetupScaling) and the column scaler of the compiled scalers */
+extern int16_t maxscale, maxscaleshl2, stepbytwo;
+void SetupScaling(int maxheight);
+int ScalerHeight(int index);
+void ScaleColumn(const byte *src, int height, byte *dest, int pitch);
 
 /* WL_AGENT */
 extern statetype s_player, s_attack;
