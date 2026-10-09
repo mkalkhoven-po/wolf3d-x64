@@ -171,7 +171,7 @@ if(WOLF_BUILD_TESTS)
 
   # Faithful-engine tests: the engine plus the shared id layer for map loading.
   # Each takes an optional --data DIR to run over a real pack.
-  set(WOLF_ORIG_TESTS orig_level orig_ai orig_player orig_draw orig_walls orig_frame orig_loop)
+  set(WOLF_ORIG_TESTS orig_level orig_ai orig_player orig_draw orig_walls orig_frame orig_loop orig_fidelity)
   foreach(name IN LISTS WOLF_ORIG_TESTS)
     add_executable(test_${name}
       tests/test_${name}.c

@@ -120,15 +120,20 @@ User may reorder; default **“next epic”** after playtest stabilizes = **L1.1
 
 ## Playtest matrix (L1.5)
 
-| Check | How | Expected |
-|-------|-----|----------|
-| Map 0 secrets counted | Smoke `Pushwall smoke:` / level load `secrets=` | E1M1 **5** secrets |
-| Push free wall | Face pushable (plane1=98), **E** | `Pushwall start`, PUSHWALLSND, secret_count++ |
-| Push blocked | No free cell in facing dir | NOWAYSND, no move |
-| Wall slides | Wait ~2 tiles | `Pushwall done` / early stop if blocked |
-| Walk into vacated cell | After first block cross | Cell walkable |
-| Ceiling color E1M1 | Look up | Palette **0x1d** (vgaCeiling[0]) |
-| Floor color | Look down mid-view | **0x19** |
-| Wall tex while pushing | Mid-push | `tile & 63` page (no 0xC0 garbage) |
+Re-run on the faithful engine in P4/S7. The automated column is
+`tests/test_orig_fidelity.c` (`orig_fidelity_maps`, `orig_fidelity_maps_wl1`),
+on the real E1M1 of each pack.
 
-Smoke: `scripts/smoke_wl6.sh --data Wolf3dgame` → **24** checks incl. `Pushwall smoke:`.
+| Check | By hand | Expected | Automated (S7) |
+|-------|---------|----------|----------------|
+| Map 0 secrets counted | Finish the floor, count | E1M1 **5** secrets | `secrettotal == 5` |
+| Push free wall | Face a pushwall, **Space** | PUSHWALLSND, secret count + 1 | yes |
+| Push blocked | A wall or blocking static behind it | NOWAYSND, no move | yes (pushwall 30,22: a static behind) |
+| Wall slides | Wait | 2 tiles (3 when `pwallstate` lands on 256) | yes: 2 tiles |
+| Walk into vacated cell | Step in | Cell walkable | `tilemap` and `actorat` clear |
+| Ceiling color E1M1 | Look up | Palette **0x1d** (vgaCeiling[0]) | top row of the view |
+| Floor color | Look down | **0x19** | bottom row of the view |
+| Wall tex while pushing | Mid-push | `tile & 63` page (no 0xC0 garbage) | frame drawn mid-slide (UBSan clean) |
+
+Smoke: `scripts/smoke_wl6.sh --data Wolf3dgame` (the legacy `Pushwall smoke:`
+marker was retired with the legacy engine in P4/S6).
