@@ -105,3 +105,8 @@ void DeathCamOutro(void)
 {
     CALL_HOOK(death_cam_outro);
 }
+
+void FizzleIn(void)
+{
+    CALL_HOOK(fizzle_in);
+}

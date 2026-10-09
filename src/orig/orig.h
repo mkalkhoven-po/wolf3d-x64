@@ -64,6 +64,7 @@ extern int16_t controlx, controly; /* range from -100 to 100 per tic */
 extern boolean buttonstate[NUMBUTTONS];
 extern boolean buttonheld[NUMBUTTONS];
 extern uint16_t tics;
+extern int32_t TimeCount; /* the 70 Hz clock, driven by the platform layer (S5) */
 
 /*
  * DigiMode != sds_Off in the original. Boss death states last longer when
@@ -216,7 +217,12 @@ void AsmRefresh(void);
 void WallRefresh(void);
 void VGAClearScreen(void);
 
-/* WL_SCALE: the draw calls made, in order (cleared by the caller) */
+/* WL_DRAW frame (S4c) */
+extern int32_t lasttimecount, frameon;
+void DrawPlayerWeapon(void);
+void ThreeDRefresh(void);
+
+/* WL_SCALE: sprites; ScaleShape also records its calls, in order (cleared by the caller) */
 typedef visobj_t scaledraw_t;
 extern scaledraw_t scaledraws[MAXVISABLE];
 extern int numscaledraws;
@@ -228,6 +234,9 @@ extern int16_t maxscale, maxscaleshl2, stepbytwo;
 void SetupScaling(int maxheight);
 int ScalerHeight(int index);
 void ScaleColumn(const byte *src, int height, byte *dest, int pitch);
+int TexelWidth(int height, int src);
+int MaskedColumns(int x, int width, int cols[12]);
+void SimpleScaleShape(int xcenter, int shapenum, unsigned height);
 
 /* WL_AGENT */
 extern statetype s_player, s_attack;
