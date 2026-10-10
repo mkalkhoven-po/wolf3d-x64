@@ -4,8 +4,9 @@
  * Everything here is what the original did with hardware or with screens
  * that are not game logic: the timer interrupt, the keyboard interrupt's
  * scan-code table, the mouse driver, VGA palette writes, FizzleFade, the
- * status bar pictures, sound and music. The engine calls it through
- * orig_hooks.
+ * status bar pictures, sound and music, the save files and the high score
+ * table. The engine calls it through orig_hooks. Interactively the engine
+ * runs from the title page and the control panel (US_ControlPanel, P5b).
  */
 #include "orig_runner.h"
 
@@ -21,14 +22,13 @@
 #include "orig.h"
 #include "gfxv.h"
 #include "orig_bridge.h"
+#include "pad_map.h"
 #include "wolf_pad.h"
 #include "wolf_userdata.h"
 #include "wl_tics.h"
 
 static tic_clock_t g_clock;
 static boolean g_fast;      /* no clock: smoke tests */
-static boolean g_quit;      /* window closed or Esc */
-static boolean g_paused;    /* the Pause key */
 static int g_mousedx, g_mousedy;
 static int g_frames;
 
@@ -75,6 +75,7 @@ void OrigRunner_Defaults(orig_run_options_t *opts)
     opts->viewsize = 15;
     opts->demo = -1;
     opts->load = -1;
+    opts->menu = 0;
     opts->fast = 0;
     opts->maxframes = 0;
     opts->shotframe = 0;
@@ -149,7 +150,7 @@ static void PumpEvents(void);
 
 static void WaitClock(int32_t target)
 {
-    while (!g_quit && ReadClock() < target) {
+    while (!orig_quit && ReadClock() < target) {
         PumpEvents();
         SDL_Delay(1);
     }
@@ -161,7 +162,7 @@ static boolean UserInput(int32_t waittics)
     const int32_t end = ReadClock() + waittics;
 
     orig_lastscan = 0;
-    while (!g_quit && ReadClock() < end && !orig_lastscan) {
+    while (!orig_quit && ReadClock() < end && !orig_lastscan) {
         PumpEvents();
         SDL_Delay(1);
     }
@@ -225,7 +226,9 @@ static void PumpEvents(void)
     while (SDL_PollEvent(&ev)) {
         switch (ev.type) {
         case SDL_QUIT:
-            g_quit = true;
+            orig_quit = true; /* every wait gives up, the menus back out */
+            abortgame = true; /* and a game or demo playing ends */
+            playstate = ex_abort;
             break;
         case SDL_KEYDOWN:
             if (ev.key.keysym.scancode == SDL_SCANCODE_F11 && !ev.key.repeat) {
@@ -233,7 +236,7 @@ static void PumpEvents(void)
                 break;
             }
             if (ev.key.keysym.scancode == SDL_SCANCODE_PAUSE) {
-                g_paused = true;
+                Paused = true;
                 break;
             }
             {
@@ -250,6 +253,11 @@ static void PumpEvents(void)
                 orig_keys[sc] = 0;
             }
         } break;
+        case SDL_TEXTINPUT: /* LastASCII */
+            if ((byte)ev.text.text[0] >= ' ' && (byte)ev.text.text[0] < 0x7f) {
+                orig_lastascii = (byte)ev.text.text[0];
+            }
+            break;
         case SDL_MOUSEMOTION:
             g_mousedx += ev.motion.xrel;
             g_mousedy += ev.motion.yrel;
@@ -263,7 +271,7 @@ static void PumpEvents(void)
             break;
         case SDL_CONTROLLERBUTTONDOWN:
             if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK) {
-                g_paused = true;
+                Paused = true;
                 break;
             }
             /* Start is Esc; any other button acknowledges, as a key would */
@@ -331,7 +339,28 @@ static boolean CheckAck(void)
         orig_lastscan = 0;
         return true;
     }
-    return g_quit;
+    return orig_quit;
+}
+
+/* the pad in the control panel (Pad_Menu) */
+static boolean PadMenu(int *dx, int *dy, int *buttons)
+{
+    pad_state_t pad;
+
+    *dx = *dy = *buttons = 0;
+    if (!Wolf_PadRead(&pad)) {
+        return false;
+    }
+    Pad_Menu(&pad, dx, dy, buttons);
+    return true;
+}
+
+/* a 2D screen's wait loop: rest a moment, as the original's busy loops could not */
+static void Idle(void)
+{
+    if (!g_fast) {
+        SDL_Delay(1);
+    }
 }
 
 /* --------------------------------------------------------- the 320x200 frame */
@@ -476,7 +505,7 @@ static void HookFizzle(int x0, int y0, int width, int height, int frames)
             WaitClock(start + frame); /* don't go too fast */
         }
         PumpEvents();
-        if (g_quit) {
+        if (orig_quit) {
             return;
         }
     }
@@ -583,6 +612,39 @@ static void HookStopMusic(void)
     Bridge_MusicOff();
 }
 
+static void HookResumeMusic(void)
+{
+    Bridge_MusicOn();
+}
+
+/* the sound menu: the modes, kept in the config */
+static int HookGetSoundMode(int which)
+{
+    return Bridge_GetSoundMode(which);
+}
+
+static void HookSetSoundMode(int which, int mode)
+{
+    Bridge_SetSoundMode(which, mode);
+    switch (which) {
+    case 0:
+        g_config.sfx_on = Bridge_GetSoundMode(0) != 0;
+        break;
+    case 1:
+        g_config.digi_on = Bridge_GetSoundMode(1) != 0;
+        break;
+    default:
+        g_config.music_on = Bridge_GetSoundMode(2) != 0;
+        break;
+    }
+    (void)Wolf_ConfigSave();
+}
+
+static boolean HookSoundAvailable(int which, int mode)
+{
+    return Bridge_SoundAvailable(which, mode);
+}
+
 /* ------------------------------------------------- screens (until P5 does them) */
 
 /* a framed message over the play area, the original's Message() */
@@ -630,18 +692,7 @@ static void HookVictory(void)
     Say("You win!\n(victory screen: P5c)", 280);
 }
 
-static void HookCheatMessage(void)
-{
-    Say("You now have 100% Health,\n99 Ammo and both Keys!", 140);
-}
-
-/* ------------------------------------------------------- saving (F8, F9) */
-
-/*
- * The original's quick save (F8) and quick load (F9) use the slot last
- * chosen in the save menu; the menus are P5, so they use slot 0 until then.
- */
-#define QUICKSLOT 0
+/* ------------------------------------------------- saved games, high scores */
 
 static byte g_savebuf[64 * 1024];
 
@@ -650,78 +701,94 @@ static const char *Pack(void)
     return Bridge_IsShareware() ? "WL1" : "WL6";
 }
 
-static void QuickSave(void)
-{
-    char desc[WOLF_SAVE_DESC];
-    const size_t len = SaveTheGame(g_savebuf, sizeof(g_savebuf));
-
-    char text[64];
-
-    snprintf(desc, sizeof(desc), "Episode %d, floor %d", gamestate.episode + 1,
-             gamestate.mapon + 1);
-    if (len && len <= sizeof(g_savebuf) &&
-        Wolf_WriteSave(QUICKSLOT, Pack(), desc, g_savebuf, len)) {
-        snprintf(text, sizeof(text), "Game saved\n%s", desc);
-        Say(text, 70);
-    } else {
-        Say("Could not save the game", 70);
-    }
-}
-
-/* True when the saved game is loaded: GameLoop then restarts on it (loadedgame). */
-static boolean LoadSlot(int slot)
+/* the control panel's slots: the name typed for a saved game is its description */
+static boolean HookSaveName(int slot, char *name)
 {
     size_t len = 0;
-    const wolf_save_result_t result =
-        Wolf_ReadSave(slot, Pack(), g_savebuf, sizeof(g_savebuf), &len, NULL);
+    char desc[WOLF_SAVE_DESC];
 
-    if (result == WOLF_SAVE_OK && LoadTheGame(g_savebuf, len)) {
+    if (Wolf_ReadSave(slot, Pack(), g_savebuf, sizeof(g_savebuf), &len, desc) != WOLF_SAVE_OK) {
+        return false;
+    }
+    memcpy(name, desc, WOLF_SAVE_DESC);
+    return true;
+}
+
+static boolean HookWriteGame(int slot, const char *name, const byte *data, size_t len)
+{
+    return Wolf_WriteSave(slot, Pack(), name, data, len);
+}
+
+static size_t HookReadGame(int slot, byte *buf, size_t cap)
+{
+    size_t len = 0;
+    const wolf_save_result_t result = Wolf_ReadSave(slot, Pack(), buf, cap, &len, NULL);
+
+    if (result != WOLF_SAVE_OK) {
+        fprintf(stderr, "Save slot %d: %s\n", slot, Wolf_SaveResultText(result));
+        return 0;
+    }
+    return len;
+}
+
+/* --load: true when the saved game is loaded; GameLoop then goes on with it (loadedgame) */
+static boolean LoadSlot(int slot)
+{
+    const size_t len = HookReadGame(slot, g_savebuf, sizeof(g_savebuf));
+
+    loadedgame = false;
+    if (len && LoadTheGame(g_savebuf, len)) {
         return true;
     }
-    if (result == WOLF_SAVE_OK && loadedgame) {
-        /* the stream was fine but its level would not load: the game is gone */
-        loadedgame = false;
-        abortgame = true;
-        playstate = ex_abort;
-    }
-    Say(result == WOLF_SAVE_OK ? Wolf_SaveResultText(WOLF_SAVE_DAMAGED)
-                               : Wolf_SaveResultText(result),
-        105);
+    loadedgame = false;
+    fprintf(stderr, "Save slot %d could not be loaded\n", slot);
     return false;
 }
 
-/* Pause and Esc. The control panel (F1-F10, Esc) is P5; Esc quits until then. */
-static void HookCheckKeys(byte scan)
+/*
+ * The high score table (the original kept it in CONFIG.WL6): per pack,
+ * MaxScores entries of name[58], score (32 bits), completed and episode (16
+ * bits), little-endian.
+ */
+#define SCORESIZE (MaxHighName + 1 + 4 + 2 + 2)
+
+static void LoadScores(void)
 {
-    if (g_paused) {
-        VWB_DrawPic((20 - 4) * 8, 80 - 2 * 8, PAUSEDPIC);
-        VW_UpdateScreen();
-        orig_lastscan = 0;
-        while (!g_quit && !orig_lastscan) {
-            PumpEvents();
-            SDL_Delay(5);
-        }
-        g_paused = false;
-        g_mousedx = g_mousedy = 0;
-        orig_lastscan = 0;
-        return;
+    byte data[MaxScores * SCORESIZE];
+    int i;
+
+    if (!Wolf_ScoresLoad(Pack(), data, sizeof(data))) {
+        return; /* the original's table */
     }
-    if (scan == 0x42) { /* sc_F8 */
-        orig_lastscan = 0;
-        QuickSave();
-        return;
+    for (i = 0; i < MaxScores; i++) {
+        const byte *p = data + i * SCORESIZE;
+
+        memcpy(Scores[i].name, p, MaxHighName + 1);
+        Scores[i].name[MaxHighName] = '\0';
+        p += MaxHighName + 1;
+        Scores[i].score = (int32_t)((uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) |
+                                    ((uint32_t)p[3] << 24));
+        Scores[i].completed = (uint16_t)(p[4] | (p[5] << 8));
+        Scores[i].episode = (uint16_t)(p[6] | (p[7] << 8));
     }
-    if (scan == 0x43) { /* sc_F9 */
-        orig_lastscan = 0;
-        if (LoadSlot(QUICKSLOT)) {
-            playstate = ex_abort; /* as CheckKeys after a load from the control panel */
-        }
-        return;
+}
+
+static void SaveScores(void)
+{
+    byte data[MaxScores * SCORESIZE];
+    int i;
+
+    memset(data, 0, sizeof(data));
+    for (i = 0; i < MaxScores; i++) {
+        byte *p = data + i * SCORESIZE;
+
+        memcpy(p, Scores[i].name, MaxHighName + 1);
+        p += MaxHighName + 1;
+        PutLE(p, (uint32_t)Scores[i].score, 4);
+        PutLE(p + 4, Scores[i].completed, 2);
+        PutLE(p + 6, Scores[i].episode, 2);
     }
-    if (scan == 0x01 || g_quit) { /* sc_Escape */
-        abortgame = true;
-        playstate = ex_abort;
-    }
+    (void)Wolf_ScoresSave(Pack(), data, sizeof(data));
 }
 
 /* ------------------------------------------------------------------- run */
@@ -742,6 +809,14 @@ static void InstallHooks(void)
     orig_hooks.wait_sound_done = HookWaitSoundDone;
     orig_hooks.play_music = HookPlayMusic;
     orig_hooks.stop_music = HookStopMusic;
+    orig_hooks.resume_music = HookResumeMusic;
+    orig_hooks.get_sound_mode = HookGetSoundMode;
+    orig_hooks.set_sound_mode = HookSetSoundMode;
+    orig_hooks.sound_available = HookSoundAvailable;
+
+    orig_hooks.save_name = HookSaveName;
+    orig_hooks.write_game = HookWriteGame;
+    orig_hooks.read_game = HookReadGame;
 
     orig_hooks.set_palette_shift = HookPaletteShift;
     orig_hooks.present_frame = Present;
@@ -757,13 +832,13 @@ static void InstallHooks(void)
     orig_hooks.level_completed = HookLevelCompleted;
     orig_hooks.game_over = HookGameOver;
     orig_hooks.victory = HookVictory;
-    orig_hooks.cheat_message = HookCheatMessage;
 
     orig_hooks.poll_input = PollInput;
     orig_hooks.mouse_buttons = MouseButtons;
     orig_hooks.mouse_delta = MouseDelta;
-    orig_hooks.check_keys = HookCheckKeys;
     orig_hooks.check_ack = CheckAck;
+    orig_hooks.pad_menu = PadMenu;
+    orig_hooks.idle = Idle;
 
     if (!g_fast) {
         orig_hooks.read_time = ReadClock;
@@ -772,15 +847,54 @@ static void InstallHooks(void)
     }
 }
 
+/*
+ * DemoLoop (WL_MAIN.C) as far as P5b goes: the title page, then the control
+ * panel; a new or loaded game plays until it ends, then back to the title.
+ * The credits, the high scores and the demos between title pages are P5d.
+ */
+static void MenuLoop(void)
+{
+    if (g_config_found) { /* ReadConfig: not the first run */
+        MainMenu[readthis].active = 1;
+        MainItems.curpos = 0;
+    }
+
+    StartCPMusic(INTROSONG);
+    while (!orig_quit) {
+        /* title page */
+        VWB_DrawPic(0, 0, TITLEPIC);
+        VW_UpdateScreen();
+        VW_FadeIn();
+        IN_Ack();
+        VW_FadeOut();
+        if (orig_quit) {
+            break;
+        }
+
+        US_ControlPanel(0);
+        if (orig_quit) {
+            break;
+        }
+        if (startgame || loadedgame) {
+            abortgame = false;
+            GameLoop();
+            SaveScores();
+            VW_FadeOut();
+            StartCPMusic(INTROSONG);
+        }
+    }
+}
+
 int OrigRunner_Run(const orig_run_options_t *opts)
 {
     g_opts = opts;
     g_fast = opts->fast != 0;
-    g_quit = false;
+    orig_quit = false;
+    Paused = false;
     g_frames = 0;
     g_shotsaved = false;
 
-    if (opts->demo < 0 && opts->load < 0 && !Bridge_MapExists(opts->map)) {
+    if (!opts->menu && opts->demo < 0 && opts->load < 0 && !Bridge_MapExists(opts->map)) {
         fprintf(stderr, "Map %d is not in this pack\n", opts->map);
         return 34;
     }
@@ -794,7 +908,7 @@ int OrigRunner_Run(const orig_run_options_t *opts)
 
     TicClock_Init(&g_clock, SDL_GetPerformanceFrequency(), SDL_GetPerformanceCounter());
     InitGame();
-    NewViewSize(opts->viewsize);
+    NewViewSize(opts->menu ? g_config.viewsize : opts->viewsize);
     orig_getpage = PageForEngine;
     orig_spritestart = (int16_t)Bridge_SpriteStart();
     upload = Bridge_IsShareware();
@@ -804,8 +918,13 @@ int OrigRunner_Run(const orig_run_options_t *opts)
     VL_SetPalette(gamepal); /* the engine's palette, which fades start from */
     memset(orig_keys, 0, sizeof(orig_keys));
     abortgame = false;
+    LoadScores();
 
-    if (opts->demo >= 0) {
+    if (opts->menu) {
+        MenuLoop();
+        g_config.viewsize = viewsize;
+        (void)Wolf_ConfigSave();
+    } else if (opts->demo >= 0) {
         size_t length = 0;
         const byte *lump = Bridge_DemoLump(opts->demo, &length);
 
@@ -832,6 +951,7 @@ int OrigRunner_Run(const orig_run_options_t *opts)
             gamestate.mapon = (int16_t)(opts->map % 10);
         }
         GameLoop();
+        SaveScores();
         printf("orig game over: map %d, score %ld, lives %d\n",
                gamestate.episode * 10 + gamestate.mapon, (long)gamestate.score, gamestate.lives);
     }
@@ -885,5 +1005,5 @@ boolean OrigRunner_SmokeVerify(void)
 
 boolean OrigRunner_QuitRequested(void)
 {
-    return g_quit;
+    return orig_quit;
 }

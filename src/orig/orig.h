@@ -276,7 +276,7 @@ boolean PlayDemo(const byte *demo, size_t demosize);
 
 /* the level loop (S5b): WL_GAME.C */
 extern boolean ingame;
-extern boolean abortgame; /* set by the platform to leave GameLoop (until P5's menus) */
+extern boolean abortgame; /* not in the original: leave GameLoop (Quit, a lost game, the platform) */
 void DrawPlayBorder(void);
 void DrawPlayScreen(void);
 void Died(void);
@@ -393,3 +393,103 @@ void ClearSplitVWB(void); /* the 2D window over the play area (WL_INTER.C) */
 void DrawOutline(int x, int y, int w, int h, int color1, int color2);
 void DrawWindow(int x, int y, int w, int h, int wcolor);
 void Message(const char *string);
+
+/*
+ * The control panel (P5b, WL_MENU.C, ID_IN.C). The menus wait in loops as
+ * the original did; each pass pumps input (IN_Pump: poll_input and idle)
+ * and reads the clock (GetTimeCount; headless, every read is a tic). Not in
+ * the original: orig_quit, set when the window closes or Quit is confirmed,
+ * makes every wait give up and the menus back out.
+ */
+extern byte orig_lastascii; /* LastASCII */
+extern boolean Paused;
+extern boolean orig_quit;
+int32_t GetTimeCount(void);
+void IN_Pump(void);
+void IN_Ack(void);
+
+typedef enum {
+    dir_North,
+    dir_NorthEast,
+    dir_East,
+    dir_SouthEast,
+    dir_South,
+    dir_SouthWest,
+    dir_West,
+    dir_NorthWest,
+    dir_None
+} Direction;
+
+typedef struct {
+    boolean button0, button1, button2, button3;
+    int16_t x, y;
+    int8_t xaxis, yaxis;
+    Direction dir;
+} ControlInfo;
+
+/* a menu routine gets 0, as the original's casts passed it (temp1) */
+typedef struct {
+    int16_t x, y, amount, curpos, indent;
+} CP_iteminfo;
+
+typedef struct {
+    int16_t active;
+    char string[36];
+    void (*routine)(int temp1);
+} CP_itemtype;
+
+enum {
+    newgame,
+    soundmenu,
+    control,
+    loadgame,
+    savegame,
+    changeview,
+    readthis,
+    viewscores,
+    backtodemo,
+    quit
+};
+
+#define STR_VS "View Scores"
+#define MENUSONG WONDERIN_MUS
+#define INTROSONG NAZI_NOR_MUS
+
+extern CP_itemtype MainMenu[];
+extern CP_iteminfo MainItems;
+
+void US_ControlPanel(byte scancode);
+void SetupControlPanel(void);
+void CleanupControlPanel(void);
+void DrawMainMenu(void);
+void DrawMenu(CP_iteminfo *item_i, CP_itemtype *items);
+int HandleMenu(CP_iteminfo *item_i, CP_itemtype *items, void (*routine)(int w));
+void ClearMScreen(void);
+void DrawStripes(int y);
+void DrawMenuGun(CP_iteminfo *iteminfo);
+void WaitKeyUp(void);
+void ReadAnyControl(ControlInfo *ci);
+void TicDelay(int count);
+void StartCPMusic(int song);
+int Confirm(const char *string);
+void CheckPause(void);
+void ShootSnd(void);
+void CP_NewGame(int temp1);
+void CP_Sound(int temp1);
+int CP_LoadGame(int quick);
+int CP_SaveGame(int quick);
+void CP_Control(int temp1);
+void CP_ChangeView(int temp1);
+void CP_ReadThis(int temp1);
+void CP_ViewScores(int temp1);
+void CP_Quit(void);
+int CP_EndGame(void);
+int CP_CheckQuick(unsigned scancode);
+
+/* ID_US_1.C */
+extern HighScore Scores[MaxScores];
+void DrawHighScores(void); /* WL_INTER.C */
+boolean US_LineInput(int x, int y, char *buf, const char *def, boolean escok, int maxchars,
+                     int maxwidth);
+
+void ShowViewSize(int width); /* WL_MAIN.C: the border for a view size, for Change View */

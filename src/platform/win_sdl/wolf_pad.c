@@ -4,7 +4,6 @@
 #include <string.h>
 
 static SDL_GameController *g_pad;
-static int g_stickdir; /* the menu's left stick: -1 up, 1 down, 0 centred */
 
 static void OpenFirstPad(void)
 {
@@ -94,37 +93,4 @@ boolean Wolf_PadRead(pad_state_t *state)
         }
     }
     return true;
-}
-
-SDL_Keycode Wolf_PadMenuKey(const SDL_Event *ev)
-{
-    if (ev->type == SDL_CONTROLLERBUTTONDOWN) {
-        switch (ev->cbutton.button) {
-        case SDL_CONTROLLER_BUTTON_DPAD_UP:
-            return SDLK_UP;
-        case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
-            return SDLK_DOWN;
-        case SDL_CONTROLLER_BUTTON_A:
-        case SDL_CONTROLLER_BUTTON_START:
-            return SDLK_RETURN;
-        case SDL_CONTROLLER_BUTTON_B:
-            return SDLK_ESCAPE;
-        default:
-            return 0;
-        }
-    }
-    if (ev->type == SDL_CONTROLLERAXISMOTION && ev->caxis.axis == SDL_CONTROLLER_AXIS_LEFTY) {
-        /* one step each time the stick is pushed past half way */
-        const int v = ev->caxis.value;
-        const int dir = v < -16000 ? -1 : v > 16000 ? 1 : 0;
-
-        if (dir && dir != g_stickdir) {
-            g_stickdir = dir;
-            return dir < 0 ? SDLK_UP : SDLK_DOWN;
-        }
-        if (v > -8000 && v < 8000) {
-            g_stickdir = 0;
-        }
-    }
-    return 0;
 }

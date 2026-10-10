@@ -23,9 +23,3 @@ void Wolf_PadEvent(const SDL_Event *ev);
 
 /* The pad's state now; false (and a neutral state) when none is connected. */
 boolean Wolf_PadRead(pad_state_t *state);
-
-/*
- * The menu on the pad: up/down from the D-pad or left stick, A to choose,
- * B to go back, Start to choose. 0 when the event means nothing there.
- */
-SDL_Keycode Wolf_PadMenuKey(const SDL_Event *ev);

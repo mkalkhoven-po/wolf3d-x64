@@ -46,10 +46,6 @@ set(WOLF_ID_SOURCES
   src/id/gamepal.c
 )
 
-set(WOLF_GAME_SOURCES
-  src/game/wl_menu_simple.c
-)
-
 set(WOLF_PLATFORM_SOURCES
   src/platform/win_sdl/platform_sdl.c
   src/platform/win_sdl/wolf_userdata.c
@@ -90,7 +86,6 @@ set(WOLF_ORIG_SOURCES
 add_executable(wolf3d
   src/main.c
   ${WOLF_ID_SOURCES}
-  ${WOLF_GAME_SOURCES}
   ${WOLF_PLATFORM_SOURCES}
   ${WOLF_ORIG_SOURCES}
   src/platform/win_sdl/orig_bridge.c
@@ -100,7 +95,6 @@ add_executable(wolf3d
 target_include_directories(wolf3d PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src/id
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/game
   ${CMAKE_CURRENT_SOURCE_DIR}/src/orig
   ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
 )
@@ -176,7 +170,7 @@ if(WOLF_BUILD_TESTS)
 
   # Faithful-engine tests: the engine plus the shared id layer for map loading.
   # Each takes an optional --data DIR to run over a real pack.
-  set(WOLF_ORIG_TESTS orig_level orig_ai orig_player orig_draw orig_walls orig_frame orig_loop orig_fidelity orig_ui)
+  set(WOLF_ORIG_TESTS orig_level orig_ai orig_player orig_draw orig_walls orig_frame orig_loop orig_fidelity orig_ui orig_menu)
   foreach(name IN LISTS WOLF_ORIG_TESTS)
     add_executable(test_${name}
       tests/test_${name}.c

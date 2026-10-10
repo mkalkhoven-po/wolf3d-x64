@@ -1,14 +1,13 @@
 /*
  * Wolf3D Win64 — application entry.
- * Interactive: title and menu, then the faithful engine (ADR-002). Any game
- * option (--map, --demo, --load, ...) starts the engine directly.
+ * Interactive: the faithful engine (ADR-002) from its title page and control
+ * panel. Any game option (--map, --demo, --load, ...) starts a game directly.
  * Use --smoke-only for harness checks.
  */
 
 #include <stdio.h>
 #include <string.h>
 
-#include "game/wl_menu_simple.h"
 #include "id/audio_wl6.h"
 #include "id/gfxv.h"
 #include "id/id_ca.h"
@@ -23,7 +22,7 @@
 #include "platform/win_sdl/wolf_userdata.h"
 #include "platform/win_sdl/wolf_winutil.h"
 
-static orig_run_options_t g_game_opts; /* --map, --skill, --viewsize for New Game */
+static orig_run_options_t g_game_opts; /* the game options, when there are any */
 
 static int has_data_cli_arg(int argc, char **argv)
 {
@@ -141,25 +140,6 @@ static int run_smoke_suite(void)
     return 0;
 }
 
-/* the menu's New Game and Load Game */
-static int menu_new_game(void)
-{
-    orig_run_options_t opts = g_game_opts;
-
-    opts.load = -1;
-    (void)OrigRunner_Run(&opts); /* back to the menu, unless the window was closed */
-    return OrigRunner_QuitRequested() ? -1 : 0;
-}
-
-static int menu_load_game(void)
-{
-    orig_run_options_t opts = g_game_opts;
-
-    opts.load = 0;
-    (void)OrigRunner_Run(&opts);
-    return OrigRunner_QuitRequested() ? -1 : 0;
-}
-
 int main(int argc, char *argv[])
 {
     wolf_data_dir_t data_dir;
@@ -180,7 +160,6 @@ int main(int argc, char *argv[])
     Wolf_EnableDpiAwareness();
     Wolf_ConfigSetDefaults();
     (void)Wolf_ConfigLoad();
-    (void)Wolf_HighScoresLoad();
 
     for (i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -245,12 +224,15 @@ int main(int argc, char *argv[])
         ID_Engine_Shutdown();
         return 15;
     }
+    /* the sound menu's choices from last time */
     if (!g_config.sfx_on) {
-        SD_SetSilent(true);
+        SD_SetSoundMode(sdm_Off);
+    }
+    if (!g_config.digi_on) {
+        SD_SetDigiDevice(sds_Off);
     }
     if (!g_config.music_on) {
-        SD_MusicOff();
-        MusicMode = smm_Off;
+        SD_SetMusicMode(smm_Off);
     }
 
     if (smoke_only) {
@@ -269,12 +251,8 @@ int main(int argc, char *argv[])
     fflush(stdout);
 
     Wolf_PadInit(); /* XInput and other game pads, alongside keyboard and mouse */
-    if (OrigRunner_Direct(argc, argv)) {
-        rc = OrigRunner_Run(&g_game_opts);
-    } else {
-        static const wolf_menu_actions_t actions = {menu_new_game, menu_load_game};
-        rc = Wolf_RunIntroMenu(&actions);
-    }
+    g_game_opts.menu = !OrigRunner_Direct(argc, argv);
+    rc = OrigRunner_Run(&g_game_opts);
     Wolf_PadShutdown();
     ID_Engine_Shutdown();
     if (rc != 0) {

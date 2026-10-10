@@ -1,0 +1,495 @@
+/*
+ * The control panel (P5b, orig_menu.c) on a real pack (--data DIR; without
+ * one there is nothing to draw and the test passes). A script plays keys
+ * into orig_keys / LastScan / LastASCII as the keyboard interrupt did, one
+ * step per input poll, and the menus run as they do in the game: the main
+ * menu and Quit, New Game (episodes, difficulty), Sound, Save and Load with
+ * a typed name, the quick keys F8 / F9, Change View and the high scores.
+ *
+ * UI_DUMP=name writes the screens the script marks as name.<screen>.bmp.
+ */
+
+#include "orig_testkit.h"
+#include "wl_data.h"
+
+static boolean g_wl1;
+
+/* ----------------------------------------------------------------- script */
+
+typedef struct {
+    byte scan;
+    char ascii;        /* LastASCII for the key, 0 for none */
+    const char *snap;  /* hash (and with UI_DUMP, save) the screen before the key */
+} press_t;
+
+#define HOLD 3  /* polls a key stays down */
+#define GAP 40  /* polls before the next key */
+#define RUNAWAY 200000
+
+static const press_t *g_script;
+static int g_nscript, g_step, g_phase, g_polls, g_pressed;
+static boolean g_runaway;
+
+#define MAXSNAPS 16
+static const char *g_snapname[MAXSNAPS];
+static uint32_t g_snaphash[MAXSNAPS];
+static int g_numsnaps;
+
+static void dump_bmp(const char *path)
+{
+    unsigned char hdr[54] = {'B', 'M'};
+    FILE *f = fopen(path, "wb");
+    int i, y;
+
+    if (!f) {
+        return;
+    }
+#define PUT32(o, v) (hdr[o] = (unsigned char)(v), hdr[(o) + 1] = (unsigned char)((v) >> 8), \
+                     hdr[(o) + 2] = (unsigned char)((v) >> 16), hdr[(o) + 3] = (unsigned char)((v) >> 24))
+    PUT32(2, 54 + 1024 + 64000);
+    PUT32(10, 54 + 1024);
+    PUT32(14, 40);
+    PUT32(18, 320);
+    PUT32(22, 200);
+    hdr[26] = 1;
+    hdr[28] = 8;
+    PUT32(46, 256);
+    fwrite(hdr, 1, sizeof(hdr), f);
+    for (i = 0; i < 256; i++) {
+        const unsigned char quad[4] = {(unsigned char)(gamepal[i * 3 + 2] * 255 / 63),
+                                       (unsigned char)(gamepal[i * 3 + 1] * 255 / 63),
+                                       (unsigned char)(gamepal[i * 3] * 255 / 63), 0};
+        fwrite(quad, 1, 4, f);
+    }
+    for (y = 199; y >= 0; y--) {
+        fwrite(screenbuf + y * SCREENWIDTH, 1, SCREENWIDTH, f);
+    }
+    fclose(f);
+}
+
+static void snap(const char *name)
+{
+    if (g_numsnaps < MAXSNAPS) {
+        g_snapname[g_numsnaps] = name;
+        g_snaphash[g_numsnaps++] = fnv(2166136261u, screenbuf, sizeof(screenbuf));
+    }
+    if (getenv("UI_DUMP")) {
+        char path[512];
+
+        snprintf(path, sizeof(path), "%s.%s.%s.bmp", getenv("UI_DUMP"), g_wl1 ? "wl1" : "wl6",
+                 name);
+        dump_bmp(path);
+    }
+}
+
+static uint32_t snap_hash(const char *name)
+{
+    int i;
+
+    for (i = 0; i < g_numsnaps; i++) {
+        if (strcmp(g_snapname[i], name) == 0) {
+            return g_snaphash[i];
+        }
+    }
+    return 0;
+}
+
+/* the keyboard interrupt: a make code on the first poll of a step, the break code HOLD polls later */
+static void script_poll(void)
+{
+    const press_t *p;
+
+    if (++g_polls > RUNAWAY) {
+        g_runaway = true;
+        orig_quit = true;
+        return;
+    }
+    if (g_step >= g_nscript) {
+        return;
+    }
+    p = &g_script[g_step];
+    if (g_phase < 0) { /* the lead-in: the screen comes up before the first key */
+        g_phase++;
+        return;
+    }
+    if (g_phase == 0) {
+        if (p->snap) {
+            snap(p->snap);
+        }
+        orig_keys[p->scan] = 1;
+        orig_lastscan = p->scan;
+        orig_lastascii = (byte)p->ascii;
+        g_pressed++;
+    } else if (g_phase == HOLD) {
+        orig_keys[p->scan] = 0;
+    }
+    if (++g_phase >= HOLD + GAP) {
+        g_phase = 0;
+        g_step++;
+    }
+}
+
+static boolean ack(void)
+{
+    return true;
+}
+
+/* the fake platform: sound modes and save slots */
+static int g_soundmode[3];
+static int g_modesets;
+
+static int get_mode(int which)
+{
+    return g_soundmode[which];
+}
+
+static void set_mode(int which, int mode)
+{
+    g_soundmode[which] = mode;
+    g_modesets++;
+}
+
+/* AdLib and the Sound Blaster only, as the port has */
+static boolean available(int which, int mode)
+{
+    return (which == 0 && mode == 2) || (which == 1 && mode == 2) || (which == 2 && mode == 1);
+}
+
+static byte g_slotdata[10][64 * 1024];
+static size_t g_slotlen[10];
+static char g_slotname[10][32];
+static int g_writes;
+
+static boolean save_name(int slot, char *name)
+{
+    if (!g_slotlen[slot]) {
+        return false;
+    }
+    memcpy(name, g_slotname[slot], 32);
+    return true;
+}
+
+static boolean write_game(int slot, const char *name, const byte *data, size_t len)
+{
+    if (len > sizeof(g_slotdata[slot])) {
+        return false;
+    }
+    memcpy(g_slotdata[slot], data, len);
+    g_slotlen[slot] = len;
+    snprintf(g_slotname[slot], sizeof(g_slotname[slot]), "%s", name);
+    g_writes++;
+    return true;
+}
+
+static size_t read_game(int slot, byte *buf, size_t cap)
+{
+    if (!g_slotlen[slot] || g_slotlen[slot] > cap) {
+        return 0;
+    }
+    memcpy(buf, g_slotdata[slot], g_slotlen[slot]);
+    return g_slotlen[slot];
+}
+
+static void run_script(const press_t *script, int n)
+{
+    install_hooks();
+    orig_hooks.poll_input = script_poll;
+    orig_hooks.check_ack = ack;
+    orig_hooks.get_sound_mode = get_mode;
+    orig_hooks.set_sound_mode = set_mode;
+    orig_hooks.sound_available = available;
+    orig_hooks.save_name = save_name;
+    orig_hooks.write_game = write_game;
+    orig_hooks.read_game = read_game;
+    memset(orig_keys, 0, sizeof(orig_keys));
+    g_script = script;
+    g_nscript = n;
+    g_step = g_polls = g_pressed = 0;
+    g_phase = -GAP;
+    g_runaway = false;
+    g_numsounds = 0;
+    orig_quit = false;
+    abortgame = false;
+}
+
+/* every key of the script was pressed and nothing waited for ever */
+static boolean script_done(void)
+{
+    return !g_runaway && g_pressed == g_nscript;
+}
+
+#define KEY(sc) {sc, 0, NULL}
+#define SNAPKEY(sc, name) {sc, 0, name}
+#define N(a) ((int)(sizeof(a) / sizeof((a)[0])))
+
+/*
+ * The screens, checked by eye against the original (UI_DUMP) and pinned.
+ * WL1 differs in the locked episodes (READCOLOR) and the high score levels
+ * (no episode: UPLOAD).
+ */
+static void check_screens(void)
+{
+    static const struct {
+        const char *name;
+        uint32_t wl6, wl1;
+    } pins[] = {
+        {"mainmenu", 0xedea899cu, 0xedea899cu},
+        {"episodes", 0xdb1e2c11u, 0xa2b07c15u},
+        {"difficulty", 0x0df46d54u, 0x0df46d54u},
+        {"sound", 0xb1a9424eu, 0xb1a9424eu},
+        {"savegame", 0xe873848du, 0xe873848du},
+        {"typed", 0xf59a9da6u, 0xf59a9da6u},
+        {"changeview", 0x6521edadu, 0x6521edadu},
+        {"scores", 0x66da3e84u, 0x4b5e6d16u},
+    };
+    size_t i;
+
+    for (i = 0; i < sizeof(pins) / sizeof(pins[0]); i++) {
+        const uint32_t h = snap_hash(pins[i].name);
+
+        printf("  screen %-10s %08x\n", pins[i].name, h);
+        CHECK(h == (g_wl1 ? pins[i].wl1 : pins[i].wl6));
+    }
+}
+
+/* ------------------------------------------------------------------- tests */
+
+static void test_main_menu_and_quit(void)
+{
+    /* the cursor on "Read This!", as on a first run */
+    static const press_t script[] = {
+        SNAPKEY(sc_Escape, "mainmenu"), /* Esc: Quit? */
+        SNAPKEY(sc_N, "quit"),          /* no */
+        KEY(sc_Escape),
+        KEY(sc_Y), /* yes */
+    };
+
+    ingame = false;
+    run_script(script, N(script));
+    US_ControlPanel(0);
+    printf("  main menu %08x, quit %08x\n", snap_hash("mainmenu"), snap_hash("quit"));
+    CHECK(script_done() && orig_quit && abortgame);
+    CHECK(snap_hash("mainmenu") != snap_hash("quit"));
+    CHECK(count_sound(ESCPRESSEDSND) == 3 && count_sound(SHOOTSND) == 2);
+    orig_quit = false;
+    abortgame = false;
+}
+
+static void test_new_game(void)
+{
+    /* WL6: episode 2, the hardest; WL1 has only episode 1 and says so */
+    static const press_t wl6[] = {
+        KEY(sc_Return),                       /* New Game */
+        SNAPKEY(sc_DownArrow, "episodes"),    /* episode 2 */
+        KEY(sc_Return),
+        SNAPKEY(sc_DownArrow, "difficulty"),  /* from "Bring 'em on!" down */
+        KEY(sc_Return),
+    };
+    static const press_t wl1[] = {
+        KEY(sc_Return),
+        SNAPKEY(sc_DownArrow, "episodes"),
+        KEY(sc_Return), /* "Please select Read This!" */
+        KEY(sc_UpArrow),
+        KEY(sc_Return),
+        SNAPKEY(sc_DownArrow, "difficulty"),
+        KEY(sc_Return),
+    };
+
+    ingame = false;
+    MainItems.curpos = newgame;
+    startgame = false;
+    if (g_wl1) {
+        run_script(wl1, N(wl1));
+    } else {
+        run_script(wl6, N(wl6));
+    }
+    US_ControlPanel(0);
+    printf("  new game: episode %d, difficulty %d\n", gamestate.episode, gamestate.difficulty);
+    CHECK(script_done() && !orig_quit && startgame);
+    CHECK(gamestate.difficulty == gd_hard && gamestate.episode == (g_wl1 ? 0 : 1));
+    CHECK(count_sound(NOWAYSND) == (g_wl1 ? 1 : 0));
+    /* a game is on: "View Scores" became "End Game" */
+    CHECK(strcmp(MainMenu[viewscores].string, "End Game") == 0 && !MainMenu[viewscores].routine);
+    CHECK(MainMenu[readthis].active == 1);
+    startgame = false;
+}
+
+static void test_sound_menu(void)
+{
+    static const press_t script[] = {
+        SNAPKEY(sc_Return, "sound"), /* effects: None */
+        KEY(sc_DownArrow),           /* past the PC speaker, greyed */
+        KEY(sc_Return),              /* AdLib */
+        KEY(sc_Escape),
+    };
+
+    g_soundmode[0] = 2;
+    g_soundmode[1] = 2;
+    g_soundmode[2] = 1;
+    g_modesets = 0;
+    run_script(script, N(script));
+    CP_Sound(0);
+    CHECK(script_done());
+    CHECK(g_modesets == 2 && g_soundmode[0] == 2 && g_soundmode[1] == 2 && g_soundmode[2] == 1);
+}
+
+static void test_save_and_load(void)
+{
+    /* F2: slot 1 (the cursor moves down), a typed name */
+    static const press_t save[] = {
+        SNAPKEY(sc_DownArrow, "savegame"),
+        KEY(sc_Return),
+        {sc_T, 'T', NULL},
+        {sc_E, 'e', NULL},
+        {sc_S, 's', NULL},
+        {sc_BackSpace, 0, NULL},
+        {sc_S, 's', NULL},
+        {sc_T, 't', "typed"},
+        KEY(sc_Return),
+    };
+    /* F3: the cursor is on slot 1 */
+    static const press_t load[] = {
+        SNAPKEY(sc_Return, "loadgame"),
+    };
+    /* F9 before a slot was picked from the menus (pickquick): the load menu */
+    static const press_t quickload[] = {
+        SNAPKEY(sc_Escape, "loadmenu"),
+    };
+    int16_t health;
+
+    memset(g_slotlen, 0, sizeof(g_slotlen));
+    g_writes = 0;
+    NewViewSize(15);
+    NewGame(gd_hard, 0);
+    gamestate.mapon = 0;
+    CHECK(SetupGameLevel());
+    ingame = true;
+    gamestate.health = health = 57;
+
+    run_script(save, N(save));
+    US_ControlPanel(sc_F2);
+    printf("  saved \"%s\", %u bytes\n", g_slotname[1], (unsigned)g_slotlen[1]);
+    CHECK(script_done() && g_writes == 1 && g_slotlen[1] > 0 && !g_slotlen[0]);
+    CHECK(strcmp(g_slotname[1], "Test") == 0);
+
+    gamestate.health = 1;
+    run_script(load, N(load));
+    US_ControlPanel(sc_F3);
+    CHECK(script_done() && loadedgame && gamestate.health == health);
+    loadedgame = false;
+
+    /* the quick keys need a slot picked from their own menus first (pickquick) */
+    gamestate.health = 2;
+    run_script(quickload, N(quickload));
+    US_ControlPanel(sc_F9);
+    CHECK(script_done() && gamestate.health == 2 && !loadedgame);
+
+    ingame = false;
+    loadedgame = false;
+    orig_quit = false;
+    abortgame = false;
+    playstate = ex_stillplaying;
+}
+
+static void test_quick_keys(void)
+{
+    /* F8 without a picked slot: the save menu, slot 1 is used, overwrite it */
+    static const press_t pick[] = {
+        KEY(sc_Return),
+        SNAPKEY(sc_Y, "overwrite"),
+        KEY(sc_Return), /* the name as it was */
+    };
+    static const press_t yes[] = {
+        KEY(sc_Y),
+    };
+    int writes;
+
+    ingame = true;
+    gamestate.health = 66;
+    run_script(pick, N(pick));
+    US_ControlPanel(sc_F8);
+    CHECK(script_done() && g_writes == 2 && strcmp(g_slotname[1], "Test") == 0);
+
+    /* now F8 saves to it at once, and F9 asks, then loads it */
+    writes = g_writes;
+    run_script(NULL, 0);
+    US_ControlPanel(sc_F8);
+    CHECK(g_writes == writes + 1);
+
+    gamestate.health = 3;
+    run_script(yes, N(yes));
+    US_ControlPanel(sc_F9);
+    CHECK(script_done() && gamestate.health == 66 && !loadedgame);
+
+    ingame = false;
+}
+
+static void test_change_view(void)
+{
+    static const press_t bigger[] = {
+        SNAPKEY(sc_UpArrow, "changeview"),
+        KEY(sc_UpArrow),
+        KEY(sc_Return),
+    };
+    static const press_t cancel[] = {
+        KEY(sc_DownArrow),
+        KEY(sc_Escape),
+    };
+
+    NewViewSize(15);
+    run_script(bigger, N(bigger));
+    CP_ChangeView(0);
+    CHECK(script_done() && viewsize == 17 && viewwidth == 17 * 16);
+
+    run_script(cancel, N(cancel));
+    CP_ChangeView(0);
+    CHECK(script_done() && viewsize == 17 && viewwidth == 17 * 16);
+    NewViewSize(15);
+}
+
+static void test_high_scores(void)
+{
+    run_script(NULL, 0);
+    CP_ViewScores(0);
+    snap("scores");
+}
+
+int main(int argc, char **argv)
+{
+    wolf_data_dir_t dir;
+
+    InitGame();
+    if (argc < 2) {
+        printf("test_orig_menu: needs --data DIR; nothing to check\n");
+        return 0;
+    }
+    memset(&dir, 0, sizeof(dir));
+    if (!Wolf_ResolveDataDir(argc, argv, &dir)) {
+        return 1;
+    }
+    CA_Startup();
+    if (!CA_OpenMapFiles(&dir) || !CA_OpenGraphFiles(&dir)) {
+        fprintf(stderr, "FAIL: could not open %s\n", dir.path);
+        return 1;
+    }
+    g_wl1 = strcmp(g_gfx->name, "WL1") == 0;
+    upload = g_wl1;
+    printf("%s:\n", g_gfx->name);
+
+    test_main_menu_and_quit();
+    test_new_game();
+    test_sound_menu();
+    test_save_and_load();
+    test_quick_keys();
+    test_change_view();
+    test_high_scores();
+
+    check_screens();
+
+    if (g_failures) {
+        fprintf(stderr, "%d check(s) failed\n", g_failures);
+        return 1;
+    }
+    printf("test_orig_menu: all checks passed\n");
+    return 0;
+}

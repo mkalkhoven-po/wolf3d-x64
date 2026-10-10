@@ -192,19 +192,6 @@ extern const gfx_layout_t *g_gfx;
  * one pad byte, then 3 bytes per tic (buttons, dx, dy). */
 #define NUMDEMOS        4
 
-/* Control-panel colours (WL_MENU.H) */
-#define MENU_BORDCOLOR  0x29
-#define MENU_BORD2COLOR 0x23
-#define MENU_BKGDCOLOR  0x2d
-#define MENU_STRIPE     0x2c
-#define MENU_TEXTCOLOR  0x17
-#define MENU_HIGHLIGHT  0x13
-
-#define MENU_X 76
-#define MENU_Y 55
-#define MENU_W 178
-#define MENU_H (13 * 9 + 6)
-
 /* Original status strip height (WL_DEF.H). */
 #define STATUSLINES 40
 

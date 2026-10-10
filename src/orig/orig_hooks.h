@@ -11,6 +11,8 @@
  * Sound numbers are the soundnames of orig_audio.h (WL6 numbering).
  */
 
+#include <stddef.h>
+
 #include "orig_def.h"
 
 typedef struct {
@@ -68,15 +70,39 @@ typedef struct {
     void (*joy_delta)(int *dx, int *dy);
     boolean (*check_ack)(void); /* any key / button: ends demo playback */
 
-    /*
-     * The non-game part of CheckKeys: pause, the control panel (F1-F10,
-     * Esc), the other cheat keys, debug keys. It may set playstate.
-     */
-    void (*check_keys)(byte lastscan);
-    void (*cheat_message)(void); /* after the MLI cheat */
-
     void (*play_music)(int song); /* musicnames */
-    void (*stop_music)(void);
+    void (*stop_music)(void);     /* SD_MusicOff */
+    void (*resume_music)(void);   /* SD_MusicOn, after the pause */
+
+    /*
+     * The control panel (P5b). which: 0 sound effects (0 off, 1 PC
+     * speaker, 2 AdLib), 1 digitized sound (0 off, 1 Sound Source, 2 Sound
+     * Blaster), 2 music (0 off, 1 AdLib). sound_available says whether a
+     * mode can be chosen at all (the original greys out missing hardware).
+     */
+    int (*get_sound_mode)(int which);
+    void (*set_sound_mode)(int which, int mode);
+    boolean (*sound_available)(int which, int mode);
+
+    /*
+     * The save slots 0-9 of this pack: save_name fills name (32 chars) and
+     * says whether the slot holds a game; write_game stores SaveTheGame's
+     * stream under a name; read_game fills buf and returns the length, 0
+     * when the slot cannot be read.
+     */
+    boolean (*save_name)(int slot, char *name);
+    boolean (*write_game)(int slot, const char *name, const byte *data, size_t len);
+    size_t (*read_game)(int slot, byte *buf, size_t cap);
+
+    /*
+     * Not in the original: a game pad in the menus, read like the joystick
+     * (dx, dy -127..127; buttons: bit 0 select, bit 1 back). False when no
+     * pad is connected. Confirm takes A / B as Y / N, US_LineInput as Enter
+     * / Esc.
+     */
+    boolean (*pad_menu)(int *dx, int *dy, int *buttons);
+
+    void (*idle)(void); /* a moment's rest in a 2D screen's wait loop */
 
     /* palette: red shift 1-6, white shift 1-3, or 0 / 0 for the game palette */
     void (*set_palette_shift)(int red, int white);

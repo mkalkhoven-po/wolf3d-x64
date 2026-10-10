@@ -357,3 +357,226 @@ void VW_UpdateScreen(void)
         orig_hooks.update_screen();
     }
 }
+
+/* ------------------------------------------------------------ line input */
+
+#define MaxString 128 /* ID_US.H */
+
+/* USL_XORICursor: the I-bar cursor, drawn and erased in turn (VGA doesn't XOR) */
+static void XORICursor(int x, int y, const char *s, unsigned cursor)
+{
+    static boolean status;
+    char buf[MaxString];
+    uint16_t w, h;
+    byte temp;
+
+    strcpy(buf, s);
+    buf[cursor] = '\0';
+    VW_MeasurePropString(buf, &w, &h);
+
+    px = (int16_t)(x + w - 1);
+    py = (int16_t)y;
+    if ((status ^= 1) != 0) {
+        VWB_DrawPropString("\x80");
+    } else {
+        temp = fontcolor;
+        fontcolor = backcolor;
+        VWB_DrawPropString("\x80");
+        fontcolor = temp;
+    }
+}
+
+/*
+ * US_LineInput: a line of input at (x,y), starting from def. Input is
+ * restricted to maxchars chars or maxwidth pixels wide. Esc (when escok)
+ * copies nothing into buf and returns false. Not in the original: the window
+ * closing (orig_quit) gives up as Esc does; pad_menu's A accepts and B
+ * cancels, as Enter and Esc.
+ */
+boolean US_LineInput(int x, int y, char *buf, const char *def, boolean escok, int maxchars,
+                     int maxwidth)
+{
+    boolean redraw, cursorvis, cursormoved, done, result = false;
+    byte sc;
+    char c, s[MaxString], olds[MaxString];
+    unsigned i, cursor, len;
+    uint16_t w, h;
+    byte temp;
+    int32_t lasttime;
+    int padheld = 0;
+
+    if (def) {
+        snprintf(s, sizeof(s), "%s", def);
+    } else {
+        *s = '\0';
+    }
+    *olds = '\0';
+    cursor = (unsigned)strlen(s);
+    cursormoved = redraw = true;
+
+    cursorvis = done = false;
+    lasttime = GetTimeCount();
+    orig_lastascii = 0;
+    orig_lastscan = sc_None;
+    if (orig_hooks.pad_menu) {
+        int dx, dy;
+        (void)orig_hooks.pad_menu(&dx, &dy, &padheld); /* a button still down from the menu */
+    }
+
+    while (!done) {
+        if (cursorvis) {
+            XORICursor(x, y, s, cursor);
+        }
+
+        IN_Pump();
+        sc = orig_lastscan;
+        orig_lastscan = sc_None;
+        c = (char)orig_lastascii;
+        orig_lastascii = 0;
+
+        if (orig_quit) {
+            sc = sc_Escape;
+            escok = true;
+        } else if (orig_hooks.pad_menu) {
+            int dx, dy, jb = 0;
+
+            if (orig_hooks.pad_menu(&dx, &dy, &jb)) {
+                const int pressed = jb & ~padheld;
+                if (pressed & 1) {
+                    sc = sc_Return;
+                } else if (pressed & 2) {
+                    sc = sc_Escape;
+                }
+            }
+            padheld = jb;
+        }
+
+        switch (sc) {
+        case sc_LeftArrow:
+            if (cursor) {
+                cursor--;
+            }
+            c = 0;
+            cursormoved = true;
+            break;
+        case sc_RightArrow:
+            if (s[cursor]) {
+                cursor++;
+            }
+            c = 0;
+            cursormoved = true;
+            break;
+        case sc_Home:
+            cursor = 0;
+            c = 0;
+            cursormoved = true;
+            break;
+        case sc_End:
+            cursor = (unsigned)strlen(s);
+            c = 0;
+            cursormoved = true;
+            break;
+
+        case sc_Return:
+            strcpy(buf, s);
+            done = true;
+            result = true;
+            c = 0;
+            break;
+        case sc_Escape:
+            if (escok) {
+                done = true;
+                result = false;
+            }
+            c = 0;
+            break;
+
+        case sc_BackSpace:
+            if (cursor) {
+                memmove(s + cursor - 1, s + cursor, strlen(s + cursor) + 1);
+                cursor--;
+                redraw = true;
+            }
+            c = 0;
+            cursormoved = true;
+            break;
+        case sc_Delete:
+            if (s[cursor]) {
+                memmove(s + cursor, s + cursor + 1, strlen(s + cursor + 1) + 1);
+                redraw = true;
+            }
+            c = 0;
+            cursormoved = true;
+            break;
+
+        case 0x4c: /* Keypad 5 */
+        case sc_UpArrow:
+        case sc_DownArrow:
+        case sc_PgUp:
+        case sc_PgDn:
+        case sc_Insert:
+            c = 0;
+            break;
+        }
+
+        if (c) {
+            len = (unsigned)strlen(s);
+            VW_MeasurePropString(s, &w, &h);
+
+            if (c >= ' ' && c <= '~' && len < MaxString - 1 && (!maxchars || (int)len < maxchars) &&
+                (!maxwidth || w < maxwidth)) {
+                for (i = len + 1; i > cursor; i--) {
+                    s[i] = s[i - 1];
+                }
+                s[cursor++] = c;
+                redraw = true;
+            }
+        }
+
+        if (redraw) {
+            px = (int16_t)x;
+            py = (int16_t)y;
+            temp = fontcolor;
+            fontcolor = backcolor;
+            VWB_DrawPropString(olds);
+            fontcolor = temp;
+            strcpy(olds, s);
+
+            px = (int16_t)x;
+            py = (int16_t)y;
+            VWB_DrawPropString(s);
+
+            redraw = false;
+        }
+
+        if (cursormoved) {
+            cursorvis = false;
+            lasttime = GetTimeCount() - TICRATE; /* TickBase */
+
+            cursormoved = false;
+        }
+        if (GetTimeCount() - lasttime > TICRATE / 2) {
+            lasttime = GetTimeCount();
+
+            cursorvis ^= true;
+        }
+        if (cursorvis) {
+            XORICursor(x, y, s, cursor);
+        }
+
+        VW_UpdateScreen();
+    }
+
+    if (cursorvis) {
+        XORICursor(x, y, s, cursor);
+    }
+    if (!result) {
+        px = (int16_t)x;
+        py = (int16_t)y;
+        VWB_DrawPropString(olds);
+    }
+    VW_UpdateScreen();
+
+    IN_ClearKeysDown();
+    return result;
+}

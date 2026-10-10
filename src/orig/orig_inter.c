@@ -3,6 +3,8 @@
  * level; the intermission, victory and high scores follow in P5c.
  */
 
+#include <stdio.h>
+
 #include "id_ca.h"
 #include "orig.h"
 
@@ -50,5 +52,87 @@ void PreloadGraphics(void)
     VW_FadeOut();
 
     DrawPlayBorder();
+    VW_UpdateScreen();
+}
+
+/*
+=============================================================================
+
+                        HIGH SCORES (ID_US_1.C, WL_INTER.C)
+
+=============================================================================
+*/
+
+/* the platform replaces these with the saved table at startup */
+HighScore Scores[MaxScores] = {
+    {"id software-'92", 10000, 1, 0},
+    {"Adrian Carmack", 10000, 1, 0},
+    {"John Carmack", 10000, 1, 0},
+    {"Kevin Cloud", 10000, 1, 0},
+    {"Tom Hall", 10000, 1, 0},
+    {"John Romero", 10000, 1, 0},
+    {"Jay Wilbur", 10000, 1, 0},
+};
+
+/* digits as the fixed-width characters 129... of the small font */
+static void FixedWidth(char *buffer)
+{
+    char *str;
+
+    for (str = buffer; *str; str++) {
+        *str = (char)(*str + (129 - '0'));
+    }
+}
+
+void DrawHighScores(void)
+{
+    char buffer[16], buffer1[8];
+    uint16_t w, h;
+    int i;
+    const HighScore *s;
+
+    ClearMScreen();
+    DrawStripes(10);
+
+    VWB_DrawPic(48, 0, HIGHSCORESPIC);
+
+    VWB_DrawPic(4 * 8, 68, C_NAMEPIC);
+    VWB_DrawPic(20 * 8, 68, C_LEVELPIC);
+    VWB_DrawPic(28 * 8, 68, C_SCOREPIC);
+    fontnumber = 0;
+
+    SETFONTCOLOR(15, 0x29);
+
+    for (i = 0, s = Scores; i < MaxScores; i++, s++) {
+        PrintY = (uint16_t)(76 + (16 * i));
+
+        /* name */
+        PrintX = 4 * 8;
+        US_Print(s->name);
+
+        /* level */
+        snprintf(buffer, sizeof(buffer), "%u", (unsigned)s->completed);
+        FixedWidth(buffer);
+        VW_MeasurePropString(buffer, &w, &h);
+        PrintX = (uint16_t)((22 * 8) - w);
+
+        if (!upload) { /* the registered episodes show which one */
+            PrintX -= 6;
+            snprintf(buffer1, sizeof(buffer1), "%d", s->episode + 1);
+            US_Print("E");
+            US_Print(buffer1);
+            US_Print("/L");
+        }
+
+        US_Print(buffer);
+
+        /* score */
+        snprintf(buffer, sizeof(buffer), "%lu", (unsigned long)(uint32_t)s->score);
+        FixedWidth(buffer);
+        VW_MeasurePropString(buffer, &w, &h);
+        PrintX = (uint16_t)((34 * 8) - 8 - w);
+        US_Print(buffer);
+    }
+
     VW_UpdateScreen();
 }

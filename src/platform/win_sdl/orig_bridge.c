@@ -131,3 +131,54 @@ int Bridge_MouseLook(void)
 {
     return g_config.mouse_look;
 }
+
+/* the control panel's sound modes: which 0 effects, 1 digitized, 2 music (orig_hooks.h) */
+int Bridge_GetSoundMode(int which)
+{
+    switch (which) {
+    case 0:
+        return SoundMode == sdm_AdLib ? 2 : 0;
+    case 1:
+        return DigiMode == sds_SoundBlaster ? 2 : 0;
+    default:
+        return MusicMode == smm_AdLib ? 1 : 0;
+    }
+}
+
+void Bridge_SetSoundMode(int which, int mode)
+{
+    switch (which) {
+    case 0:
+        SD_SetSoundMode(mode == 2 ? sdm_AdLib : sdm_Off);
+        break;
+    case 1:
+        SD_SetDigiDevice(mode == 2 ? sds_SoundBlaster : sds_Off);
+        break;
+    default:
+        SD_SetMusicMode(mode == 1 ? smm_AdLib : smm_Off);
+        break;
+    }
+}
+
+/* AdLib effects and music, and the Sound Blaster's digitized sound; no PC speaker or Sound Source */
+boolean Bridge_SoundAvailable(int which, int mode)
+{
+    switch (which) {
+    case 0:
+        return mode == 2 && SD_AdLibPresent();
+    case 1:
+        return mode == 2 && SD_DigiPresent();
+    default:
+        return mode == 1 && SD_AdLibPresent();
+    }
+}
+
+void Bridge_MusicOn(void)
+{
+    SD_MusicOn();
+}
+
+void Bridge_StopSound(void)
+{
+    SD_StopSound();
+}
