@@ -257,7 +257,7 @@ void Wolf_PrintDataUsage(void)
             "  wolf3d.exe --data <dir> [--smoke-only]\n"
             "  set WOLF3D_DATA=<dir> && wolf3d.exe [--smoke-only]\n"
             "  wolf3d.exe --data <dir> [--map N] [--skill 0-3] [--viewsize 4-20]\n"
-            "             [--demo 0-3] [--load 0-5] [--screenshot N file.bmp]\n"
+            "             [--demo 0-3] [--load 0-9] [--screenshot N file.bmp]\n"
             "    (any of these starts the game directly instead of the menu;\n"
             "     in the game F8 saves and F9 loads, Esc returns to the menu)\n"
             "\n"

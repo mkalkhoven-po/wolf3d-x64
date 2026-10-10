@@ -273,12 +273,12 @@ static void test_palette_shifts(void)
 
 /* --------------------------------------------------------- cheats / music */
 
-static int g_checkkeys, g_scan, g_song = -1;
+static int g_song = -1, g_acks;
 
-static void check_keys(byte scan)
+static boolean count_ack(void)
 {
-    g_checkkeys++;
-    g_scan = scan;
+    g_acks++;
+    return true;
 }
 
 static void play_music(int song)
@@ -291,7 +291,7 @@ static void test_cheat_and_music(void)
     empty_map();
     AT(plane1, 10, 10) = 20;
     load_level(gd_hard);
-    orig_hooks.check_keys = check_keys;
+    orig_hooks.check_ack = count_ack;
     orig_hooks.play_music = play_music;
     gamestate.health = 20;
     gamestate.score = 1234;
@@ -299,18 +299,22 @@ static void test_cheat_and_music(void)
 
     memset(orig_keys, 0, sizeof(orig_keys));
     orig_keys[sc_M] = orig_keys[sc_L] = orig_keys[sc_I] = 1;
-    orig_lastscan = 0x01;
+    orig_lastscan = sc_I;
+    g_acks = 0;
     CheckKeys();
     CHECK(gamestate.health == 100 && gamestate.ammo == 99 && gamestate.keys == 3);
     CHECK(gamestate.score == 0 && gamestate.TimeCount == 42100);
     CHECK(gamestate.bestweapon == wp_chaingun && gamestate.weapon == wp_chaingun);
-    CHECK(!orig_keys[sc_M]); /* keys cleared */
-    CHECK(g_checkkeys == 1 && g_scan == 0x01);
+    CHECK(!orig_keys[sc_M] && !orig_lastscan); /* keys cleared */
+    CHECK(g_acks == 1);                         /* the message waits for a key */
 
     demoplayback = true; /* no keys during demos */
+    orig_keys[sc_M] = orig_keys[sc_L] = orig_keys[sc_I] = 1;
+    gamestate.health = 20;
     CheckKeys();
     demoplayback = false;
-    CHECK(g_checkkeys == 1);
+    CHECK(g_acks == 1 && gamestate.health == 20);
+    memset(orig_keys, 0, sizeof(orig_keys));
 
     gamestate.episode = 0;
     gamestate.mapon = 0;
@@ -445,6 +449,7 @@ static void test_play_loop(void)
     demoptr = demo + 4;
     lastdemoptr = demo + sizeof(demo);
     fizzlein = true;
+    startgame = false; /* as PlayDemo after NewGame */
     PlayLoop();
     demoplayback = false;
 

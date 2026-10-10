@@ -169,6 +169,19 @@ boolean SetViewSize(unsigned width, unsigned height)
 ==========================
 */
 
+/* the border for a view size, without changing it (Change View) */
+void ShowViewSize(int width)
+{
+    const int16_t oldwidth = viewwidth, oldheight = viewheight;
+
+    viewwidth = (int16_t)(width * 16);
+    viewheight = (int16_t)(width * 16 * HEIGHTRATIO);
+    DrawPlayBorder();
+
+    viewheight = oldheight;
+    viewwidth = oldwidth;
+}
+
 void NewViewSize(int width)
 {
     viewsize = (int16_t)width;
@@ -195,6 +208,8 @@ void NewGame(int difficulty, int episode)
     gamestate.lives = 3;
     gamestate.nextextra = EXTRAPOINTS;
     gamestate.episode = (int16_t)episode;
+
+    startgame = true;
 }
 
 /*
@@ -615,7 +630,7 @@ void SetupLoadedLevel(void)
 */
 
 boolean ingame;
-boolean abortgame; /* not in the original: the platform's way out until P5's menus */
+boolean abortgame; /* not in the original: leave GameLoop (Quit, a lost game, the platform) */
 
 /* back from each episode's secret level (WL_GAME.C) */
 static const int16_t ElevatorBackTo[6] = {1, 1, 7, 3, 5, 3};
@@ -894,12 +909,18 @@ restartgame:
             if (orig_hooks.game_over) {
                 orig_hooks.game_over(); /* CheckHighScore */
             }
+
+            strcpy(MainMenu[viewscores].string, STR_VS);
+            MainMenu[viewscores].routine = CP_ViewScores;
             return;
 
         case ex_victorious:
             if (orig_hooks.victory) {
                 orig_hooks.victory(); /* Victory, CheckHighScore */
             }
+
+            strcpy(MainMenu[viewscores].string, STR_VS);
+            MainMenu[viewscores].routine = CP_ViewScores;
             return;
 
         default:

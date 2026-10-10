@@ -390,6 +390,43 @@ void SD_SetSilent(boolean silent)
     }
 }
 
+boolean SD_AdLibPresent(void)
+{
+    return audio_dev != 0 && audiot_blob != NULL;
+}
+
+boolean SD_DigiPresent(void)
+{
+    return audio_dev != 0 && num_digi > 0;
+}
+
+/* SD_SetSoundMode: the AdLib effects on or off (no PC speaker here) */
+void SD_SetSoundMode(SDMode mode)
+{
+    LOCK();
+    SDA_StopSound();
+    UNLOCK();
+    SoundMode = mode == sdm_AdLib && SD_AdLibPresent() ? sdm_AdLib : sdm_Off;
+}
+
+/* SD_SetDigiDevice: digitized sound through the Sound Blaster, or off */
+void SD_SetDigiDevice(SDSMode mode)
+{
+    LOCK();
+    digi_data = NULL; /* SD_StopDigitized */
+    DigiNumber = DigiPriority = 0;
+    SoundPositioned = false;
+    UNLOCK();
+    DigiMode = mode == sds_SoundBlaster && SD_DigiPresent() ? sds_SoundBlaster : sds_Off;
+}
+
+/* SD_SetMusicMode: off stops the music; AdLib takes the next SD_StartMusic */
+void SD_SetMusicMode(SMMode mode)
+{
+    SD_MusicOff();
+    MusicMode = mode == smm_AdLib && SD_AdLibPresent() ? smm_AdLib : smm_Off;
+}
+
 boolean SD_SetupFromData(const wolf_data_dir_t *dir)
 {
     SDL_AudioSpec want, have;

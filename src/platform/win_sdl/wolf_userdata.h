@@ -10,31 +10,24 @@
 
 #define WOLF_APPDATA_DIRNAME "Wolf3DWin64"
 #define WOLF_CONFIG_NAME "config.ini"
-#define WOLF_HIGHSCORE_NAME "highscores.dat"
 #define WOLF_SAVE_MAGIC "W64S"
 #define WOLF_SAVE_VERSION 2 /* 1 was the legacy engine; see ADR-002 */
-#define WOLF_MAX_SAVE_SLOTS 6
-#define WOLF_MAX_HIGH_SCORES 7
+#define WOLF_MAX_SAVE_SLOTS 10 /* the control panel's ten */
 
 typedef struct {
     int scale;          /* integer window scale 1..8 (logical 320x200) */
     int fullscreen;     /* 0 windowed, 1 desktop fullscreen */
     int mouse_look;     /* mouse X turns */
     int mouse_sens;     /* 1..20 */
-    int music_on;
-    int sfx_on;
+    int music_on;       /* AdLib music */
+    int sfx_on;         /* AdLib sound effects */
+    int digi_on;        /* digitized sound (Sound Blaster) */
+    int viewsize;       /* 4..20, the Change View setting */
     char last_data[WOLF_PATH_MAX];
 } wolf_config_t;
 
-typedef struct {
-    char name[16];
-    int score;
-    int episode;
-    int level;
-} wolf_highscore_t;
-
 extern wolf_config_t g_config;
-extern wolf_highscore_t g_highscores[WOLF_MAX_HIGH_SCORES];
+extern boolean g_config_found; /* a config.ini was there to load: not the first run */
 
 /* Resolve %APPDATA%\Wolf3DWin64 (creates directory). */
 boolean Wolf_GetAppDataDir(char *out, size_t out_sz);
@@ -46,13 +39,14 @@ void Wolf_ConfigSetDefaults(void);
 boolean Wolf_ConfigLoad(void);
 boolean Wolf_ConfigSave(void);
 
-boolean Wolf_HighScoresLoad(void);
-boolean Wolf_HighScoresSave(void);
-void Wolf_HighScoresTryInsert(int score, int episode, int level, const char *name);
+/* The high score table of a pack ("WL1" / "WL6"), as the runner lays it out. */
+boolean Wolf_ScoresLoad(const char *pack, byte *data, size_t len);
+boolean Wolf_ScoresSave(const char *pack, const byte *data, size_t len);
 
 /*
  * Save slots (format v2): the engine's SaveTheGame stream in a file with a
- * header (pack, description, CRC-32). pack is "WL1" or "WL6".
+ * header (pack, description, CRC-32). pack is "WL1" or "WL6"; each pack has
+ * its own files (savegam0.WL6 ...), so its own ten slots.
  */
 #define WOLF_SAVE_DESC 32
 
@@ -70,7 +64,6 @@ boolean Wolf_WriteSave(int slot, const char *pack, const char *desc, const byte 
 wolf_save_result_t Wolf_ReadSave(int slot, const char *pack, byte *buf, size_t cap, size_t *len,
                                  char *desc);
 const char *Wolf_SaveResultText(wolf_save_result_t result); /* for a message on screen */
-boolean Wolf_SaveExists(int slot);
 
 /* User dirs smoke: write+read config in AppData without writing next to exe. */
 boolean Wolf_UserDataSmokeVerify(void);

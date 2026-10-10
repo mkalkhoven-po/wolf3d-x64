@@ -38,15 +38,15 @@ build\wolf3d.exe --data "%WOLF3D_DATA%"
 ### Play
 1. Double-click `build\wolf3d.exe` (with the pack as above), or use `--data`.
    In PowerShell start it as `.\build\wolf3d.exe`.
-2. **Enter** on the title → main menu.
-3. **NEW GAME** → episode 1, floor 1 on "Bring 'em on", or **LOAD GAME** to
-   continue from your quick save.
+2. Any key on the title page → the original control panel (**Options**).
+3. **New Game** → pick an episode and how tough you are, or **Load Game**.
 
 The game is a faithful port of the original engine (fixed point, 70 Hz, the
-original AI and renderer; see ADR-002). The original menus (episode and skill
-choice, sound, controls, save slots), the intermission screens and the
-title/demo loop arrive in P5; until then the menu above is a stand-in, and
-**Esc** in the game returns to it.
+original AI and renderer, the original control panel; see ADR-002). **Esc**
+in the game opens the control panel; **Back to Game** returns. Still to come
+in P5: the Control menu and Read This! (P5b2; their items show a note for
+now), the intermission screens (P5c) and the credits / high scores / demos
+between title pages (P5d).
 
 Smoke harness (no full play loop):
 ```bat
@@ -73,7 +73,7 @@ build\wolf3d.exe --data "%WOLF3D_DATA%" --load 0
 | `--skill 0-3` | Can I play, Daddy? … I am Death incarnate! (default 2) |
 | `--viewsize 4-20` | View size as in the original (default 15; 20 fills the play area) |
 | `--demo 0-3` | Watch one of the pack's demos, then quit |
-| `--load 0-5` | Continue from a save slot (F8 saves to slot 0) |
+| `--load 0-9` | Continue from a save slot (the Save Game menu's slots, top one 0) |
 | `--screenshot N file.bmp` | Save frame N as an 8-bit BMP (handy for bug reports) |
 | `--frames N` | Stop after N frames; with `--fast` (no clock) used by the smoke tests |
 
@@ -92,14 +92,23 @@ The original defaults:
 | Right Shift | Run |
 | Space | Open door / elevator |
 | 1-4 | Knife, pistol, machine gun, chain gun |
-| F8 | Quick save (slot 0) |
-| F9 | Quick load (slot 0) |
+| Esc | The control panel |
+| F1 | Help (Read This!, P5b2) |
+| F2 / F3 | Save Game / Load Game |
+| F4 | Sound |
+| F5 | Change View |
+| F6 | Control (P5b2) |
+| F7 | End the game |
+| F8 / F9 | Quick save / quick load: the slot last used in the Save or Load menu |
+| F10 | Quit |
 | Pause | Pause |
 | F11 | Fullscreen toggle |
-| Esc | Back to the menu (the original control panel is P5) |
 
-In the menu: arrows and **Enter**, **+ / -** change the window scale, **Esc**
-goes back to the title and from there quits.
+In the control panel: arrows (or the mouse, with `mouse_look` on) move the
+gun, **Enter** / **Space** / **Ctrl** / left click choose, **Esc** / **Alt** /
+right click go back, and the first letter of an item jumps to it, as in the
+original. Questions take **Y** or **N**. The window scale is `scale` in
+`config.ini`.
 
 With `mouse_look` on in `config.ini` the mouse turns and moves, and its
 buttons shoot, strafe and open doors. When you die, BJ turns towards the
@@ -122,7 +131,7 @@ twin-stick, analog on both sticks:
 | D-pad | As the arrow keys |
 | Start | Back to the menu (as Esc) |
 | Back | Pause |
-| In the menu | D-pad or left stick, **A** chooses, **B** goes back |
+| In the menus | D-pad or left stick, **A** chooses, **B** goes back; **A** / **B** answer yes / no, and accept / cancel a save's name |
 
 Walking and strafing at the same time as turning is not something the
 original controls could do; it is added for pads only, and demos (which
@@ -130,27 +139,30 @@ cannot store it) never use it.
 
 ## Saving
 
-**F8** saves the game in slot 0 and **F9** loads it, from anywhere in a
-level; the menu's **LOAD GAME** and `--load 0` start from it too. The save
-holds the whole level as the original's did (every actor, door, pushwall
-and pickup), so a loaded game carries on exactly where it was. A save only
-loads with the data it was made with (WL1 or WL6). Saves from before P4/S6
-(the old engine) cannot be loaded.
+**Save Game** (or **F2**) has the original's ten slots: pick one, type a
+name, **Enter**. **Load Game** (**F3**) continues from one. After that,
+**F8** saves to the same slot at once and **F9** asks, then loads it. A save
+holds the whole level as the original's did (every actor, door, pushwall and
+pickup), so a loaded game carries on exactly where it was. WL1 and WL6 have
+their own slots. Quick saves from before P5b (`save0.w64`) are no longer
+listed.
 
 ## Sound
 
 Music and the AdLib-only effects (treasure, ammo, health, keys, extra life)
 play through an emulated AdLib (OPL2) chip, and the digitized effects (guns,
 doors, voices) like a Sound Blaster Pro, placed left or right by where they
-happen. In `config.ini`, `sfx_on=0` turns the effects off and `music_on=0`
-the music; each leaves the other alone.
+happen. The control panel's **Sound** menu switches the AdLib effects, the
+digitized sound and the music on and off, each on its own (the PC speaker and
+the Disney Sound Source are greyed out, as on a machine without them); the
+choice is kept in `config.ini` (`sfx_on`, `digi_on`, `music_on`).
 
 ## Where settings live
 ```
 %APPDATA%\Wolf3DWin64\
-  config.ini        scale, fullscreen, mouse, audio toggles, last_data
-  highscores.dat
-  save0.w64 …       save slots (F8 / F9 in the game)
+  config.ini        scale, fullscreen, mouse, sound menu, view size, last_data
+  scores.WL6 / .WL1 the high score table of each pack
+  savegam0.WL6 …    the ten save slots of each pack
 ```
 
 The game does **not** need write access next to Program Files.

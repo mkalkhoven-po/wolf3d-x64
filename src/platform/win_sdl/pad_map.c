@@ -80,3 +80,23 @@ int Pad_NextWeapon(int weapon, int bestweapon, int step)
     }
     return next;
 }
+
+void Pad_Menu(const pad_state_t *now, int *dx, int *dy, int *buttons)
+{
+    int sx, sy;
+
+    Pad_Stick(now->lx, now->ly, PAD_LEFT_DEADZONE, &sx, &sy);
+    *dx = sx * 127 / 1000;
+    *dy = sy * 127 / 1000;
+    if (now->buttons & PAD_LEFT) {
+        *dx = -127;
+    } else if (now->buttons & PAD_RIGHT) {
+        *dx = 127;
+    }
+    if (now->buttons & PAD_UP) {
+        *dy = -127;
+    } else if (now->buttons & PAD_DOWN) {
+        *dy = 127;
+    }
+    *buttons = ((now->buttons & PAD_A) ? 1 : 0) | ((now->buttons & PAD_B) ? 2 : 0);
+}

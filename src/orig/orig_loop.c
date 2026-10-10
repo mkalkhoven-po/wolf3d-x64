@@ -13,6 +13,7 @@
 
 #include <string.h>
 
+#include "id_ca.h"
 #include "id_us.h"
 
 /* ------------------------------------------------------------ the clock */
@@ -24,6 +25,18 @@ static int32_t ReadTimeCount(void)
         TimeCount = orig_hooks.read_time();
     }
     return TimeCount;
+}
+
+/*
+ * The clock for the 2D screens' waits (the menus count TimeCount down by
+ * hand). Headless it moves on by one at every read, so every wait ends.
+ */
+int32_t GetTimeCount(void)
+{
+    if (orig_hooks.read_time) {
+        return TimeCount = orig_hooks.read_time();
+    }
+    return ++TimeCount;
 }
 
 /* the game setting TimeCount: the platform clock follows */
@@ -96,11 +109,45 @@ void CalcTics(void)
 byte orig_keys[NUMCODES]; /* the keyboard interrupt's Keyboard[] */
 byte orig_lastscan;        /* LastScan: the last key pressed */
 
+byte orig_lastascii; /* LastASCII: the last character typed */
+boolean Paused;       /* the Pause key (the keyboard interrupt sets it) */
+boolean orig_quit;    /* not in the original: the window was closed, every wait gives up */
+
 /* IN_ClearKeysDown (ID_IN.C): forget the keys held and the last key pressed */
 void IN_ClearKeysDown(void)
 {
     memset(orig_keys, 0, sizeof(orig_keys));
     orig_lastscan = 0;
+    orig_lastascii = 0;
+}
+
+/*
+ * One round of a 2D screen's wait loop: let the platform update the key
+ * table (the original's interrupts did that by themselves) and rest a
+ * moment.
+ */
+void IN_Pump(void)
+{
+    if (orig_hooks.poll_input) {
+        orig_hooks.poll_input();
+    }
+    if (orig_hooks.idle) {
+        orig_hooks.idle();
+    }
+}
+
+/* IN_Ack: wait for a key or button; headless there is nothing to wait for */
+void IN_Ack(void)
+{
+    IN_ClearKeysDown();
+    if (!orig_hooks.check_ack) {
+        return;
+    }
+    while (!orig_quit && !orig_hooks.check_ack()) {
+        if (orig_hooks.idle) {
+            orig_hooks.idle();
+        }
+    }
 }
 
 boolean mouseenabled, joystickenabled, joypadenabled, joystickprogressive;
@@ -452,14 +499,22 @@ byte *DemoRecordingEnd(void)
 =
 = CheckKeys
 =
-= The game-state part: the MLI cheat. Pause, the control panel, the other
-= cheats, their messages and the debug keys are the platform layer's
-= (check_keys hook); it may end the level by setting playstate.
+= The cheats (MLI, BAT), pause and the control panel. The debug keys
+= (Backspace-Shift-Alt with "goobers", then Tab) are not ported.
 =
 =====================
 */
 
 boolean screenfaded;
+
+static void CheatMessage(const char *text)
+{
+    ClearSplitVWB();
+    Message(text);
+    IN_ClearKeysDown();
+    IN_Ack();
+    DrawPlayBorder();
+}
 
 void CheckKeys(void)
 {
@@ -469,7 +524,7 @@ void CheckKeys(void)
         return;
     }
 
-    scan = orig_lastscan; /* before the cheat below clears it, as the original */
+    scan = orig_lastscan; /* before the cheats below clear it, as the original */
 
     /* SECRET CHEAT CODE: MLI */
     if (KeyDown(sc_M) && KeyDown(sc_L) && KeyDown(sc_I)) {
@@ -486,14 +541,79 @@ void CheckKeys(void)
         DrawAmmo();
         DrawScore();
 
-        if (orig_hooks.cheat_message) {
-            orig_hooks.cheat_message(); /* "You now have 100% Health..." */
-        }
-        IN_ClearKeysDown();
+        CheatMessage("You now have 100% Health,\n"
+                     "99 Ammo and both Keys!\n\n"
+                     "Note that you have basically\n"
+                     "eliminated your chances of\n"
+                     "getting a high score!");
     }
 
-    if (orig_hooks.check_keys) {
-        orig_hooks.check_keys(scan);
+    /* TRYING THE KEEN CHEAT CODE! */
+    if (KeyDown(sc_B) && KeyDown(sc_A) && KeyDown(sc_T)) {
+        CheatMessage("Commander Keen is also\n"
+                     "available from Apogee, but\n"
+                     "then, you already know\n"
+                     "that - right, Cheatmeister?!");
+    }
+
+    /* pause key weirdness can't be checked as a scan code */
+    if (Paused) {
+        VWB_DrawPic((20 - 4) * 8, 80 - 2 * 8, PAUSEDPIC);
+        VW_UpdateScreen();
+        if (orig_hooks.stop_music) {
+            orig_hooks.stop_music();
+        }
+        IN_Ack();
+        IN_ClearKeysDown();
+        if (orig_hooks.resume_music) {
+            orig_hooks.resume_music();
+        }
+        Paused = false;
+        if (orig_hooks.mouse_delta) {
+            int dx, dy;
+            orig_hooks.mouse_delta(&dx, &dy); /* clear accumulated mouse movement */
+        }
+        return;
+    }
+
+    /* F7-F10: the dialogs over the game */
+    if (scan == sc_F10 || scan == sc_F9 || scan == sc_F7 || scan == sc_F8) {
+        ClearSplitVWB();
+        US_ControlPanel(scan);
+        DrawPlayBorder(); /* DrawAllPlayBorderSides */
+        if (scan == sc_F9) {
+            StartMusic();
+        }
+        SETFONTCOLOR(0, 15);
+        IN_ClearKeysDown();
+        if (abortgame) {
+            playstate = ex_abort; /* not in the original: Quit chosen, or the window closed */
+        }
+        return;
+    }
+
+    /* F1-F6 / Esc: the control panel */
+    if ((scan >= sc_F1 && scan <= sc_F9) || scan == sc_Escape) {
+        StopMusic();
+        VW_FadeOut();
+        US_ControlPanel(scan);
+        SETFONTCOLOR(0, 15);
+        IN_ClearKeysDown();
+        DrawPlayScreen();
+        if (!startgame && !loadedgame) {
+            VW_FadeIn();
+            StartMusic();
+        }
+        if (loadedgame || abortgame) {
+            playstate = ex_abort;
+        }
+        lasttimecount = 0;
+        SetTimeCount(0); /* lasttimecount = TimeCount: no big tic count after the menus */
+        if (orig_hooks.mouse_delta) {
+            int dx, dy;
+            orig_hooks.mouse_delta(&dx, &dy);
+        }
+        return;
     }
 }
 

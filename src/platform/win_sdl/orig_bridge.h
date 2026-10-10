@@ -30,6 +30,13 @@ boolean Bridge_SoundPositioned(void);
 void Bridge_WaitSoundDone(void);
 void Bridge_StartMusic(int song);
 void Bridge_MusicOff(void);
+void Bridge_MusicOn(void);
+void Bridge_StopSound(void);
+
+/* sound modes as the control panel has them (orig_hooks.h: get/set_sound_mode) */
+int Bridge_GetSoundMode(int which);
+void Bridge_SetSoundMode(int which, int mode);
+boolean Bridge_SoundAvailable(int which, int mode);
 
 const byte *Bridge_Page(int page); /* VSWAP page */
 int Bridge_SpriteStart(void);

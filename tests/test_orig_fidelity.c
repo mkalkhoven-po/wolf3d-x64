@@ -512,6 +512,7 @@ static void test_e1m1_route(void)
     g_frames = g_botframe = g_stillframes = 0;
     g_lastx = g_lasty = -1;
     fizzlein = true;
+    startgame = false; /* as RecordDemo after NewGame */
     PlayLoop();
     demorecord = false;
     recorded = g_frames;

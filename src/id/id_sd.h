@@ -53,6 +53,13 @@ boolean SD_SoundPositioned(void);                 /* a placed digitized sound pl
 /* Sound effects off (music has MusicMode). */
 void SD_SetSilent(boolean silent);
 
+/* The control panel's sound menu (ID_SD.C). Modes this machine cannot play become off. */
+boolean SD_AdLibPresent(void); /* an audio device and the AdLib sounds (AUDIOT) */
+boolean SD_DigiPresent(void);  /* an audio device and digitized sounds (VSWAP) */
+void SD_SetSoundMode(SDMode mode);
+void SD_SetDigiDevice(SDSMode mode);
+void SD_SetMusicMode(SMMode mode);
+
 /* Smoke helpers */
 int SD_NumDigi(void);
 boolean SD_HasDigiFor(word sound);

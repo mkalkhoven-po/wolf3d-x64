@@ -15,7 +15,7 @@
 
 
 wolf_config_t g_config;
-wolf_highscore_t g_highscores[WOLF_MAX_HIGH_SCORES];
+boolean g_config_found;
 
 boolean Wolf_GetAppDataDir(char *out, size_t out_sz)
 {
@@ -83,6 +83,8 @@ void Wolf_ConfigSetDefaults(void)
     g_config.mouse_sens = 8;
     g_config.music_on = 1;
     g_config.sfx_on = 1;
+    g_config.digi_on = 1;
+    g_config.viewsize = 15;
     g_config.last_data[0] = '\0';
 }
 
@@ -104,6 +106,10 @@ static void clamp_config(void)
     }
     g_config.music_on = g_config.music_on ? 1 : 0;
     g_config.sfx_on = g_config.sfx_on ? 1 : 0;
+    g_config.digi_on = g_config.digi_on ? 1 : 0;
+    if (g_config.viewsize < 4 || g_config.viewsize > 20) {
+        g_config.viewsize = 15;
+    }
 }
 
 boolean Wolf_ConfigLoad(void)
@@ -140,12 +146,17 @@ boolean Wolf_ConfigLoad(void)
             g_config.music_on = atoi(val);
         } else if (strcmp(key, "sfx_on") == 0) {
             g_config.sfx_on = atoi(val);
+        } else if (strcmp(key, "digi_on") == 0) {
+            g_config.digi_on = atoi(val);
+        } else if (strcmp(key, "viewsize") == 0) {
+            g_config.viewsize = atoi(val);
         } else if (strcmp(key, "last_data") == 0) {
             snprintf(g_config.last_data, sizeof(g_config.last_data), "%s", val);
         }
     }
     fclose(f);
     clamp_config();
+    g_config_found = true;
     return true;
 }
 
@@ -169,77 +180,53 @@ boolean Wolf_ConfigSave(void)
     fprintf(f, "mouse_sens=%d\n", g_config.mouse_sens);
     fprintf(f, "music_on=%d\n", g_config.music_on);
     fprintf(f, "sfx_on=%d\n", g_config.sfx_on);
+    fprintf(f, "digi_on=%d\n", g_config.digi_on);
+    fprintf(f, "viewsize=%d\n", g_config.viewsize);
     fprintf(f, "last_data=%s\n", g_config.last_data);
     fclose(f);
     return true;
 }
 
-boolean Wolf_HighScoresLoad(void)
+/* the high score table, per pack: scores.WL1 / scores.WL6 */
+static void scores_path(const char *pack, char *out, size_t out_sz)
+{
+    char name[32];
+    snprintf(name, sizeof(name), "scores.%s", pack);
+    (void)Wolf_GetAppDataPath(name, out, out_sz);
+}
+
+boolean Wolf_ScoresLoad(const char *pack, byte *data, size_t len)
 {
     char path[WOLF_PATH_MAX];
     FILE *f;
-    int i;
+    boolean ok;
 
-    memset(g_highscores, 0, sizeof(g_highscores));
-    for (i = 0; i < WOLF_MAX_HIGH_SCORES; ++i) {
-        snprintf(g_highscores[i].name, sizeof(g_highscores[i].name), "BJ");
-    }
-    if (!Wolf_GetAppDataPath(WOLF_HIGHSCORE_NAME, path, sizeof(path))) {
-        return false;
-    }
+    scores_path(pack, path, sizeof(path));
     f = fopen(path, "rb");
     if (!f) {
         return false;
     }
-    if (fread(g_highscores, sizeof(g_highscores), 1, f) != 1) {
-        fclose(f);
-        return false;
-    }
+    ok = fread(data, 1, len, f) == len;
     fclose(f);
-    return true;
+    return ok;
 }
 
-boolean Wolf_HighScoresSave(void)
+boolean Wolf_ScoresSave(const char *pack, const byte *data, size_t len)
 {
     char path[WOLF_PATH_MAX];
     FILE *f;
-    if (!Wolf_GetAppDataPath(WOLF_HIGHSCORE_NAME, path, sizeof(path))) {
-        return false;
-    }
+    boolean ok;
+
+    scores_path(pack, path, sizeof(path));
     f = fopen(path, "wb");
     if (!f) {
         return false;
     }
-    if (fwrite(g_highscores, sizeof(g_highscores), 1, f) != 1) {
-        fclose(f);
-        return false;
-    }
-    fclose(f);
-    return true;
+    ok = fwrite(data, 1, len, f) == len;
+    ok = (fclose(f) == 0) && ok;
+    return ok;
 }
 
-void Wolf_HighScoresTryInsert(int score, int episode, int level, const char *name)
-{
-    int i, j;
-    if (score <= g_highscores[WOLF_MAX_HIGH_SCORES - 1].score) {
-        return;
-    }
-    for (i = 0; i < WOLF_MAX_HIGH_SCORES; ++i) {
-        if (score > g_highscores[i].score) {
-            for (j = WOLF_MAX_HIGH_SCORES - 1; j > i; --j) {
-                g_highscores[j] = g_highscores[j - 1];
-            }
-            memset(&g_highscores[i], 0, sizeof(g_highscores[i]));
-            g_highscores[i].score = score;
-            g_highscores[i].episode = episode;
-            g_highscores[i].level = level;
-            snprintf(g_highscores[i].name, sizeof(g_highscores[i].name), "%s",
-                     name && name[0] ? name : "PLAYER");
-            (void)Wolf_HighScoresSave();
-            return;
-        }
-    }
-}
 /*
  * Save files, format v2 (ADR-002): a header, then the engine's stream
  * (SaveTheGame in src/orig/orig_save.c). All numbers little-endian.
@@ -255,10 +242,11 @@ void Wolf_HighScoresTryInsert(int score, int episode, int level, const char *nam
  */
 #define SAVE_HEADER 52
 
-static void save_path(int slot, char *out, size_t out_sz)
+/* savegam0.WL6 and on: each pack has its own slots */
+static void save_path(int slot, const char *pack, char *out, size_t out_sz)
 {
     char name[32];
-    snprintf(name, sizeof(name), "save%d.w64", slot);
+    snprintf(name, sizeof(name), "savegam%d.%s", slot, pack);
     (void)Wolf_GetAppDataPath(name, out, out_sz);
 }
 
@@ -353,22 +341,6 @@ static wolf_save_result_t read_save(const char *path, const char *pack, byte *bu
     return WOLF_SAVE_OK;
 }
 
-boolean Wolf_SaveExists(int slot)
-{
-    char path[WOLF_PATH_MAX];
-    FILE *f;
-    if (slot < 0 || slot >= WOLF_MAX_SAVE_SLOTS) {
-        return false;
-    }
-    save_path(slot, path, sizeof(path));
-    f = fopen(path, "rb");
-    if (!f) {
-        return false;
-    }
-    fclose(f);
-    return true;
-}
-
 boolean Wolf_WriteSave(int slot, const char *pack, const char *desc, const byte *data,
                        size_t len)
 {
@@ -377,7 +349,7 @@ boolean Wolf_WriteSave(int slot, const char *pack, const char *desc, const byte 
     if (slot < 0 || slot >= WOLF_MAX_SAVE_SLOTS || !data || !len) {
         return false;
     }
-    save_path(slot, path, sizeof(path));
+    save_path(slot, pack, path, sizeof(path));
     if (!write_save(path, pack, desc, data, len)) {
         fprintf(stderr, "Could not write %s\n", path);
         return false;
@@ -394,7 +366,7 @@ wolf_save_result_t Wolf_ReadSave(int slot, const char *pack, byte *buf, size_t c
     if (slot < 0 || slot >= WOLF_MAX_SAVE_SLOTS) {
         return WOLF_SAVE_MISSING;
     }
-    save_path(slot, path, sizeof(path));
+    save_path(slot, pack, path, sizeof(path));
     return read_save(path, pack, buf, cap, len, desc);
 }
 
@@ -497,12 +469,22 @@ boolean Wolf_UserDataSmokeVerify(void)
         remove(savep);
     }
 
-    Wolf_HighScoresTryInsert(999, 0, 0, "SMOKE");
-    if (g_highscores[0].score < 999) {
-        fprintf(stderr, "UserData smoke: highscore insert failed\n");
-        ok = false;
-    } else {
-        printf("UserData smoke: highscore OK top=%d\n", g_highscores[0].score);
+    /* the high score file, on a pack name of its own */
+    {
+        static const byte scores[66] = {'S', 'M', 'O', 'K', 'E'};
+        byte back[66];
+        char path[WOLF_PATH_MAX];
+
+        if (!Wolf_ScoresSave("smoke", scores, sizeof(scores)) ||
+            !Wolf_ScoresLoad("smoke", back, sizeof(back)) ||
+            memcmp(scores, back, sizeof(back)) != 0) {
+            fprintf(stderr, "UserData smoke: high score file roundtrip failed\n");
+            ok = false;
+        } else {
+            printf("UserData smoke: high score file OK\n");
+        }
+        scores_path("smoke", path, sizeof(path));
+        remove(path);
     }
 
     return ok;

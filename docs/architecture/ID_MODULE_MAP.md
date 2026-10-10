@@ -7,7 +7,7 @@
 | `ID_PM.C/.H` | `src/id/id_pm.c/.h` | Stub (real VSWAP in E3) |
 | `ID_CA.C/.H` | `src/id/id_ca.c/.h` | Stub codecs (E3) |
 | `ID_VL.C/.H` + ASM | `src/id/id_vl.c/.h` | the present buffer (`FB_*`); the original drawing is `src/orig/orig_vh.c` |
-| `ID_VH.C/.H` + ASM | `src/id/id_vh.c/.h` | `FB_DrawPic` for the stand-in menu until P5d; the original is `src/orig/orig_vh.c` |
+| `ID_VH.C/.H` + ASM | `src/id/id_vh.c/.h` | `FB_DrawPic` for the smoke suite's title check; the original is `src/orig/orig_vh.c` |
 | `ID_IN.C/.H` | `src/id/id_in.c/.h` | Stub keys; SDL ticks |
 | `ID_SD.C/.H` + ASM | `src/id/id_sd.c/.h` | Silent stub (E7) |
 | `ID_US*.C/.H` / `Quit` | `src/id/id_us.c/.h` | Quit to stderr/exit |
@@ -34,8 +34,8 @@
 | Huffman + VGAGRAPH | `src/id/id_ca.c` | `CA_OpenGraphFiles`, planar→chunky pics |
 | Framebuffer | `src/id/id_vl.c` | 320×200×8 + game palette |
 | Palette | `src/id/gamepal.c` | 6-bit VGA GAMEPAL |
-| 2D draw | `src/id/id_vh.c` | `FB_DrawPic` + fallback font (stand-in menu; P5a moved the game to `orig_vh.c`) |
-| Intro UI | `src/game/wl_menu_simple.c` | Title + keyboard main menu present |
+| 2D draw | `src/id/id_vh.c` | `FB_DrawPic` (the smoke suite; P5a moved the game to `orig_vh.c`) |
+| Intro UI | `src/orig/orig_menu.c` | The original control panel (P5b; the stand-in `src/game/wl_menu_simple.c` was removed) |
 
 ## E5–E7 additions
 | Module | Path | Notes |

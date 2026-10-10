@@ -39,8 +39,8 @@ Step-by-step + fidelity snapshot: [E1M1_ANYPERCENT_REFERENCE.md](E1M1_ANYPERCENT
 | 1 | Hear pistol / door digi (device on) | | |
 | 2 | Menu or in-game music audible when enabled | | |
 | 3 | sfx/music off or silent still runs | | |
-| 4 | F8 creates `%APPDATA%\Wolf3DWin64\save0.w64` | | |
-| 5 | F9 restores the level exactly (actors, doors, pickups, position) | | |
+| 4 | Save Game (F2) with a typed name creates `%APPDATA%\Wolf3DWin64\savegam<slot>.WL6` (or `.WL1`); F8 then saves there at once | | |
+| 5 | Load Game (F3) / F9 restores the level exactly (actors, doors, pickups, position) | | |
 | 6 | config.ini updated (scale/fullscreen/last_data) | | |
 | 7 | No need to write next to Program Files | | |
 

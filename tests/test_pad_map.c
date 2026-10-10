@@ -1,6 +1,7 @@
 /*
  * The game pad mapping (pad_map.c): dead zones, speeds against the
- * keyboard's, directions, the turn curve, the D-pad, weapon stepping.
+ * keyboard's, directions, the turn curve, the D-pad, weapon stepping, and
+ * the pad in the control panel.
  */
 
 #include <stdio.h>
@@ -133,6 +134,32 @@ static void test_next_weapon(void)
     CHECK(Pad_NextWeapon(2, 3, 0) == 2);
 }
 
+/* the menus read the pad like the original's joystick: past SENSITIVE (60) moves */
+static void test_menu(void)
+{
+    pad_state_t pad = {0, 0, 0, 0, 0, 0, 0};
+    int dx, dy, b;
+
+    Pad_Menu(&pad, &dx, &dy, &b);
+    CHECK(dx == 0 && dy == 0 && b == 0);
+
+    pad.ly = -32768; /* stick up */
+    Pad_Menu(&pad, &dx, &dy, &b);
+    CHECK(dy < -60 && dy >= -127 && dx == 0);
+
+    pad.ly = 5000; /* inside the dead zone */
+    Pad_Menu(&pad, &dx, &dy, &b);
+    CHECK(dy == 0);
+
+    pad.buttons = PAD_DOWN | PAD_LEFT | PAD_A | PAD_B;
+    Pad_Menu(&pad, &dx, &dy, &b);
+    CHECK(dx == -127 && dy == 127 && b == 3);
+
+    pad.buttons = PAD_X | PAD_START; /* not menu buttons */
+    Pad_Menu(&pad, &dx, &dy, &b);
+    CHECK(b == 0);
+}
+
 int main(void)
 {
     test_stick();
@@ -140,6 +167,7 @@ int main(void)
     test_turn_curve();
     test_buttons();
     test_next_weapon();
+    test_menu();
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

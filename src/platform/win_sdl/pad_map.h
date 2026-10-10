@@ -64,3 +64,10 @@ void Pad_Map(const pad_state_t *now, const pad_state_t *before, int tics, pad_co
 
 /* The next weapon to ready for a weapon step (0 knife .. 3 chain gun). */
 int Pad_NextWeapon(int weapon, int bestweapon, int step);
+
+/*
+ * The pad in the control panel, read like the original's joystick: the left
+ * stick or the D-pad as dx, dy (-127..127; up is negative), A as button 0
+ * (select) and B as button 1 (back).
+ */
+void Pad_Menu(const pad_state_t *now, int *dx, int *dy, int *buttons);
