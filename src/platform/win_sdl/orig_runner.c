@@ -19,6 +19,7 @@
 #include <SDL.h>
 
 #include "orig.h"
+#include "gfxv.h"
 #include "orig_bridge.h"
 #include "wolf_pad.h"
 #include "wolf_userdata.h"
@@ -154,8 +155,8 @@ static void WaitClock(int32_t target)
     }
 }
 
-/* Wait up to tics, or until a key or button (IN_UserInput). */
-static void UserInput(int32_t waittics)
+/* Wait up to tics, or until a key or button (IN_UserInput); true if one came. */
+static boolean UserInput(int32_t waittics)
 {
     const int32_t end = ReadClock() + waittics;
 
@@ -164,6 +165,7 @@ static void UserInput(int32_t waittics)
         PumpEvents();
         SDL_Delay(1);
     }
+    return orig_lastscan != 0;
 }
 
 /* ------------------------------------------------------------------ input */
@@ -391,8 +393,7 @@ static void Present(void)
 {
     byte *fb = Bridge_Framebuffer();
 
-    /* the play area comes from the engine's frame, the status bar is drawn in place */
-    memcpy(fb, screenbuf, (size_t)SCREENWIDTH * (SCREENHEIGHT - STATUSLINES));
+    memcpy(fb, screenbuf, sizeof(screenbuf)); /* the whole frame, status bar included */
     Bridge_Present();
     PumpEvents();
     g_frames++;
@@ -406,12 +407,44 @@ static void Present(void)
     }
 }
 
+/* VW_UpdateScreen: 2D drawing shown, not a game frame (no frame count) */
+static void HookUpdateScreen(void)
+{
+    memcpy(Bridge_Framebuffer(), screenbuf, sizeof(screenbuf));
+    Bridge_Present();
+    PumpEvents();
+}
+
+static void SetPalette(const byte *palette);
+
+/*
+ * A whole palette (fades). The original drew onto the page on screen, so
+ * a fade shows what was just drawn: the frame goes up with the palette.
+ */
+static void HookSetPalette(const byte *palette)
+{
+    SetPalette(palette);
+    HookUpdateScreen();
+}
+
+static void HookWaitVBL(int vbls)
+{
+    if (!g_fast) {
+        WaitClock(ReadClock() + vbls);
+    }
+}
+
+static boolean HookUserInput(int32_t tics)
+{
+    return g_fast ? false : UserInput(tics);
+}
+
 /* FizzleFade (ID_VH.C): the view window of screenbuf appears pixel by pixel
  * in the order of a 17-bit LFSR, 64000/frames pixels per tic. */
-static void FizzleFade(int frames)
+/* FizzleFade: the rectangle of screenbuf dissolves onto the screen */
+static void HookFizzle(int x0, int y0, int width, int height, int frames)
 {
     byte *fb = Bridge_Framebuffer();
-    const int x0 = screenofs % SCREENWIDTH, y0 = screenofs / SCREENWIDTH;
     const int pixperframe = 64000 / frames;
     uint32_t rndval = 1;
     int32_t start = g_fast ? 0 : ReadClock();
@@ -428,7 +461,7 @@ static void FizzleFade(int frames)
                 rndval ^= 0x00012000u;
             }
 
-            if (x < viewwidth && y < viewheight) {
+            if (x < width && y < height) {
                 const int at = (y0 + y) * SCREENWIDTH + x0 + x;
                 fb[at] = screenbuf[at];
             }
@@ -447,105 +480,6 @@ static void FizzleFade(int frames)
             return;
         }
     }
-}
-
-static void HookFizzleIn(void)
-{
-    FizzleFade(20);
-}
-
-/* -------------------------------------------------------------- status bar */
-
-static void StatusDrawPic(int x, int y, int chunk)
-{
-    Bridge_DrawPic(x * 8, 200 - STATUSLINES + y, chunk);
-}
-
-/* right justifies and pads with blanks */
-static void LatchNumber(int x, int y, int width, long number)
-{
-    char str[20];
-    int length, c;
-
-    snprintf(str, sizeof(str), "%ld", number);
-    length = (int)strlen(str);
-
-    while (length < width) {
-        StatusDrawPic(x, y, Bridge_Pic(BRIDGE_N_BLANKPIC));
-        x++;
-        width--;
-    }
-
-    c = length <= width ? 0 : length - width;
-
-    while (c < length) {
-        StatusDrawPic(x, y, str[c] - '0' + Bridge_Pic(BRIDGE_N_0PIC));
-        x++;
-        c++;
-    }
-}
-
-static void HookStatusBar(void)
-{
-    Bridge_DrawPic(0, 200 - STATUSLINES, Bridge_Pic(BRIDGE_STATUSBARPIC));
-}
-
-static void HookDrawFace(void)
-{
-    if (gamestate.health) {
-        StatusDrawPic(17, 4,
-                      Bridge_Pic(BRIDGE_FACE1APIC) + 3 * ((100 - gamestate.health) / 16) +
-                          gamestate.faceframe);
-    } else if (LastAttacker && LastAttacker->obclass == needleobj) {
-        StatusDrawPic(17, 4, Bridge_Pic(BRIDGE_MUTANTBJPIC));
-    } else {
-        StatusDrawPic(17, 4, Bridge_Pic(BRIDGE_FACE8APIC));
-    }
-}
-
-static void HookDrawHealth(void)
-{
-    LatchNumber(21, 16, 3, gamestate.health);
-}
-
-static void HookDrawLevel(void)
-{
-    LatchNumber(2, 16, 2, gamestate.mapon + 1);
-}
-
-static void HookDrawLives(void)
-{
-    LatchNumber(14, 16, 1, gamestate.lives);
-}
-
-static void HookDrawScore(void)
-{
-    LatchNumber(6, 16, 6, gamestate.score);
-}
-
-static void HookDrawWeapon(void)
-{
-    if ((int)gamestate.weapon >= 0) {
-        StatusDrawPic(32, 8, Bridge_Pic(BRIDGE_KNIFEPIC) + gamestate.weapon);
-    }
-}
-
-static void HookDrawKeys(void)
-{
-    StatusDrawPic(30, 4,
-                  Bridge_Pic((gamestate.keys & 1) ? BRIDGE_GOLDKEYPIC : BRIDGE_NOKEYPIC));
-    StatusDrawPic(30, 20,
-                  Bridge_Pic((gamestate.keys & 2) ? BRIDGE_SILVERKEYPIC : BRIDGE_NOKEYPIC));
-}
-
-static void HookDrawAmmo(void)
-{
-    LatchNumber(27, 16, 2, gamestate.ammo);
-}
-
-static void HookDrawGotGatling(void)
-{
-    StatusDrawPic(17, 4, Bridge_Pic(BRIDGE_GOTGATLINGPIC));
 }
 
 /* ----------------------------------------------------------------- palette */
@@ -651,44 +585,13 @@ static void HookStopMusic(void)
 
 /* ------------------------------------------------- screens (until P5 does them) */
 
-static void Message(const char *line1, const char *line2)
+/* a framed message over the play area, the original's Message() */
+static void Say(const char *text, int32_t tics)
 {
-    byte *fb = Bridge_Framebuffer();
-    int y;
-
-    for (y = 60; y < 100; y++) {
-        memset(&fb[y * SCREENWIDTH + 40], 0x29, 240); /* window, menu border colour */
-    }
-    Bridge_DrawString(52, 68, line1, 15);
-    if (line2) {
-        Bridge_DrawString(52, 82, line2, 15);
-    }
-    Bridge_Present();
-}
-
-static void HookGetPsyched(void)
-{
-    byte *fb = Bridge_Framebuffer();
-
-    memset(fb, 127, (size_t)SCREENWIDTH * (SCREENHEIGHT - STATUSLINES));
-    Bridge_DrawPic((20 - 14) * 8, 80 - 3 * 8, Bridge_Pic(BRIDGE_GETPSYCHEDPIC));
-    Bridge_Present();
+    ClearSplitVWB();
+    Message(text);
     if (!g_fast) {
-        UserInput(70);
-    }
-}
-
-static void HookDiedFade(void)
-{
-    const int x0 = screenofs % SCREENWIDTH, y0 = screenofs / SCREENWIDTH;
-    int y;
-
-    for (y = 0; y < viewheight; y++) {
-        memset(&screenbuf[(y0 + y) * SCREENWIDTH + x0], 4, (size_t)viewwidth);
-    }
-    FizzleFade(70);
-    if (!g_fast) {
-        UserInput(100);
+        UserInput(tics);
     }
 }
 
@@ -701,12 +604,10 @@ static void HookDeathCamPause(void)
 
 static void HookDeathCamIntro(void)
 {
-    memset(screenbuf, 127, (size_t)SCREENWIDTH * (SCREENHEIGHT - STATUSLINES));
-    FizzleFade(70);
-    Message("Let's see that again!", NULL);
-    if (!g_fast) {
-        UserInput(300);
-    }
+    /* the original writes STR_SEEAGAIN with the intermission letters (P5c) */
+    VWB_Bar(0, 0, 320, 200 - STATUSLINES, 127);
+    FizzleFade(0, 0, 320, 200 - STATUSLINES, 70);
+    Say("Let's see that again!", 300);
 }
 
 static void HookDeathCamOutro(void)
@@ -716,34 +617,22 @@ static void HookDeathCamOutro(void)
 
 static void HookLevelCompleted(void)
 {
-    Message("Floor completed!", "(intermission: P5)");
-    if (!g_fast) {
-        UserInput(140);
-    }
+    Say("Floor completed!\n(intermission: P5c)", 140);
 }
 
 static void HookGameOver(void)
 {
-    Message("Game over", NULL);
-    if (!g_fast) {
-        UserInput(210);
-    }
+    Say("Game over", 210);
 }
 
 static void HookVictory(void)
 {
-    Message("You win!", "(victory screen: P5)");
-    if (!g_fast) {
-        UserInput(280);
-    }
+    Say("You win!\n(victory screen: P5c)", 280);
 }
 
 static void HookCheatMessage(void)
 {
-    Message("You now have 100% Health,", "99 Ammo and both Keys!");
-    if (!g_fast) {
-        UserInput(140);
-    }
+    Say("You now have 100% Health,\n99 Ammo and both Keys!", 140);
 }
 
 /* ------------------------------------------------------- saving (F8, F9) */
@@ -766,16 +655,16 @@ static void QuickSave(void)
     char desc[WOLF_SAVE_DESC];
     const size_t len = SaveTheGame(g_savebuf, sizeof(g_savebuf));
 
+    char text[64];
+
     snprintf(desc, sizeof(desc), "Episode %d, floor %d", gamestate.episode + 1,
              gamestate.mapon + 1);
     if (len && len <= sizeof(g_savebuf) &&
         Wolf_WriteSave(QUICKSLOT, Pack(), desc, g_savebuf, len)) {
-        Message("Game saved", desc);
+        snprintf(text, sizeof(text), "Game saved\n%s", desc);
+        Say(text, 70);
     } else {
-        Message("Could not save the game", NULL);
-    }
-    if (!g_fast) {
-        UserInput(70);
+        Say("Could not save the game", 70);
     }
 }
 
@@ -795,12 +684,9 @@ static boolean LoadSlot(int slot)
         abortgame = true;
         playstate = ex_abort;
     }
-    Message(result == WOLF_SAVE_OK ? Wolf_SaveResultText(WOLF_SAVE_DAMAGED)
-                                   : Wolf_SaveResultText(result),
-            NULL);
-    if (!g_fast) {
-        UserInput(105);
-    }
+    Say(result == WOLF_SAVE_OK ? Wolf_SaveResultText(WOLF_SAVE_DAMAGED)
+                               : Wolf_SaveResultText(result),
+        105);
     return false;
 }
 
@@ -808,8 +694,8 @@ static boolean LoadSlot(int slot)
 static void HookCheckKeys(byte scan)
 {
     if (g_paused) {
-        Bridge_DrawPic((20 - 4) * 8, 80 - 2 * 8, Bridge_Pic(BRIDGE_PAUSEDPIC));
-        Bridge_Present();
+        VWB_DrawPic((20 - 4) * 8, 80 - 2 * 8, PAUSEDPIC);
+        VW_UpdateScreen();
         orig_lastscan = 0;
         while (!g_quit && !orig_lastscan) {
             PumpEvents();
@@ -857,26 +743,17 @@ static void InstallHooks(void)
     orig_hooks.play_music = HookPlayMusic;
     orig_hooks.stop_music = HookStopMusic;
 
-    orig_hooks.status_bar = HookStatusBar;
-    orig_hooks.draw_health = HookDrawHealth;
-    orig_hooks.draw_face = HookDrawFace;
-    orig_hooks.draw_score = HookDrawScore;
-    orig_hooks.draw_lives = HookDrawLives;
-    orig_hooks.draw_level = HookDrawLevel;
-    orig_hooks.draw_weapon = HookDrawWeapon;
-    orig_hooks.draw_keys = HookDrawKeys;
-    orig_hooks.draw_ammo = HookDrawAmmo;
-    orig_hooks.draw_got_gatling = HookDrawGotGatling;
-
     orig_hooks.set_palette_shift = HookPaletteShift;
     orig_hooks.present_frame = Present;
-    orig_hooks.fizzle_in = HookFizzleIn;
+    orig_hooks.fizzle = HookFizzle;
+    orig_hooks.set_palette = HookSetPalette;
+    orig_hooks.wait_vbl = HookWaitVBL;
+    orig_hooks.update_screen = HookUpdateScreen;
+    orig_hooks.user_input = HookUserInput;
 
     orig_hooks.death_cam_pause = HookDeathCamPause;
     orig_hooks.death_cam_intro = HookDeathCamIntro;
     orig_hooks.death_cam_outro = HookDeathCamOutro;
-    orig_hooks.get_psyched = HookGetPsyched;
-    orig_hooks.died_fade = HookDiedFade;
     orig_hooks.level_completed = HookLevelCompleted;
     orig_hooks.game_over = HookGameOver;
     orig_hooks.victory = HookVictory;
@@ -923,8 +800,8 @@ int OrigRunner_Run(const orig_run_options_t *opts)
     upload = Bridge_IsShareware();
     mouseenabled = Bridge_MouseLook() != 0;
     InitRedShifts();
-    SetPalette(Bridge_GamePalette());
     InstallHooks();
+    VL_SetPalette(gamepal); /* the engine's palette, which fades start from */
     memset(orig_keys, 0, sizeof(orig_keys));
     abortgame = false;
 

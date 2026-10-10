@@ -109,24 +109,25 @@ static void test_data_paths(void)
 
 static void check_layout(const gfx_layout_t *l)
 {
-    CHECK(l->numchunks <= NUMCHUNKS_MAX);
-    CHECK(l->numpics == l->getpsychedpic - 2);
-    CHECK(l->starttile8 == l->getpsychedpic + 1);
-    CHECK(l->startexterns > l->starttile8 && l->startexterns < l->numchunks);
-    CHECK(l->gunpic == l->knifepic + 1 && l->machinegunpic == l->knifepic + 2 &&
-          l->gatlinggunpic == l->knifepic + 3);
-    CHECK(l->face8apic == l->face1apic + 21);
-    CHECK(l->gotgatlingpic == l->face8apic + 1 && l->getpsychedpic == l->pausedpic + 1);
-    CHECK(l->t_demo0 >= l->startexterns && l->t_demo0 + NUMDEMOS <= l->numchunks);
+    g_gfx = l;
+    CHECK(NUMCHUNKS <= NUMCHUNKS_MAX);
+    CHECK(NUMPICS == GETPSYCHEDPIC - 2); /* the last picture */
+    CHECK(STARTTILE8 == GETPSYCHEDPIC + 1);
+    CHECK(STARTEXTERNS == STARTTILE8 + 1 && ORDERSCREEN == STARTEXTERNS);
+    CHECK(T_DEMO0 >= STARTEXTERNS && T_DEMO3 < NUMCHUNKS);
+    CHECK(GUNPIC == KNIFEPIC + 1 && GATLINGGUNPIC == KNIFEPIC + 3);
+    CHECK(FACE8APIC == FACE1APIC + 21 && N_9PIC == N_0PIC + 9);
+    CHECK(L_ZPIC == L_APIC + 25 && C_EPISODE6PIC == C_EPISODE1PIC + 5);
 }
 
 static void test_gfx_layouts(void)
 {
-    check_layout(&gfx_layout_wl6);
     check_layout(&gfx_layout_wl1);
-    CHECK(gfx_layout_wl6.numchunks == 149 && gfx_layout_wl6.numpics == 132);
-    CHECK(gfx_layout_wl1.numchunks == 156 && gfx_layout_wl1.numpics == 144);
-    CHECK(gfx_layout_wl6.t_demo0 == 139 && gfx_layout_wl1.t_demo0 == 151);
+    CHECK(NUMCHUNKS == 156 && NUMPICS == 144 && T_DEMO0 == 151 && T_ENDART1 == 155);
+    CHECK(C_OPTIONSPIC == 22 && STATUSBARPIC == 98 && TITLEPIC == 99); /* checked in P3 */
+    check_layout(&gfx_layout_wl6);
+    CHECK(NUMCHUNKS == 149 && NUMPICS == 132 && T_DEMO0 == 139 && T_ENDART6 == 148);
+    CHECK(C_OPTIONSPIC == 10 && STATUSBARPIC == 86 && TITLEPIC == 87);
 }
 
 int main(void)

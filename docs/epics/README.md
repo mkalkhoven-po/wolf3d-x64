@@ -10,7 +10,7 @@ Direction ([ADR-002](../adr/002-faithful-fixed-point-port.md)): reimplement game
 | P2 | Honest docs: known gaps, `GO_NO_GO.md` assessment, ADR-002, FR matrix corrections, outdated plan header and WL1/WL6 wording | **Done** |
 | P3 | WL1 data layer: WL1 and WL6 graphics layouts selected by pack extension (`src/id/gfxv.h`); layout is validated against the pack and unsupported versions fail with a clear error | **Done** for the Apogee 1.4 shareware pack (smoke passes on WL1 and WL6); manual WL1 playthrough not yet done |
 | P4 | Engine core: fixed-point + 70 Hz loop, original object/AI/state tables, player code, fixed-point renderer (re-run the L1.5 matrix) | **Done** (S0–S7): the faithful engine is the only engine and passes the fidelity gate (all eight original demos in sync, golden frames, E1M1, L1.5); a manual playtest sign-off is the last open check |
-| P5 | Game flow: real menus (episode and skill choice, save slots with names, sound and control settings with **separate music and effects volume**), intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | Planned |
+| P5 | Game flow: real menus (episode and skill choice, save slots with names, sound and control settings with **separate music and effects volume**), intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | **In progress**: P5a done; P5b next |
 | P6 | WL6: all episodes / 60 maps, remaining enemies and chunks | Planned |
 | F4 | Dual pistols — optional, **last**, only after P6 | Deferred |
 
@@ -41,6 +41,18 @@ Engine notes so far (details in the code comments and PRs):
 - **Renderer dependencies (S4 has to keep them):** while drawing, the original marks actors active and `FL_VISABLE` and sets their `viewx`/`transx` (used by `DoActor`, `T_Shoot` and the player's `GunAttack`/`KnifeAttack`), and picks up bonus items (`GetBonus` from `DrawScaleds`); `centerx`/`shootdelta` come from the view size.
 
 Risks: renderer-set `viewx`/`FL_VISABLE` feed the player's hit test; the menu view size changes `centerx`/`shootdelta`/the projection and so the hit test, so demo replay (S7) has to use the view size the demos were recorded with; sign-magnitude fixed-point rounding; trig tables built with Borland floating point (check against `WOLF3D.EXE` locally); boss throw and death-cam angles from `atan2` kept in a float (x87 vs SSE rounding); 16-bit overflow assumptions; the assembly raycaster.
+
+### P5 breakdown (game flow)
+
+The screens around the game, ported into the engine: they draw into the same 320x200 frame (`screenbuf`) as the 3D view, so they run headless and are testable; the platform only shows the frame, sets the palette and reports input.
+
+| Step | Scope | Status |
+|------|-------|--------|
+| P5a | UI toolkit: `ID_VH.C` / `ID_VL.C` / `ID_US_1.C` drawing (pictures, the proportional fonts, bars and lines, the print window, palette fades), every VGAGRAPH name for both packs, the status bar and "Get Psyched!" drawn by the engine, `Message()` | **Done**: `src/orig/orig_vh.c`, `orig_menu.c` (window drawing, `Message`), `orig_inter.c` (`PreloadGraphics`); `gfxv.h` has all `GFXV_WL6.H` names, and the 1.4 shareware is the same layout shifted by 12 after its 12 extra help pictures (every picture checked by size in both packs); fades as the original (`DrawPlayScreen`, `PlayDemo`, `PlayLoop`'s fade-in, Get Psyched); `Died`'s red fizzle in the engine; `CheckKeys` keeps `LastScan` from before the MLI cheat clears it, as the original |
+| P5b | `WL_MENU.C` control panel: New Game (episode, skill), Sound, Control (plus separate music / effects volume and pad sensitivity), Load / Save with named slots, Change View, View Scores, Quit with the original messages; the stand-in menu goes | Planned |
+| P5c | `WL_INTER.C`: level completed (tallies, bonuses, par times), victory, high scores and name entry; death cam text | Planned |
+| P5d | `WL_MAIN.C` DemoLoop: title, credits, high scores, demos at the player's view size | Planned |
+| P5e | Q4 audio pass, Q5 go/no-go | Planned |
 
 ### Known gaps
 - Menus: the original control panel (episode/skill choice, save slots, sound, controls, view size), the intermission, high scores and the title/demo attract loop are P5; a stand-in title and menu start the game until then.

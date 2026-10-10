@@ -11,17 +11,13 @@
 #include "orig_testkit.h"
 #include "wl_data.h"
 
-static int g_waits, g_gatling, g_bonus_flash;
+static int g_waits, g_bonus_flash;
 
 static void count_wait(void)
 {
     g_waits++;
 }
 
-static void count_gatling(void)
-{
-    g_gatling++;
-}
 
 static void count_bonus_flash(void)
 {
@@ -244,9 +240,8 @@ static void test_items(void)
     empty_map();
     place_player_east(10, 10);
     load_level(gd_hard);
-    orig_hooks.draw_got_gatling = count_gatling;
     orig_hooks.start_bonus_flash = count_bonus_flash;
-    g_gatling = g_bonus_flash = 0;
+    g_bonus_flash = 0;
 
     /* health items are left when not needed */
     s = drop(bo_firstaid);
@@ -290,8 +285,9 @@ static void test_items(void)
     GetBonus(drop(bo_machinegun));
     CHECK(gamestate.bestweapon == wp_machinegun && gamestate.weapon == wp_machinegun);
     CHECK(gamestate.ammo == 16);
-    GetBonus(drop(bo_chaingun));
-    CHECK(gamestate.bestweapon == wp_chaingun && gotgatgun == 1 && g_gatling == 1);
+    facecount = 50;
+    GetBonus(drop(bo_chaingun)); /* the gatling face (GOTGATLINGPIC) for a while */
+    CHECK(gamestate.bestweapon == wp_chaingun && gotgatgun == 1);
     CHECK(facecount == 0);
     GetBonus(drop(bo_machinegun)); /* a worse gun only gives ammo */
     CHECK(gamestate.weapon == wp_chaingun && gamestate.ammo == 28);

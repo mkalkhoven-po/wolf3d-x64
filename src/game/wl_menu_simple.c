@@ -41,29 +41,29 @@ static void draw_stripes(int y)
     int x;
     /* Thin metal rail under its Options banner (simplified DrawStripes). */
     for (x = 0; x < SCREENWIDTH; ++x) {
-        VL_Plot(x, y, MENU_STRIPE);
-        VL_Plot(x, y + 1, MENU_BORD2COLOR);
+        FB_Plot(x, y, MENU_STRIPE);
+        FB_Plot(x, y + 1, MENU_BORD2COLOR);
     }
 }
 
 static void draw_window(int x, int y, int w, int h, int color)
 {
     /* Filled panel with 2-tone border like DrawWindow in WL_MENU.C. */
-    VL_Bar(x, y, w, h, color);
+    FB_Bar(x, y, w, h, color);
     /* Outer border */
-    VL_Bar(x, y, w, 1, MENU_BORDCOLOR);
-    VL_Bar(x, y + h - 1, w, 1, MENU_BORDCOLOR);
-    VL_Bar(x, y, 1, h, MENU_BORDCOLOR);
-    VL_Bar(x + w - 1, y, 1, h, MENU_BORDCOLOR);
+    FB_Bar(x, y, w, 1, MENU_BORDCOLOR);
+    FB_Bar(x, y + h - 1, w, 1, MENU_BORDCOLOR);
+    FB_Bar(x, y, 1, h, MENU_BORDCOLOR);
+    FB_Bar(x + w - 1, y, 1, h, MENU_BORDCOLOR);
     /* Inner highlight */
-    VL_Bar(x + 1, y + 1, w - 2, 1, MENU_BORD2COLOR);
-    VL_Bar(x + 1, y + 1, 1, h - 2, MENU_BORD2COLOR);
+    FB_Bar(x + 1, y + 1, w - 2, 1, MENU_BORD2COLOR);
+    FB_Bar(x + 1, y + 1, 1, h - 2, MENU_BORD2COLOR);
 }
 
 static void draw_title(void)
 {
-    VL_ClearScreen(0);
-    VL_SetPalette(gamepal);
+    FB_Clear(0);
+    FB_SetPalette(gamepal);
     CA_CacheGrChunk(TITLEPIC);
     if (grsegs[TITLEPIC] && pictable) {
         int w = pictable[TITLEPIC - STARTPICS].width;
@@ -76,11 +76,11 @@ static void draw_title(void)
         if (y < 0) {
             y = 0;
         }
-        VWB_DrawPic(x, y, TITLEPIC);
+        FB_DrawPic(x, y, TITLEPIC);
     } else {
-        VH_DrawString(80, 90, "TITLEPIC MISSING", 15);
+        FB_DrawString(80, 90, "TITLEPIC MISSING", 15);
     }
-    VH_DrawString(70, 185, "PRESS ENTER FOR MENU", 14);
+    FB_DrawString(70, 185, "PRESS ENTER FOR MENU", 14);
 }
 
 static void draw_menu(int cursor)
@@ -94,18 +94,18 @@ static void draw_menu(int cursor)
     const int gun_x = items_x & ~7;      /* DrawGun X alignment */
     const int text_x = items_x + indent;
 
-    VL_ClearScreen(0);
-    VL_SetPalette(gamepal);
+    FB_Clear(0);
+    FB_SetPalette(gamepal);
 
     /* Top/bottom red border strips (ClearMScreen / DrawStripes style). */
-    VL_Bar(0, 0, SCREENWIDTH, 14, MENU_BORDCOLOR);
-    VL_Bar(0, SCREENHEIGHT - 14, SCREENWIDTH, 14, MENU_BORDCOLOR);
+    FB_Bar(0, 0, SCREENWIDTH, 14, MENU_BORDCOLOR);
+    FB_Bar(0, SCREENHEIGHT - 14, SCREENWIDTH, 14, MENU_BORDCOLOR);
     draw_stripes(10);
 
     if (pictable) {
         CA_CacheGrChunk(C_OPTIONSPIC);
         if (grsegs[C_OPTIONSPIC]) {
-            VWB_DrawPic(84, 0, C_OPTIONSPIC);
+            FB_DrawPic(84, 0, C_OPTIONSPIC);
         }
     }
 
@@ -115,29 +115,29 @@ static void draw_menu(int cursor)
     for (i = 0; i < MENU_COUNT; ++i) {
         int y = items_y + i * 13;
         int color = (i == cursor) ? MENU_HIGHLIGHT : MENU_TEXTCOLOR;
-        VH_DrawString(text_x, y + 2, menu_items[i], color);
+        FB_DrawString(text_x, y + 2, menu_items[i], color);
     }
 
     /* Gun cursor only on the active row (original HandleMenu/DrawGun). */
     if (pictable) {
         CA_CacheGrChunk(C_CURSOR1PIC);
         if (grsegs[C_CURSOR1PIC]) {
-            VWB_DrawPic(gun_x, items_y - 2 + cursor * 13, C_CURSOR1PIC);
+            FB_DrawPic(gun_x, items_y - 2 + cursor * 13, C_CURSOR1PIC);
         } else {
-            VH_DrawString(gun_x, items_y + cursor * 13 + 2, ">", MENU_HIGHLIGHT);
+            FB_DrawString(gun_x, items_y + cursor * 13 + 2, ">", MENU_HIGHLIGHT);
         }
         CA_CacheGrChunk(C_MOUSELBACKPIC);
         if (grsegs[C_MOUSELBACKPIC]) {
-            VWB_DrawPic(112, 184, C_MOUSELBACKPIC);
+            FB_DrawPic(112, 184, C_MOUSELBACKPIC);
         }
     } else {
-        VH_DrawString(gun_x, items_y + cursor * 13 + 2, ">", MENU_HIGHLIGHT);
+        FB_DrawString(gun_x, items_y + cursor * 13 + 2, ">", MENU_HIGHLIGHT);
     }
 
     /* Scale hint above the mouse help strip, left-aligned to avoid overlap. */
     snprintf(line, sizeof(line), "SCALE x%d  %s", g_config.scale,
              g_config.fullscreen ? "FULLSCREEN" : "WINDOW");
-    VH_DrawString(8, 170, line, 7);
+    FB_DrawString(8, 170, line, 7);
 }
 
 /* Leave the menu for the game: close the window, run it, open the window again. */
@@ -265,8 +265,8 @@ int Wolf_RunIntroMenu(const wolf_menu_actions_t *actions)
                             running = 0;
                         } else {
                             /* Sound/Control/View/Scores arrive with the menus in P5. */
-                            VL_Bar(40, 140, 240, 16, 0);
-                            VH_DrawString(50, 142,
+                            FB_Bar(40, 140, 240, 16, 0);
+                            FB_DrawString(50, 142,
                                           cursor == 3 ? "NO SAVED GAME (F8 SAVES)"
                                                       : "NOT IMPLEMENTED YET",
                                           14);

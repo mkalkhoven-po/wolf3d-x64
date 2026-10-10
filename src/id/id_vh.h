@@ -6,9 +6,8 @@ void VH_Startup(void);
 void VH_Shutdown(void);
 void VH_UpdateScreen(void);
 
-void VWB_Bar(int x, int y, int width, int height, int color);
-void VWB_DrawPic(int x, int y, int chunknum);
-void VWB_DrawPropString(const char *string);
+/* Into the present buffer (framebuffer): the stand-in menu until P5d. */
+void FB_DrawPic(int x, int y, int chunknum);
 
 /* Simple text at pixel coords using 8x8 mono fallback (until font chunks). */
-void VH_DrawString(int x, int y, const char *text, int color);
+void FB_DrawString(int x, int y, const char *text, int color);

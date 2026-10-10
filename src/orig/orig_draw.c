@@ -1149,7 +1149,7 @@ void ThreeDRefresh(void)
 
     /* show screen and time last cycle */
     if (fizzlein) {
-        FizzleIn();
+        FizzleFade(screenofs % SCREENWIDTH, screenofs / SCREENWIDTH, viewwidth, viewheight, 20);
         fizzlein = false;
 
         lasttimecount = 0;

@@ -272,9 +272,13 @@ static void test_weapon(void)
 
 static int g_fizzles;
 
-static void count_fizzle(void)
+/* the level start fizzles the view in over 20 frames */
+static void count_fizzle(int x, int y, int width, int height, int frames)
 {
-    g_fizzles++;
+    if (x == screenofs % SCREENWIDTH && y == screenofs / SCREENWIDTH && width == viewwidth &&
+        height == viewheight && frames == 20) {
+        g_fizzles++;
+    }
 }
 
 static void test_three_d_refresh(void)
@@ -289,7 +293,7 @@ static void test_three_d_refresh(void)
     AT(plane0, 20, 9) = 1;
     load_level(gd_hard);
     NewViewSize(15);
-    orig_hooks.fizzle_in = count_fizzle;
+    orig_hooks.fizzle = count_fizzle;
     g_fizzles = 0;
     guard = first_actor();
     frames = frameon;

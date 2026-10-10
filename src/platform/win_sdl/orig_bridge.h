@@ -2,30 +2,15 @@
 
 /*
  * What the faithful-engine runner needs from the shared platform layer
- * (window, palette, pictures, text, sound, data), as plain functions. The
- * legacy headers and src/orig/orig.h define some of the same names (sound
- * enums, sprite numbers), so the two sides meet only here.
+ * (window, palette, sound, data), as plain functions. The engine draws its
+ * own pictures and text (orig_vh.c). The legacy headers and src/orig/orig.h
+ * define some of the same names (sound enums, sprite numbers), so the two
+ * sides meet only here.
  */
 
 #include <stddef.h>
 
 #include "wl_types.h"
-
-typedef enum {
-    BRIDGE_STATUSBARPIC,
-    BRIDGE_FACE1APIC,
-    BRIDGE_FACE8APIC,
-    BRIDGE_MUTANTBJPIC,
-    BRIDGE_GOTGATLINGPIC,
-    BRIDGE_N_BLANKPIC,
-    BRIDGE_N_0PIC,
-    BRIDGE_KNIFEPIC,
-    BRIDGE_NOKEYPIC,
-    BRIDGE_GOLDKEYPIC,
-    BRIDGE_SILVERKEYPIC,
-    BRIDGE_GETPSYCHEDPIC,
-    BRIDGE_PAUSEDPIC
-} bridge_pic_t;
 
 /* window (config scale / fullscreen); false if SDL video fails */
 boolean Bridge_OpenWindow(const char *title);
@@ -36,10 +21,6 @@ byte *Bridge_Framebuffer(void); /* the 320x200 8-bit frame the window shows */
 void Bridge_Present(void);
 void Bridge_SetPalette(const byte *palette); /* 768 bytes, 6-bit VGA */
 const byte *Bridge_GamePalette(void);
-
-int Bridge_Pic(bridge_pic_t pic); /* VGAGRAPH chunk of the loaded pack */
-void Bridge_DrawPic(int x, int y, int chunk);
-void Bridge_DrawString(int x, int y, const char *text, int color);
 
 boolean Bridge_PlaySound(int sound); /* true: a digitized sound started */
 int Bridge_SoundPlaying(void);        /* the AdLib effect playing, 0 when none */

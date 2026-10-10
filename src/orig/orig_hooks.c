@@ -39,46 +39,6 @@ void PlaySoundLocGlobal(int s, fixed gx, fixed gy)
     }
 }
 
-void DrawHealth(void)
-{
-    CALL_HOOK(draw_health);
-}
-
-void DrawFace(void)
-{
-    CALL_HOOK(draw_face);
-}
-
-void DrawScore(void)
-{
-    CALL_HOOK(draw_score);
-}
-
-void DrawLives(void)
-{
-    CALL_HOOK(draw_lives);
-}
-
-void DrawWeapon(void)
-{
-    CALL_HOOK(draw_weapon);
-}
-
-void DrawKeys(void)
-{
-    CALL_HOOK(draw_keys);
-}
-
-void DrawAmmo(void)
-{
-    CALL_HOOK(draw_ammo);
-}
-
-void DrawGotGatling(void)
-{
-    CALL_HOOK(draw_got_gatling);
-}
-
 void DeathCamPause(void)
 {
     CALL_HOOK(death_cam_pause);
@@ -94,12 +54,14 @@ void DeathCamOutro(void)
     CALL_HOOK(death_cam_outro);
 }
 
-void FizzleIn(void)
+void FizzleFade(int x, int y, int width, int height, int frames)
 {
-    CALL_HOOK(fizzle_in);
+    if (orig_hooks.fizzle) {
+        orig_hooks.fizzle(x, y, width, height, frames);
+    }
 }
 
-void DrawLevel(void)
+boolean IN_UserInput(int32_t tics)
 {
-    CALL_HOOK(draw_level);
+    return orig_hooks.user_input ? orig_hooks.user_input(tics) : false;
 }

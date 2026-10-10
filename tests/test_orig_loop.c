@@ -491,8 +491,16 @@ static int32_t g_runscore[16];
 static boolean g_inrun;
 static int g_psyched, g_completed, g_gameover, g_diedfade, g_victory;
 
-static void script_level(void) /* the fizzle-in that starts every level run */
+/* the fizzle-in that starts every level run (Died's red fizzle is 70 frames) */
+static void script_level(int x, int y, int width, int height, int frames)
 {
+    (void)x;
+    (void)y;
+    (void)width;
+    (void)height;
+    if (frames != 20) {
+        return;
+    }
     if (g_runs < 16) {
         g_runmap[g_runs] = gamestate.mapon;
         g_runlives[g_runs] = gamestate.lives;
@@ -517,10 +525,15 @@ static void script_frame(void)
     playstate = g_script[g_runs - 1];
 }
 
-static void count_psyched(void) { g_psyched++; }
+/* PreloadGraphics waits 70 tics on "Get Psyched!", Died 100 after the red fizzle */
+static boolean count_waits(int32_t tics)
+{
+    g_psyched += tics == 70;
+    g_diedfade += tics == 100;
+    return false;
+}
 static void count_completed(void) { g_completed++; }
 static void count_gameover(void) { g_gameover++; }
-static void count_diedfade(void) { g_diedfade++; }
 static void count_victory(void) { g_victory++; }
 
 static void test_game_loop(void)
@@ -530,12 +543,11 @@ static void test_game_loop(void)
     int i;
 
     install_hooks();
-    orig_hooks.fizzle_in = script_level;
+    orig_hooks.fizzle = script_level;
     orig_hooks.present_frame = script_frame;
-    orig_hooks.get_psyched = count_psyched;
+    orig_hooks.user_input = count_waits;
     orig_hooks.level_completed = count_completed;
     orig_hooks.game_over = count_gameover;
-    orig_hooks.died_fade = count_diedfade;
     orig_hooks.victory = count_victory;
     g_runs = g_psyched = g_completed = g_gameover = g_diedfade = g_victory = 0;
     g_inrun = false;
@@ -561,7 +573,7 @@ static void test_game_loop(void)
 
     /* Esc (abortgame) leaves GameLoop at once */
     install_hooks();
-    orig_hooks.fizzle_in = script_level;
+    orig_hooks.fizzle = script_level;
     orig_hooks.present_frame = script_frame;
     g_runs = SCRIPTRUNS; /* the next frame aborts */
     g_inrun = false;
