@@ -1,0 +1,33 @@
+// The exe's icon and version information (Windows). Filled in by CMake.
+#include <winver.h>
+
+1 ICON "@WOLF_RES_DIR@/wolf3d-x64.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION  @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "Wolf3D x64 contributors"
+            VALUE "FileDescription",  "Wolf3D x64: a faithful port of the 1992 Wolfenstein 3-D engine"
+            VALUE "FileVersion",      "@PROJECT_VERSION@"
+            VALUE "InternalName",     "wolf3d"
+            VALUE "LegalCopyright",   "GPL-2.0; based on id Software's Wolfenstein 3-D source"
+            VALUE "OriginalFilename", "wolf3d.exe"
+            VALUE "ProductName",      "Wolf3D x64"
+            VALUE "ProductVersion",   "@PROJECT_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

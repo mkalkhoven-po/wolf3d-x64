@@ -11,7 +11,7 @@ Direction ([ADR-002](../adr/002-faithful-fixed-point-port.md)): reimplement game
 | P3 | WL1 data layer: WL1 and WL6 graphics layouts selected by pack extension (`src/id/gfxv.h`); layout is validated against the pack and unsupported versions fail with a clear error | **Done** for the Apogee 1.4 shareware pack (smoke passes on WL1 and WL6); manual WL1 playthrough not yet done |
 | P4 | Engine core: fixed-point + 70 Hz loop, original object/AI/state tables, player code, fixed-point renderer (re-run the L1.5 matrix) | **Done** (S0–S7): the faithful engine is the only engine and passes the fidelity gate (all eight original demos in sync, golden frames, E1M1, L1.5); a manual playtest sign-off is the last open check |
 | P5 | Game flow: real menus (episode and skill choice, save slots with names, sound and control settings with **separate music and effects volume**), intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | **Done** (P5a-P5e); go/no-go signed off **Go** on 2026-10-11 |
-| R1 | Release readiness (after P5): a shareable x64 download where players drop in their own WL1/WL6 files, for **Windows and Linux** | **In progress**: license and the x64 name done (see the R1 breakdown below) |
+| R1 | Release readiness (after P5): a shareable x64 download where players drop in their own WL1/WL6 files, for **Windows and Linux** | **In progress**: license, the x64 name, icon done (see the R1 breakdown below) |
 | P6 | Live playtest after release: the maintainer and the players play the shareware and the full game; what they find is filed as issues and fixed (no full playthrough before release) | Planned |
 | F4 | Dual pistols — optional, **last**, only after P6 | Deferred |
 
@@ -66,7 +66,7 @@ The screens around the game, ported into the engine: they draw into the same 320
 | License | **Done**: GPL-2.0 (`LICENSE`, as id's 2012 source release) and `THIRD_PARTY_NOTICES.md` (SDL2, zlib) |
 | Name | **Done**: "Wolf3D x64" (window, logs, docs), the repository `wolf3d-x64`, settings in `Wolf3D-x64` (an old `Wolf3DWin64` folder is moved over on first start) |
 | GitHub | README refreshed for players, screenshots, repo made presentable (and public when ready) |
-| Identity | an original pixel-art icon drawn in code (no id artwork; "Wolfenstein" is a ZeniMax trademark), version info in the exe, window title without "(faithful engine)" |
+| Identity | **Done**: an original pixel-art icon (a gold chalice on the blue stone wall) drawn by `scripts/make_icon.py` into `res/wolf3d-x64.ico` and the window icon (SDL, also on Linux); version info in the exe; the window title "Wolf3D x64" |
 | Package | CI builds a zip on a version tag (exe, `SDL2.dll`, README, LICENSE, an empty `data\` folder "put your WL1/WL6 files here") and attaches it to a GitHub release; game data is never bundled |
 | Drop-in | a first-run "choose your game folder" dialog when no data is found |
 | Linux | data files found whatever their case (`vswap.wl6`), the "no data" message through SDL, DPI setup only on Windows, a Linux CI build, a tarball or AppImage beside the zip; the renderer stays SDL's choice per platform (Direct3D on Windows, OpenGL on Linux) |
