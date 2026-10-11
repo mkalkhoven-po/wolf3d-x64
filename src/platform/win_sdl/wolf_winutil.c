@@ -52,7 +52,8 @@ void Wolf_ShowDataError(const char *message)
     snprintf(buf, sizeof(buf),
              "%s\n\n"
              "Fix one of:\n"
-             "  - Put your WL6/WL1 folder next to wolf3d.exe as Wolf3dgame\\\n"
+             "  - Put your Wolfenstein 3-D game files (the shareware or the full\n"
+             "    version) in a folder named Wolf3dgame next to wolf3d.exe\n"
              "  - Or one folder up as ..\\Wolf3dgame\\ (repo layout)\n"
              "  - Or run:  wolf3d.exe --data \"D:\\path\\to\\pack\"\n"
              "  - Or set WOLF3D_DATA to that folder\n\n"

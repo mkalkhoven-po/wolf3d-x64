@@ -1,7 +1,7 @@
 # User-supplied game assets (plan step)
 
 > **When:** Explicit plan step at **Epic E3 / Milestone M3** (before menus, 3D, or combat).  
-> **Who:** The player/developer, using a **legally owned** Wolfenstein 3D install (shareware WL1 or later full WL6).  
+> **Who:** The player/developer, using a **legally owned** Wolfenstein 3-D install: the **shareware** (Episode 1, files ending `.WL1`) or the **full version** (registered, six episodes, `.WL6`).  
 > **What never happens:** Committing or shipping commercial/shareware `.WL*` binaries in this repo or releases (`FR-DATA-005`).  
 > **Local layout:** Runtime pack vs optional PNG lookbook — see **[LOCAL_ASSETS.md](LOCAL_ASSETS.md)** (this workspace uses `Wolf3dgame/` + `assets/`).
 
@@ -19,7 +19,7 @@ M0 docs → M1 window → M2 stubs
 
 ## MVP data packs
 
-**Default docs use shareware `.WL1` names.** A full registered **`.WL6`** install is equally valid (and preferred when you own it) — same file stems, `.WL6` extension.
+**The shareware** files end in `.WL1`; **the full version** (registered) uses the same names ending in `.WL6`. Both are version 1.4 (Apogee shareware 1.4, registered 1.4). In the developer docs "WL1" and "WL6" stand for these two.
 
 | File / pattern | Role |
 |----------------|------|

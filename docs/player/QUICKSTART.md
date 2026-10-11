@@ -2,7 +2,7 @@
 
 ## What you need
 1. A build of `wolf3d.exe` (and `SDL2.dll` beside it).
-2. **Your own** Wolfenstein 3D data folder (WL1 or WL6).  
+2. **Your own** Wolfenstein 3-D game files: the free **shareware** version (Episode 1, files ending `.WL1`) or the **full version** (all six episodes, files ending `.WL6`), both version 1.4.  
    Example local drop used in development: `D:\wolf3d-master\Wolf3dgame`
 
 This project **never** ships game data. Wolf3D x64 itself is free software under the GPL-2.0 (see `LICENSE`).
@@ -13,7 +13,7 @@ Layout that works when you double-click `build\wolf3d.exe`:
 
 ```
 wolf3d-master\
-  Wolf3dgame\          ← your VSWAP.WL6, etc. (gitignored)
+  Wolf3dgame\          ← your game files: VSWAP.WL6 etc. (or .WL1 for the shareware)
   build\
     wolf3d.exe
     SDL2.dll
@@ -71,7 +71,7 @@ build\wolf3d.exe --data "%WOLF3D_DATA%" --load 0
 
 | Option | Meaning |
 |--------|---------|
-| `--map N` | 0-59: episode × 10 + level (`--map 10` is episode 2, floor 1). WL1 has maps 0-9 |
+| `--map N` | 0-59: episode × 10 + level (`--map 10` is episode 2, floor 1). The shareware has maps 0-9 |
 | `--skill 0-3` | Can I play, Daddy? … I am Death incarnate! (default 2) |
 | `--viewsize 4-20` | View size as in the original (default 15; 20 fills the play area) |
 | `--demo 0-3` | Watch one of the pack's demos, then quit |
@@ -153,7 +153,7 @@ cannot store it) never use it.
 name, **Enter**. **Load Game** (**F3**) continues from one. After that,
 **F8** saves to the same slot at once and **F9** asks, then loads it. A save
 holds the whole level as the original's did (every actor, door, pushwall and
-pickup), so a loaded game carries on exactly where it was. WL1 and WL6 have
+pickup), so a loaded game carries on exactly where it was. The shareware and the full version have
 their own slots. Quick saves from before P5b (`save0.w64`) are no longer
 listed.
 
@@ -171,8 +171,8 @@ choice is kept in `config.ini` (`sfx_on`, `digi_on`, `music_on`).
 ```
 %APPDATA%\Wolf3D-x64\
   config.ini        scale, fullscreen, the Sound, Video and Control menus, last_data
-  scores.WL6 / .WL1 the high score table of each pack
-  savegam0.WL6 …    the ten save slots of each pack
+  scores.WL6 / .WL1 the high score table of the full version / the shareware
+  savegam0.WL6 …    the ten save slots of each (.WL1 for the shareware)
 ```
 
 The game does **not** need write access next to Program Files.

@@ -58,8 +58,8 @@ static int resolve_data_or_die(int argc, char **argv, wolf_data_dir_t *data_dir,
 
     if (!smoke_only) {
         Wolf_ShowDataError(
-            "Could not find a Wolfenstein 3D data folder "
-            "(VSWAP.WL6 / .WL1, etc.).");
+            "Could not find the Wolfenstein 3-D game files: the shareware "
+            "(VSWAP.WL1 and the other .WL1 files) or the full version (.WL6).");
     }
     return 0;
 }
@@ -247,7 +247,9 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    printf("Data ready: %s (%s)\n", data_dir.path, data_dir.extension);
+    printf("Data ready: %s (%s, %s)\n", data_dir.path,
+           strcmp(data_dir.extension, ".WL1") == 0 ? "the shareware" : "the full version",
+           data_dir.extension);
     fflush(stdout);
 
     Wolf_PadInit(); /* XInput and other game pads, alongside keyboard and mouse */
