@@ -33,7 +33,7 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 | FR-DATA-001 | `--data` WL1/WL6 dir | A | Met | P3 | WL1 (Apogee 1.4 shareware) and WL6 smoke pass; other WL1 versions are rejected with an error |
 | FR-DATA-002 | CLI + `WOLF3D_DATA` | A | Met | Q1/Q2 | + last_data fallback if no `--data` |
 | FR-DATA-003 | Bad path lists MISSING, exit ≠0 | A | Met | Q1/Q2 | Explicit bad `--data` must not use last_data; `bad_data` CTest |
-| FR-DATA-004 | Files under `%APPDATA%\Wolf3DWin64\` | A/M | Met | Q1/Q4 | config.ini, `savegam<N>.WL1/WL6`, `scores.WL1/WL6`; `cold_start` CTest (empty AppData) |
+| FR-DATA-004 | Files under `%APPDATA%\Wolf3D-x64\` | A/M | Met | Q1/Q4 | config.ini, `savegam<N>.WL1/WL6`, `scores.WL1/WL6`; `cold_start` CTest (empty AppData) |
 | FR-DATA-005 | Repo free of packs | A | Met | Q0 | git ls-tree / PR checks |
 | FR-DATA-006 | GAME_DATA.md present | M | Met | Q0 | docs/product |
 | FR-DATA-007 | data/ gitignore policy | M | Met | Q0 | |

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(wolf3d-win64 VERSION 0.8.0 LANGUAGES C)
+project(wolf3d-x64 VERSION 0.8.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -267,6 +267,9 @@ if(WOLF_BUILD_TESTS)
       add_test(NAME cold_start COMMAND ${CMAKE_COMMAND} -DEXE=$<TARGET_FILE:wolf3d>
                "-DDATA=$ENV{WOLF3D_DATA}" -DAPPDATA_DIR=${CMAKE_CURRENT_BINARY_DIR}/cold_appdata
                -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cold_start.cmake)
+      add_test(NAME appdata_migration COMMAND ${CMAKE_COMMAND} -DEXE=$<TARGET_FILE:wolf3d>
+               "-DDATA=$ENV{WOLF3D_DATA}" -DAPPDATA_DIR=${CMAKE_CURRENT_BINARY_DIR}/migrate_appdata
+               -DMIGRATE=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cold_start.cmake)
     endif()
     set_tests_properties(smoke_only PROPERTIES
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")

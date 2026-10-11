@@ -11,7 +11,7 @@ Direction ([ADR-002](../adr/002-faithful-fixed-point-port.md)): reimplement game
 | P3 | WL1 data layer: WL1 and WL6 graphics layouts selected by pack extension (`src/id/gfxv.h`); layout is validated against the pack and unsupported versions fail with a clear error | **Done** for the Apogee 1.4 shareware pack (smoke passes on WL1 and WL6); manual WL1 playthrough not yet done |
 | P4 | Engine core: fixed-point + 70 Hz loop, original object/AI/state tables, player code, fixed-point renderer (re-run the L1.5 matrix) | **Done** (S0–S7): the faithful engine is the only engine and passes the fidelity gate (all eight original demos in sync, golden frames, E1M1, L1.5); a manual playtest sign-off is the last open check |
 | P5 | Game flow: real menus (episode and skill choice, save slots with names, sound and control settings with **separate music and effects volume**), intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | **Done** (P5a-P5e); go/no-go signed off **Go** on 2026-10-11 |
-| R1 | Release readiness (after P5): a shareable x64 download where players drop in their own WL1/WL6 files, for **Windows and Linux** | **Next** (see the R1 breakdown below) |
+| R1 | Release readiness (after P5): a shareable x64 download where players drop in their own WL1/WL6 files, for **Windows and Linux** | **In progress**: license and the x64 name done (see the R1 breakdown below) |
 | P6 | Live playtest after release: the maintainer and the players play the shareware and the full game; what they find is filed as issues and fixed (no full playthrough before release) | Planned |
 | F4 | Dual pistols — optional, **last**, only after P6 | Deferred |
 
@@ -63,7 +63,8 @@ The screens around the game, ported into the engine: they draw into the same 320
 
 | Item | Scope |
 |------|-------|
-| License | GPL-2.0 (id's 2012 source release is GPL-2.0); `LICENSE` and notices |
+| License | **Done**: GPL-2.0 (`LICENSE`, as id's 2012 source release) and `THIRD_PARTY_NOTICES.md` (SDL2, zlib) |
+| Name | **Done**: "Wolf3D x64" (window, logs, docs), the repository `wolf3d-x64`, settings in `Wolf3D-x64` (an old `Wolf3DWin64` folder is moved over on first start) |
 | GitHub | README refreshed for players, screenshots, repo made presentable (and public when ready) |
 | Identity | an original pixel-art icon drawn in code (no id artwork; "Wolfenstein" is a ZeniMax trademark), version info in the exe, window title without "(faithful engine)" |
 | Package | CI builds a zip on a version tag (exe, `SDL2.dll`, README, LICENSE, an empty `data\` folder "put your WL1/WL6 files here") and attaches it to a GitHub release; game data is never bundled |
@@ -75,7 +76,7 @@ The screens around the game, ported into the engine: they draw into the same 320
 
 ## Shell delivered (M0–M8)
 
-Epics map 1:1 to milestones **M0–M8**. GitHub Project: [Wolf3D Win64 Port](https://github.com/users/mkalkhoven-po/projects/1). The platform shell, data loading, renderer and audio path exist; gameplay fidelity is addressed by P3–P5 above.
+Epics map 1:1 to milestones **M0–M8**. GitHub Project: [Wolf3D x64 — Delivery](https://github.com/users/mkalkhoven-po/projects/1). The platform shell, data loading, renderer and audio path exist; gameplay fidelity is addressed by P3–P5 above.
 
 | Milestone | Epic | Demo exit |
 |-----------|------|-----------|
@@ -91,7 +92,7 @@ Epics map 1:1 to milestones **M0–M8**. GitHub Project: [Wolf3D Win64 Port](htt
 
 ## QA & stabilization (Q0–Q5)
 
-Project: [Wolf3D Win64 — QA & Stabilization](https://github.com/users/mkalkhoven-po/projects/2).  
+Project: [Wolf3D x64 — QA & Stabilization](https://github.com/users/mkalkhoven-po/projects/2).  
 Docs: [`docs/qa/`](../qa/README.md).
 
 | Milestone | Epic brief | Epic issue |

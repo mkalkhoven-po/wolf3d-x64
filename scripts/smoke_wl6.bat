@@ -1,5 +1,5 @@
 @echo off
-REM Wolf3D Win64 — Windows entry for scripts\smoke_wl6.sh (Q1)
+REM Wolf3D x64 — Windows entry for scripts\smoke_wl6.sh (Q1)
 REM Prefers Git Bash when available; rushed users can call:
 REM   build\wolf3d.exe --data %WOLF3D_DATA% --smoke-only
 

@@ -16,7 +16,7 @@ int wolf_platform_run(void)
     }
 
     SDL_Window *window = SDL_CreateWindow(
-        "Wolf3D Win64 — E1 shell",
+        "Wolf3D x64",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         960,

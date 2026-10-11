@@ -42,7 +42,7 @@ build\wolf3d.exe --data "%WOLF3D_DATA%" --smoke-only
 build\wolf3d.exe --data C:\no-such-wolf-pack --smoke-only
 ```
 
-Bad path expected: **exit 2**, no `wolf3d-win64 smoke OK`.
+Bad path expected: **exit 2**, no `wolf3d-x64 smoke OK`.
 
 ## Harness exit codes (`smoke_wl6.sh`)
 
@@ -76,7 +76,7 @@ Asserted by `scripts/smoke_wl6.sh` (must all appear in combined stdout/stderr):
 
 | Marker substring | Checks |
 |------------------|--------|
-| `wolf3d-win64 smoke OK` | the whole suite passed |
+| `wolf3d-x64 smoke OK` | the whole suite passed |
 | `TITLEPIC loaded` | graphics layout of the pack |
 | `VSWAP chunks=` | page file |
 | `VGAGRAPH open` | graphics file |

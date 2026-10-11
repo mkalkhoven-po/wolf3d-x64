@@ -12,7 +12,7 @@ The bar for this go/no-go is a faithful, playable x64 port of the original engin
 | Input | FR-IN-* | Go | Original keys, mouse and Customize controls; game pad (twin-stick, menus); maintainer playtest 2026-10-11 |
 | Gameplay | FR-GAME-* | Go | The original engine in fixed point: all 8 original demos end in sync at their view sizes (S7); E1M1 any% route; intermission, victory, high scores, attract loop (P5c, P5d); maintainer playtests through P5 |
 | Audio | FR-AUD-* | Go | Own OPL2 emulator for AdLib music and effects (ADR-003); digitized sound as the SB Pro; level music table identical to the original; Sound menu switches and the volume sliders checked through the mixer (smoke); maintainer ear checks (music, effects) |
-| Saves / config | FR-SAVE-*, FR-DATA-004 | Go | Ten named slots per pack, save format v2 (a game saved halfway through a demo loads and ends identically); config and high scores in `%APPDATA%\Wolf3DWin64\` |
+| Saves / config | FR-SAVE-*, FR-DATA-004 | Go | Ten named slots per pack, save format v2 (a game saved halfway through a demo loads and ends identically); config and high scores in `%APPDATA%\Wolf3D-x64\` |
 | Smoke harness | FR-QA-001 | Go | 48 CTest cases with both packs (unit, engine, menus by scripted input, demo sync, smoke, cold start); Windows CI |
 
 ## Gates
@@ -22,7 +22,7 @@ The bar for this go/no-go is a faithful, playable x64 port of the original engin
 - [x] Q1 smoke green on maintainer machine (2026-10-11, `ctest` 48/48 with WL6 and WL1)
 - [x] Q2–Q4 checklists completed or residual risk listed: every item passes, see [PLAYTEST_MANUAL.md](PLAYTEST_MANUAL.md) (2026-10-11)
 - [x] FR matrix reviewed; Partial items conscious (2026-10-11)
-- [x] Cold start with empty `%APPDATA%\Wolf3DWin64\` once (automated: the `cold_start` CTest)
+- [x] Cold start with empty `%APPDATA%\Wolf3D-x64\` once (automated: the `cold_start` CTest)
 
 ## Sign-off
 

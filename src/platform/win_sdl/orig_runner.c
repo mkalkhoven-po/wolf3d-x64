@@ -942,7 +942,7 @@ int OrigRunner_Run(const orig_run_options_t *opts)
         fprintf(stderr, "Map %d is not in this pack\n", opts->map);
         return 34;
     }
-    if (!Bridge_OpenWindow("Wolfenstein 3-D (faithful engine)")) {
+    if (!Bridge_OpenWindow("Wolf3D x64")) {
         fprintf(stderr, "Could not open the window\n");
         return 30;
     }

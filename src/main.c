@@ -1,5 +1,5 @@
 /*
- * Wolf3D Win64 — application entry.
+ * Wolf3D x64 — application entry.
  * Interactive: the faithful engine (ADR-002) from its title page and control
  * panel. Any game option (--map, --demo, --load, ...) starts a game directly.
  * Use --smoke-only for harness checks.
@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
     }
 
     smoke_only = Wolf_ArgSmokeOnly(argc, argv);
-    printf("wolf3d-win64 starting%s...\n",
+    printf("wolf3d-x64 starting%s...\n",
            smoke_only ? " (smoke-only)" : " (interactive)");
     fflush(stdout);
 
@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
             return rc;
         }
         printf("Smoke-only mode: suite done.\n");
-        printf("wolf3d-win64 smoke OK\n");
+        printf("wolf3d-x64 smoke OK\n");
         return 0;
     }
 
@@ -256,10 +256,10 @@ int main(int argc, char *argv[])
     Wolf_PadShutdown();
     ID_Engine_Shutdown();
     if (rc != 0) {
-        fprintf(stderr, "wolf3d-win64 exited with error %d\n", rc);
+        fprintf(stderr, "wolf3d-x64 exited with error %d\n", rc);
         return rc;
     }
 
-    printf("wolf3d-win64 clean quit\n");
+    printf("wolf3d-x64 clean quit\n");
     return 0;
 }

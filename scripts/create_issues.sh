@@ -2,7 +2,7 @@
 set -euo pipefail
 export PATH="/c/Program Files/GitHub CLI:$PATH"
 
-REPO="${1:-mkalkhoven-po/wolf3d-win64}"
+REPO="${1:-mkalkhoven-po/wolf3d-x64}"
 
 issue() {
   local title="$1" body="$2" labels="$3" milestone_title="$4"

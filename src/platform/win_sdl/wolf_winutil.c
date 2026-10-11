@@ -59,7 +59,7 @@ void Wolf_ShowDataError(const char *message)
              "See docs\\player\\QUICKSTART.md",
              message && message[0] ? message
                                    : "Could not find Wolfenstein 3D game data.");
-    MessageBoxA(NULL, buf, "Wolf3D Win64 - missing game data",
+    MessageBoxA(NULL, buf, "Wolf3D x64 - missing game data",
                 MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
 #else
     fprintf(stderr, "%s\n", message ? message : "missing game data");

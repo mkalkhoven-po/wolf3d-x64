@@ -5,7 +5,7 @@
 2. **Your own** Wolfenstein 3D data folder (WL1 or WL6).  
    Example local drop used in development: `D:\wolf3d-master\Wolf3dgame`
 
-This project **never** ships game data.
+This project **never** ships game data. Wolf3D x64 itself is free software under the GPL-2.0 (see `LICENSE`).
 
 ## Run (easiest: double-click)
 
@@ -22,7 +22,7 @@ wolf3d-master\
 The game looks for:
 
 1. `--data` / `WOLF3D_DATA`
-2. `last_data` in `%APPDATA%\Wolf3DWin64\config.ini`
+2. `last_data` in `%APPDATA%\Wolf3D-x64\config.ini`
 3. `Wolf3dgame` or `data` in the **current folder**
 4. Same names **next to the .exe** and **one folder up** (`..\Wolf3dgame`)
 
@@ -169,7 +169,7 @@ choice is kept in `config.ini` (`sfx_on`, `digi_on`, `music_on`).
 
 ## Where settings live
 ```
-%APPDATA%\Wolf3DWin64\
+%APPDATA%\Wolf3D-x64\
   config.ini        scale, fullscreen, the Sound, Video and Control menus, last_data
   scores.WL6 / .WL1 the high score table of each pack
   savegam0.WL6 …    the ten save slots of each pack

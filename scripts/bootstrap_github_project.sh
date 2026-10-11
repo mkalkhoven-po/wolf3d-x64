@@ -618,7 +618,7 @@ EOF
 echo "== Project board =="
 # Create organization/user project v2
 OWNER="${REPO%/*}"
-PROJECT_TITLE="Wolf3D Win64 Port"
+PROJECT_TITLE="Wolf3D x64 — Delivery"
 # Try create project (user owner)
 PROJ_JSON=$(gh project create --owner "$OWNER" --title "$PROJECT_TITLE" --format json 2>/dev/null || true)
 if [ -z "$PROJ_JSON" ]; then
