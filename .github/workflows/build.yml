@@ -1,4 +1,4 @@
-﻿name: build
+name: build
 
 on:
   push:
@@ -15,3 +15,16 @@ jobs:
         run: cmake --build build --config RelWithDebInfo -j
       - name: Unit tests (no game data)
         run: ctest --test-dir build -C RelWithDebInfo --output-on-failure
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SDL2 and Ninja
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev ninja-build
+      - name: Configure (the system's SDL2)
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DWOLF_FETCH_SDL2=OFF
+      - name: Build
+        run: cmake --build build -j
+      - name: Unit tests (no game data)
+        run: ctest --test-dir build --output-on-failure

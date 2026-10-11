@@ -20,6 +20,7 @@
 #include "platform/win_sdl/wolf_pad.h"
 #include "platform/win_sdl/wolf_present.h"
 #include "platform/win_sdl/wolf_userdata.h"
+#include "platform/win_sdl/wolf_message.h"
 #include "platform/win_sdl/wolf_winutil.h"
 
 static orig_run_options_t g_game_opts; /* the game options, when there are any */

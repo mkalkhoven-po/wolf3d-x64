@@ -1,6 +1,6 @@
 # Wolf3D x64
 
-A faithful **x64 port of the 1992 *Wolfenstein 3-D* engine**, rebuilt from id Software's original source code: the same fixed-point maths, 70 Hz game clock, AI, renderer and screens, so it plays like the DOS game. Windows 11 today; Linux comes with the first release (R1).
+A faithful **x64 port of the 1992 *Wolfenstein 3-D* engine**, rebuilt from id Software's original source code: the same fixed-point maths, 70 Hz game clock, AI, renderer and screens, so it plays like the DOS game. For Windows 11 and Linux.
 
 You bring the game files: the free **shareware** version (Episode 1) or the **full version** (the registered game, all six episodes), both version 1.4. No game data is in this repository.
 

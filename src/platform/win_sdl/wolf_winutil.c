@@ -8,6 +8,8 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#elif defined(__linux__)
+#include <unistd.h>
 #endif
 
 int Wolf_GetExecutableDir(char *out, size_t out_sz)
@@ -38,31 +40,28 @@ int Wolf_GetExecutableDir(char *out, size_t out_sz)
         memcpy(out, path, strlen(path) + 1);
         return 1;
     }
+#elif defined(__linux__)
+    {
+        /* /proc/self/exe links to the running binary */
+        char path[4096];
+        const ssize_t n = readlink("/proc/self/exe", path, sizeof(path) - 1);
+        char *slash;
+
+        if (n <= 0) {
+            return 0;
+        }
+        path[n] = '\0';
+        slash = strrchr(path, '/');
+        if (!slash || (size_t)(slash - path) + 1 > out_sz) {
+            return 0;
+        }
+        *slash = '\0';
+        memcpy(out, path, strlen(path) + 1);
+        return 1;
+    }
 #else
     (void)out;
     (void)out_sz;
     return 0;
-#endif
-}
-
-void Wolf_ShowDataError(const char *message)
-{
-#ifdef _WIN32
-    char buf[2048];
-    snprintf(buf, sizeof(buf),
-             "%s\n\n"
-             "Fix one of:\n"
-             "  - Put your Wolfenstein 3-D game files (the shareware or the full\n"
-             "    version) in a folder named Wolf3dgame next to wolf3d.exe\n"
-             "  - Or one folder up as ..\\Wolf3dgame\\ (repo layout)\n"
-             "  - Or run:  wolf3d.exe --data \"D:\\path\\to\\pack\"\n"
-             "  - Or set WOLF3D_DATA to that folder\n\n"
-             "See docs\\player\\QUICKSTART.md",
-             message && message[0] ? message
-                                   : "Could not find Wolfenstein 3D game data.");
-    MessageBoxA(NULL, buf, "Wolf3D x64 - missing game data",
-                MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
-#else
-    fprintf(stderr, "%s\n", message ? message : "missing game data");
 #endif
 }

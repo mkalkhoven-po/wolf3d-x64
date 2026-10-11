@@ -175,6 +175,8 @@ choice is kept in `config.ini` (`sfx_on`, `digi_on`, `music_on`).
   savegam0.WL6 …    the ten save slots of each (.WL1 for the shareware)
 ```
 
+On Linux the same files live in `~/.local/share/Wolf3D-x64/` (or `$XDG_DATA_HOME/Wolf3D-x64/` when that is set).
+
 The game does **not** need write access next to Program Files.
 
 ## Build (developers)
@@ -184,6 +186,18 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build -j
 build\wolf3d.exe --data Wolf3dgame --smoke-only
 ```
+
+## Linux
+
+Build with your distribution's SDL2 (Debian / Ubuntu: `sudo apt install libsdl2-dev cmake ninja-build`):
+
+```sh
+cmake -S . -B build -G Ninja -DWOLF_FETCH_SDL2=OFF
+cmake --build build
+./build/wolf3d --data ~/games/wolf3d
+```
+
+The game files may be named in any case (`VSWAP.WL6` or `vswap.wl6`); a `Wolf3dgame` folder next to the binary is found by itself, as on Windows. The release (R1) will also come as a Linux package.
 
 ## Support notes
 - Missing data → non-zero exit, optional popup; `MISSING:` list on console when pack incomplete.

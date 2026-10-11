@@ -4,6 +4,9 @@ project(wolf3d-x64 VERSION 0.8.0 LANGUAGES C)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+if(UNIX AND NOT APPLE)
+  add_compile_definitions(_DEFAULT_SOURCE) # POSIX calls (readlink, opendir, strcasecmp) under strict C17
+endif()
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
@@ -54,6 +57,7 @@ set(WOLF_PLATFORM_SOURCES
   src/platform/win_sdl/wolf_pad.c
   src/platform/win_sdl/pad_map.c
   src/platform/win_sdl/wolf_icon.c
+  src/platform/win_sdl/wolf_message.c
 )
 
 # Faithful engine (P4, ADR-002). No SDL dependency; built next to the legacy engine.
@@ -166,6 +170,16 @@ if(WOLF_BUILD_TESTS)
   endif()
   wolf_apply_hardening(test_decoders)
   add_test(NAME decoders COMMAND test_decoders)
+
+  # finding the game files whatever the case of their names (Linux file systems)
+  add_executable(test_data_path tests/test_data_path.c src/id/wl_data.c src/platform/win_sdl/wolf_winutil.c)
+  target_include_directories(test_data_path PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/id
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl
+  )
+  wolf_apply_hardening(test_data_path)
+  add_test(NAME data_path COMMAND test_data_path)
 
   add_executable(test_orig_core tests/test_orig_core.c ${WOLF_ORIG_CORE_SOURCES})
   target_include_directories(test_orig_core PRIVATE
