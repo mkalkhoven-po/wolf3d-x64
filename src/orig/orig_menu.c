@@ -227,6 +227,35 @@ static void Quit(void)
 }
 
 /*
+ * The main menu as shown: MainMenu's lines, without Read This! when the
+ * pack has no help of its own (HelpAvailable). The registered 1.4 left it
+ * out (GOODTIMES): nine lines, the cursor starting on New Game. MainMenu
+ * and MainItems.curpos keep the full numbering.
+ */
+static CP_itemtype MainShown[10];
+static int MainShownFrom[10]; /* the MainMenu line of each line shown */
+static CP_iteminfo MainShownItems;
+
+static void BuildMainShown(void)
+{
+    int i, n = 0;
+
+    MainShownItems = MainItems;
+    MainShownItems.curpos = 0;
+    for (i = 0; i < 10; i++) {
+        if (i == readthis && !HelpAvailable()) {
+            continue;
+        }
+        if (i == MainItems.curpos) {
+            MainShownItems.curpos = (int16_t)n;
+        }
+        MainShown[n] = MainMenu[i];
+        MainShownFrom[n++] = i;
+    }
+    MainShownItems.amount = (int16_t)n;
+}
+
+/*
 ====================
 =
 = US_ControlPanel
@@ -252,7 +281,7 @@ void US_ControlPanel(byte scancode)
     /* F-KEYS FROM WITHIN GAME */
     switch (scancode) {
     case sc_F1:
-        HelpScreens();
+        HelpScreens(); /* nothing in the registered 1.4, see HelpAvailable */
         CleanupControlPanel();
         return;
 
@@ -288,7 +317,9 @@ void US_ControlPanel(byte scancode)
 
     /* MAIN MENU LOOP */
     do {
-        which = HandleMenu(&MainItems, &MainMenu[0], NULL);
+        which = HandleMenu(&MainShownItems, &MainShown[0], NULL);
+        which = which >= 0 ? MainShownFrom[which] : -1;
+        MainItems.curpos = (int16_t)MainShownFrom[MainShownItems.curpos];
 
         switch (which) {
         case viewscores:
@@ -354,7 +385,8 @@ void DrawMainMenu(void)
         MainMenu[backtodemo].active = 1;
     }
 
-    DrawMenu(&MainItems, &MainMenu[0]);
+    BuildMainShown();
+    DrawMenu(&MainShownItems, &MainShown[0]);
     VW_UpdateScreen();
 }
 

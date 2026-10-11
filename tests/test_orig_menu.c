@@ -28,6 +28,7 @@ typedef struct {
 #define PADA_SCAN 0xfe  /* not a key: the pad's A, held for PADHOLD polls */
 #define WHEEL_UP 0xfd   /* not a key: a mouse wheel notch up */
 #define WHEEL_DOWN 0xfc /* and down */
+#define PADRIGHT_SCAN 0xfb /* not a key: the pad's D-pad right, held for PADHOLD polls */
 
 #define HOLD 3  /* polls a key stays down */
 #define GAP 40  /* polls before the next key */
@@ -36,7 +37,7 @@ typedef struct {
 #define PADHOLD 30
 
 static const press_t *g_script;
-static int g_padheld, g_wheelnotches;
+static int g_padheld, g_padright, g_wheelnotches;
 static int g_nscript, g_step, g_phase, g_polls, g_pressed;
 static boolean g_runaway;
 
@@ -122,12 +123,16 @@ static void script_poll(void)
         g_phase++;
         return;
     }
-    if (g_phase == 0 && p->scan >= WHEEL_DOWN) {
+    if (g_phase == 0 && p->scan >= PADRIGHT_SCAN) {
         if (p->snap) {
             snap(p->snap);
         }
         if (p->scan == PADA_SCAN) {
             g_padheld = PADHOLD;
+            orig_lastscan = 0xff; /* as the platform: any pad button is a key for IN_Ack */
+        } else if (p->scan == PADRIGHT_SCAN) {
+            g_padright = PADHOLD;
+            orig_lastscan = 0xff;
         } else {
             g_wheelnotches += p->scan == WHEEL_UP ? 1 : -1;
         }
@@ -140,7 +145,7 @@ static void script_poll(void)
         orig_lastscan = p->scan;
         orig_lastascii = (byte)p->ascii;
         g_pressed++;
-    } else if (g_phase == HOLD && p->scan < WHEEL_DOWN) {
+    } else if (g_phase == HOLD && p->scan < PADRIGHT_SCAN) {
         orig_keys[p->scan] = 0;
     }
     if (++g_phase >= HOLD + GAP) {
@@ -157,6 +162,10 @@ static boolean pad_menu(int *dx, int *dy, int *buttons)
     if (g_padheld > 0) {
         g_padheld--;
         *buttons = 1;
+    }
+    if (g_padright > 0) {
+        g_padright--;
+        *dx = 127;
     }
     return true;
 }
@@ -264,7 +273,7 @@ static void run_script(const press_t *script, int n)
     orig_hooks.set_option = set_option;
     orig_hooks.pad_menu = pad_menu;
     orig_hooks.mouse_wheel = mouse_wheel;
-    g_padheld = g_wheelnotches = 0;
+    g_padheld = g_padright = g_wheelnotches = 0;
     memset(orig_keys, 0, sizeof(orig_keys));
     g_script = script;
     g_nscript = n;
@@ -284,14 +293,16 @@ static boolean script_done(void)
 
 #define KEY(sc) {sc, 0, NULL}
 #define PADA {PADA_SCAN, 0, NULL}
+#define PADRIGHT(name) {PADRIGHT_SCAN, 0, name}
 #define WHEEL(n) {(n) > 0 ? WHEEL_UP : WHEEL_DOWN, 0, NULL}
 #define SNAPKEY(sc, name) {sc, 0, name}
 #define N(a) ((int)(sizeof(a) / sizeof((a)[0])))
 
 /*
  * The screens, checked by eye against the original (UI_DUMP) and pinned.
- * WL1 differs in the locked episodes (READCOLOR) and the high score levels
- * (no episode: UPLOAD).
+ * WL1 differs in the main menu (WL6 has no Read This!, as the registered 1.4),
+ * the locked episodes (READCOLOR) and the high score levels (no episode:
+ * UPLOAD).
  */
 static void check_screens(void)
 {
@@ -299,7 +310,7 @@ static void check_screens(void)
         const char *name;
         uint32_t wl6, wl1;
     } pins[] = {
-        {"mainmenu", 0x7d198dd6u, 0x7d198dd6u},
+        {"mainmenu", 0xd49ec5f2u, 0x7d198dd6u},
         {"episodes", 0xdb1e2c11u, 0xa2b07c15u},
         {"difficulty", 0x0df46d54u, 0x0df46d54u},
         {"sound", 0xb1a9424eu, 0xb1a9424eu},
@@ -313,8 +324,8 @@ static void check_screens(void)
         {"padspeed", 0x8fb3eebcu, 0x8fb3eebcu},
         {"soundpage", 0x5a62485du, 0x5a62485du},
         {"videopage", 0xa26fd24cu, 0xa26fd24cu},
-        {"help1", 0x174b84c4u, 0x174b84c4u}, /* both packs' help starts the same */
-        {"help2", 0xd152ab99u, 0xd152ab99u},
+        {"help1", 0, 0x174b84c4u}, /* WL6: no help shown (the registered 1.4 had none) */
+        {"help2", 0, 0xd152ab99u},
     };
     size_t i;
 
@@ -330,7 +341,7 @@ static void check_screens(void)
 
 static void test_main_menu_and_quit(void)
 {
-    /* the cursor on "Read This!", as on a first run */
+    /* a first run: the cursor on "Read This!" (WL1); WL6 has no Read This!, it starts on New Game */
     static const press_t script[] = {
         SNAPKEY(sc_Escape, "mainmenu"), /* Esc: Quit? */
         SNAPKEY(sc_N, "quit"),          /* no */
@@ -639,7 +650,8 @@ static void test_help(void)
     static const press_t script[] = {
         SNAPKEY(sc_RightArrow, "help1"),
         SNAPKEY(sc_LeftArrow, "help2"),
-        SNAPKEY(sc_Escape, "help1again"),
+        PADRIGHT("help1again"), /* the D-pad turns the page too */
+        SNAPKEY(sc_Escape, "help2again"),
     };
     const struct { /* the chunk numbers depend on the pack */
         int chunk, width, height;
@@ -654,11 +666,21 @@ static void test_help(void)
               pictable[frame[i].chunk - STARTPICS].height == frame[i].height);
     }
 
+    if (!g_wl1) {
+        /* the registered data's help text is the shareware's: not shown, as the registered 1.4 */
+        CHECK(!HelpAvailable());
+        run_script(NULL, 0);
+        HelpScreens();
+        CHECK(g_polls == 0);
+        return;
+    }
+    CHECK(HelpAvailable());
     run_script(script, N(script));
     HelpScreens();
     CHECK(script_done());
     CHECK(snap_hash("help1") != snap_hash("help2"));
     CHECK(snap_hash("help1") == snap_hash("help1again"));
+    CHECK(snap_hash("help2") == snap_hash("help2again"));
 }
 
 static void test_high_scores(void)

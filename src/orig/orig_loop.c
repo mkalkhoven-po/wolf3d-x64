@@ -592,6 +592,11 @@ void CheckKeys(void)
         return;
     }
 
+    /* F1 in the registered 1.4 was a boss key (a fake DOS prompt): nothing here */
+    if (scan == sc_F1 && !HelpAvailable()) {
+        return;
+    }
+
     /* F1-F6 / Esc: the control panel */
     if ((scan >= sc_F1 && scan <= sc_F9) || scan == sc_Escape) {
         StopMusic();

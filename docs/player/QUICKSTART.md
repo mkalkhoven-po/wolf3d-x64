@@ -92,7 +92,7 @@ The original defaults:
 | Space | Open door / elevator |
 | 1-4 | Knife, pistol, machine gun, chain gun |
 | Esc | The control panel |
-| F1 | Help (Read This!) |
+| F1 | Help (Read This!; the shareware only, as in the original) |
 | F2 / F3 | Save Game / Load Game |
 | F4 | Sound (devices and volume) |
 | F5 | Change View (view size) |

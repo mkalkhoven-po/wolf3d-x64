@@ -468,9 +468,14 @@ static void ShowArticle(const char *article)
         orig_lastscan = 0;
         (void)PadScan(); /* the button that opened this is still down */
         while (!orig_lastscan && !orig_quit) {
+            byte pad;
+
             IN_Pump();
-            if (!orig_lastscan) {
-                orig_lastscan = PadScan();
+            pad = PadScan();
+            if (pad) {
+                orig_lastscan = pad; /* before LastScan: any pad button counts there as a key */
+            } else if (orig_lastscan == 0xff) {
+                orig_lastscan = 0; /* a pad or mouse button that turns no page */
             }
         }
         if (orig_quit) {
@@ -523,9 +528,25 @@ static char *LoadArticle(int chunk)
     return article;
 }
 
+/*
+ * Only the shareware has help of its own. The registered data's T_HELPART
+ * is a stale copy of the shareware text, laid out for the shareware's
+ * pictures (most of which VGAGRAPH.WL6 does not have); the registered 1.4
+ * (GOODTIMES) never showed it: no Read This!, and F1 was a boss key.
+ */
+boolean HelpAvailable(void)
+{
+    return upload;
+}
+
 void HelpScreens(void)
 {
-    const char *article = LoadArticle(T_HELPART);
+    const char *article;
+
+    if (!HelpAvailable()) {
+        return;
+    }
+    article = LoadArticle(T_HELPART);
 
     if (article) {
         ShowArticle(article);
