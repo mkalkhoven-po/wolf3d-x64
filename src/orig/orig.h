@@ -385,8 +385,20 @@ void DrawKeys(void);
 void DrawAmmo(void);
 void DrawGotGatling(void); /* StatusDrawPic (17,4,GOTGATLINGPIC) in GetBonus */
 
-/* WL_INTER.C: "Get Psyched!" before a level */
+/* WL_INTER.C: "Get Psyched!" before a level, the intermission after it, the victory */
+typedef struct {
+    int16_t kill, secret, treasure; /* percent */
+    int32_t time;                   /* seconds */
+} LRstruct;
+extern LRstruct LevelRatios[8]; /* each floor's tally, for the victory's averages */
 void PreloadGraphics(void);
+void Write(int x, int y, const char *string); /* the intermission letters, x and y in 8 pixels */
+void LevelCompleted(void);
+void Victory(void);
+void CheckHighScore(int32_t score, uint16_t other);
+void DeathCamPause(void); /* A_StartDeathCam's screen work */
+void DeathCamIntro(void);
+void DeathCamOutro(void);
 void ClearSplitVWB(void); /* the 2D window over the play area (WL_INTER.C) */
 
 /* WL_MENU.C (P5a: the drawing the rest of the game uses) */
@@ -407,6 +419,8 @@ extern boolean orig_quit;
 int32_t GetTimeCount(void);
 void IN_Pump(void);
 void IN_Ack(void);
+void IN_StartAck(void);
+boolean IN_CheckAck(void);
 
 typedef enum {
     dir_North,

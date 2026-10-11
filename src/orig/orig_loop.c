@@ -137,6 +137,21 @@ void IN_Pump(void)
 }
 
 /* IN_Ack: wait for a key or button; headless there is nothing to wait for */
+/* IN_StartAck: from here on a key or a newly pressed button counts */
+void IN_StartAck(void)
+{
+    IN_ClearKeysDown();
+}
+
+/* IN_CheckAck: a key or button since IN_StartAck; headless, at once */
+boolean IN_CheckAck(void)
+{
+    if (orig_quit || !orig_hooks.check_ack) {
+        return true;
+    }
+    return orig_hooks.check_ack();
+}
+
 void IN_Ack(void)
 {
     IN_ClearKeysDown();

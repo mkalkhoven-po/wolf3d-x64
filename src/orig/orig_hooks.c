@@ -39,19 +39,9 @@ void PlaySoundLocGlobal(int s, fixed gx, fixed gy)
     }
 }
 
-void DeathCamPause(void)
+void OrigSD_StopSound(void)
 {
-    CALL_HOOK(death_cam_pause);
-}
-
-void DeathCamIntro(void)
-{
-    CALL_HOOK(death_cam_intro);
-}
-
-void DeathCamOutro(void)
-{
-    CALL_HOOK(death_cam_outro);
+    CALL_HOOK(stop_sound);
 }
 
 void FizzleFade(int x, int y, int width, int height, int frames)

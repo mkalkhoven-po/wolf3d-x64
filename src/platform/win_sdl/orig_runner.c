@@ -767,53 +767,6 @@ static void SaveControls(void)
     (void)Wolf_ConfigSave();
 }
 
-/* ------------------------------------------------- screens (until P5 does them) */
-
-/* a framed message over the play area, the original's Message() */
-static void Say(const char *text, int32_t tics)
-{
-    ClearSplitVWB();
-    Message(text);
-    if (!g_fast) {
-        UserInput(tics);
-    }
-}
-
-static void HookDeathCamPause(void)
-{
-    if (!g_fast) {
-        UserInput(100 * TICRATE / 70); /* VW_WaitVBL (100) */
-    }
-}
-
-static void HookDeathCamIntro(void)
-{
-    /* the original writes STR_SEEAGAIN with the intermission letters (P5c) */
-    VWB_Bar(0, 0, 320, 200 - STATUSLINES, 127);
-    FizzleFade(0, 0, 320, 200 - STATUSLINES, 70);
-    Say("Let's see that again!", 300);
-}
-
-static void HookDeathCamOutro(void)
-{
-    DrawPlayBorder();
-}
-
-static void HookLevelCompleted(void)
-{
-    Say("Floor completed!\n(intermission: P5c)", 140);
-}
-
-static void HookGameOver(void)
-{
-    Say("Game over", 210);
-}
-
-static void HookVictory(void)
-{
-    Say("You win!\n(victory screen: P5c)", 280);
-}
-
 /* ------------------------------------------------- saved games, high scores */
 
 static byte g_savebuf[64 * 1024];
@@ -929,6 +882,7 @@ static void InstallHooks(void)
     orig_hooks.sound_playing = HookSoundPlaying;
     orig_hooks.sound_update = HookSoundUpdate;
     orig_hooks.wait_sound_done = HookWaitSoundDone;
+    orig_hooks.stop_sound = Bridge_StopSound;
     orig_hooks.play_music = HookPlayMusic;
     orig_hooks.stop_music = HookStopMusic;
     orig_hooks.resume_music = HookResumeMusic;
@@ -951,12 +905,6 @@ static void InstallHooks(void)
     orig_hooks.update_screen = HookUpdateScreen;
     orig_hooks.user_input = HookUserInput;
 
-    orig_hooks.death_cam_pause = HookDeathCamPause;
-    orig_hooks.death_cam_intro = HookDeathCamIntro;
-    orig_hooks.death_cam_outro = HookDeathCamOutro;
-    orig_hooks.level_completed = HookLevelCompleted;
-    orig_hooks.game_over = HookGameOver;
-    orig_hooks.victory = HookVictory;
 
     orig_hooks.poll_input = PollInput;
     orig_hooks.mouse_buttons = MouseButtons;

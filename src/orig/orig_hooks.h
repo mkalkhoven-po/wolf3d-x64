@@ -27,19 +27,10 @@ typedef struct {
      */
     int (*sound_playing)(void);
     void (*wait_sound_done)(void); /* SD_WaitSoundDone: block until it ends */
+    void (*stop_sound)(void);      /* SD_StopSound (the intermission's 100% and no bonus) */
 
     void (*start_damage_flash)(int damage);
     void (*start_bonus_flash)(void);
-
-    /*
-     * A_StartDeathCam presentation: palette reset and a short wait (pause,
-     * also when the cam is already over), red fizzle, "Let's see that
-     * again!" and the wait for input (intro), then redrawing the play border
-     * (outro). The camera placement between them is game logic.
-     */
-    void (*death_cam_pause)(void);
-    void (*death_cam_intro)(void);
-    void (*death_cam_outro)(void);
 
     /*
      * FizzleFade: dissolve the rectangle of screenbuf onto the screen over
@@ -134,13 +125,6 @@ typedef struct {
     void (*update_screen)(void);
     boolean (*user_input)(int32_t tics);
 
-    /*
-     * The screens P5 still has to port: the intermission, game over (high
-     * scores) and victory.
-     */
-    void (*level_completed)(void);
-    void (*game_over)(void);
-    void (*victory)(void);
     void (*sound_update)(void);  /* SD_Poll and UpdateSoundLoc, once a frame */
 } orig_hooks_t;
 
@@ -169,9 +153,7 @@ void OrigSD_WaitSoundDone(void);
 void PlaySoundLocGlobal(int s, fixed gx, fixed gy);
 void StartDamageFlash(int damage);
 void StartBonusFlash(void);
-void DeathCamPause(void);
-void DeathCamIntro(void);
-void DeathCamOutro(void);
+void OrigSD_StopSound(void);
 void FizzleFade(int x, int y, int width, int height, int frames);
 boolean IN_UserInput(int32_t tics);
 
