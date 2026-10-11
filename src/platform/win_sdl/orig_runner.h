@@ -9,7 +9,7 @@
  * clock, DOS scan-code input, presenting the 320x200 frame with palette
  * shifts and FizzleFade, sound and music, the save slots (format v2) and the
  * high scores. Without game options it runs the title page and the
- * control panel (P5b); the intermission and the attract loop are P5c/P5d.
+ * control panel (P5b); the attract loop between title pages is P5d.
  */
 
 #include "wl_types.h"

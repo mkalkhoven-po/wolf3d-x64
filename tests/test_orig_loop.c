@@ -527,6 +527,7 @@ static void script_frame(void)
         return;
     }
     gamestate.score += g_runs == 1 ? 100 : 500; /* kept at level end, lost on death */
+    gamestate.TimeCount = 99 * 60 * 70;        /* past par: no time bonus in the intermission */
     playstate = g_script[g_runs - 1];
 }
 
@@ -537,23 +538,33 @@ static boolean count_waits(int32_t tics)
     g_diedfade += tics == 100;
     return false;
 }
-static void count_completed(void) { g_completed++; }
-static void count_gameover(void) { g_gameover++; }
-static void count_victory(void) { g_victory++; }
+
+/* the intermission, the high scores and the victory each start their song */
+static void count_songs(int song)
+{
+    g_completed += song == ENDLEVEL_MUS;
+    g_gameover += song == ROSTER_MUS;
+    g_victory += song == URAHERO_MUS;
+}
 
 static void test_game_loop(void)
 {
     static const int maps[SCRIPTRUNS] = {0, 1, 9, 1, 1, 1, 1};
     static const int lives[SCRIPTRUNS] = {3, 3, 3, 3, 2, 1, 0};
+    HighScore saved[MaxScores];
     int i;
+
+    /* a full high score table: the game over asks for no name */
+    memcpy(saved, Scores, sizeof(saved));
+    for (i = 0; i < MaxScores; i++) {
+        Scores[i].score = 999999;
+    }
 
     install_hooks();
     orig_hooks.fizzle = script_level;
     orig_hooks.present_frame = script_frame;
     orig_hooks.user_input = count_waits;
-    orig_hooks.level_completed = count_completed;
-    orig_hooks.game_over = count_gameover;
-    orig_hooks.victory = count_victory;
+    orig_hooks.play_music = count_songs;
     g_runs = g_psyched = g_completed = g_gameover = g_diedfade = g_victory = 0;
     g_inrun = false;
     abortgame = false;
@@ -569,9 +580,13 @@ static void test_game_loop(void)
         CHECK(g_runmap[i] == maps[i]);
         CHECK(g_runlives[i] == lives[i]);
     }
-    /* the score at a level's end carries over; points from a lost life do not */
+    /*
+     * The score at a level's end carries over, with the intermission's bonus
+     * (none past par with no kills, secrets or treasure; 15000 for the
+     * secret floor); points from a lost life do not.
+     */
     CHECK(g_runscore[0] == 0 && g_runscore[1] == 100 && g_runscore[2] == 600);
-    CHECK(g_runscore[3] == 1100 && g_runscore[4] == 1100 && g_runscore[6] == 1100);
+    CHECK(g_runscore[3] == 16100 && g_runscore[4] == 16100 && g_runscore[6] == 16100);
     CHECK(gamestate.lives == -1);
     CHECK(g_psyched == 4); /* no "get psyched" after a death */
     CHECK(g_completed == 3 && g_diedfade == 4 && g_gameover == 1 && g_victory == 0);
@@ -587,6 +602,7 @@ static void test_game_loop(void)
     GameLoop();
     CHECK(abortgame && g_runs == SCRIPTRUNS + 1);
     abortgame = false;
+    memcpy(Scores, saved, sizeof(saved));
 }
 
 /*
@@ -621,6 +637,9 @@ static void test_save_load(int d, const byte *lump, unsigned length, unsigned in
     CHECK(PlayDemo(lump, length));
     CHECK(g_frames == g_stopat && playstate == ex_abort);
     resume = demoptr;
+    memset(LevelRatios, 0, sizeof(LevelRatios));
+    LevelRatios[3].kill = 77; /* the floors' tallies go with the save, for the victory */
+    LevelRatios[3].time = 123;
     size = SaveTheGame(g_save, sizeof(g_save));
     CHECK(size > 0 && size <= sizeof(g_save));
 
@@ -636,7 +655,9 @@ static void test_save_load(int d, const byte *lump, unsigned length, unsigned in
     other = (lump[0] + 1) % 10;
     gamestate.mapon = (int16_t)other;
     CHECK(SetupGameLevel());
+    memset(LevelRatios, 0, sizeof(LevelRatios));
     CHECK(LoadTheGame(g_save, size));
+    CHECK(LevelRatios[3].kill == 77 && LevelRatios[3].time == 123);
     size2 = SaveTheGame(g_save2, sizeof(g_save2));
     CHECK(size2 == size && memcmp(g_save, g_save2, size) == 0);
     g_frames = 0;

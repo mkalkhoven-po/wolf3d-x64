@@ -7,7 +7,10 @@
  * a typed name, the quick keys F8 / F9, Change View, the high scores, the
  * Control menu (mouse, sensitivity, a key customized, the controller's look
  * speed, a pad button held on a switch), the Sound and Video pages (volumes,
- * the mouse wheel, fill the screen, fullscreen, view size) and Read This!.
+ * the mouse wheel, fill the screen, fullscreen, view size) and Read This!,
+ * and the screens between floors: the intermission (with its tally, a key
+ * skipping it, the secret floor), the victory and end text, a high score's
+ * name typed in, "Let's see that again!".
  *
  * UI_DUMP=name writes the screens the script marks as name.<screen>.bmp.
  */
@@ -41,7 +44,7 @@ static int g_padheld, g_padright, g_wheelnotches;
 static int g_nscript, g_step, g_phase, g_polls, g_pressed;
 static boolean g_runaway;
 
-#define MAXSNAPS 32
+#define MAXSNAPS 48
 static const char *g_snapname[MAXSNAPS];
 static uint32_t g_snaphash[MAXSNAPS];
 static int g_numsnaps;
@@ -326,6 +329,12 @@ static void check_screens(void)
         {"videopage", 0xa26fd24cu, 0xa26fd24cu},
         {"help1", 0, 0x174b84c4u}, /* WL6: no help shown (the registered 1.4 had none) */
         {"help2", 0, 0xd152ab99u},
+        {"intermission", 0x5a3458c0u, 0x2a14cd96u},
+        {"secretfloor", 0x8d3d6521u, 0xa8e14743u},
+        {"victory", 0x67dbb236u, 0xf55df129u}, /* WL6 has the time code, the shareware not */
+        {"endtext", 0xe60bfeacu, 0xe60bfeacu},
+        {"scorename", 0x9e60ec9au, 0x833153a4u},
+        {"deathcam", 0x3865f1dfu, 0x24af147du},
     };
     size_t i;
 
@@ -690,6 +699,143 @@ static void test_high_scores(void)
     snap("scores");
 }
 
+/* ---------------------------------------------- the screens between floors */
+
+/* IN_CheckAck as the platform: a key since IN_StartAck, read as it comes (not at once) */
+static boolean key_ack(void)
+{
+    IN_Pump();
+    if (orig_lastscan) {
+        orig_lastscan = 0;
+        return true;
+    }
+    return false;
+}
+
+/* E1M1 at its end: every kill, no secret, half the treasure, a minute (par 1:30) */
+static void finish_floor(int mapon)
+{
+    NewViewSize(15);
+    NewGame(gd_hard, 0);
+    gamestate.mapon = (int16_t)mapon;
+    CHECK(SetupGameLevel());
+    gamestate.killcount = gamestate.killtotal;
+    gamestate.secretcount = 0;
+    gamestate.treasurecount = gamestate.treasuretotal / 2;
+    gamestate.TimeCount = 60 * 70;
+    gamestate.score = gamestate.oldscore = 0;
+    gamestate.nextextra = EXTRAPOINTS;
+    DrawPlayScreen(); /* the status bar under the intermission */
+}
+
+static void test_intermission(void)
+{
+    static const press_t keep[] = {
+        SNAPKEY(sc_Return, "intermission"), /* the tally done: on */
+    };
+    int tr;
+
+    finish_floor(0);
+    tr = gamestate.treasuretotal ? (gamestate.treasurecount * 100) / gamestate.treasuretotal : 0;
+    run_script(keep, N(keep));
+    orig_hooks.check_ack = key_ack;
+    g_phase = -1000; /* the tally reads the keys at every step: no key until it is done */
+    LevelCompleted();
+    printf("  intermission: kills %d/%d, treasure %d%%, score %ld, ratios %d/%d/%d %lds\n",
+           gamestate.killcount, gamestate.killtotal, tr, (long)gamestate.score,
+           LevelRatios[0].kill, LevelRatios[0].secret, LevelRatios[0].treasure,
+           (long)LevelRatios[0].time);
+    CHECK(script_done());
+    /* 30 seconds under par at 500 each, and 10000 for every kill */
+    CHECK(gamestate.score == 30 * 500 + 10000);
+    CHECK(LevelRatios[0].kill == 100 && LevelRatios[0].secret == 0 &&
+          LevelRatios[0].treasure == tr && LevelRatios[0].time == 60);
+    CHECK(count_sound(PERCENT100SND) == 1 && count_sound(NOBONUSSND) == 1);
+
+    /* the secret floor: no tally, 15000 */
+    {
+        static const press_t secret[] = {
+            SNAPKEY(sc_Return, "secretfloor"),
+        };
+        finish_floor(9);
+        run_script(secret, N(secret));
+        orig_hooks.check_ack = key_ack;
+        LevelCompleted();
+        CHECK(script_done() && gamestate.score == 15000);
+    }
+
+    /* a key during the tally jumps to its end, with the same bonus */
+    finish_floor(0);
+    {
+        static const press_t skip[] = {
+            KEY(sc_Space),  /* during the count: straight to the end */
+            KEY(sc_Return), /* and on */
+        };
+        run_script(skip, N(skip));
+        orig_hooks.check_ack = key_ack;
+        g_phase = 0; /* no lead-in: the key comes at once */
+        LevelCompleted();
+        CHECK(script_done() && gamestate.score == 30 * 500 + 10000);
+    }
+}
+
+static void test_victory(void)
+{
+    static const press_t script[] = {
+        SNAPKEY(sc_Return, "victory"),
+        SNAPKEY(sc_Escape, "endtext"), /* the episode's end text: out */
+    };
+    int i;
+
+    NewGame(gd_hard, 0);
+    for (i = 0; i < 8; i++) {
+        LevelRatios[i].kill = 100;
+        LevelRatios[i].secret = (int16_t)(i * 10);
+        LevelRatios[i].treasure = 50;
+        LevelRatios[i].time = 90;
+    }
+    run_script(script, N(script));
+    orig_hooks.check_ack = key_ack;
+    Victory();
+    CHECK(script_done());
+    CHECK(snap_hash("victory") != snap_hash("endtext"));
+}
+
+static void test_high_score_entry(void)
+{
+    static const press_t script[] = {
+        {sc_B, 'B', NULL},
+        {sc_J, 'J', NULL},
+        SNAPKEY(sc_Return, "scorename"),
+    };
+    HighScore saved[MaxScores];
+
+    memcpy(saved, Scores, sizeof(saved));
+    gamestate.episode = 0;
+    run_script(script, N(script));
+    CheckHighScore(20000, 3);
+    printf("  high score: \"%s\" %ld, floor %u\n", Scores[0].name, (long)Scores[0].score,
+           Scores[0].completed);
+    CHECK(script_done());
+    CHECK(strcmp(Scores[0].name, "BJ") == 0 && Scores[0].score == 20000 && Scores[0].completed == 3);
+    CHECK(strcmp(Scores[1].name, "id software-'92") == 0); /* the rest moved down */
+    CHECK(strcmp(Scores[MaxScores - 1].name, "John Romero") == 0);
+
+    /* not good enough: no name asked */
+    run_script(NULL, 0);
+    CheckHighScore(100, 1);
+    CHECK(Scores[MaxScores - 1].score == 10000);
+    memcpy(Scores, saved, sizeof(saved));
+}
+
+static void test_death_cam_text(void)
+{
+    run_script(NULL, 0);
+    memset(screenbuf, 0, sizeof(screenbuf));
+    DeathCamIntro();
+    snap("deathcam");
+}
+
 int main(int argc, char **argv)
 {
     wolf_data_dir_t dir;
@@ -723,6 +869,10 @@ int main(int argc, char **argv)
     test_sound_page();
     test_video_page();
     test_help();
+    test_intermission();
+    test_victory();
+    test_high_score_entry();
+    test_death_cam_text();
 
     check_screens();
 

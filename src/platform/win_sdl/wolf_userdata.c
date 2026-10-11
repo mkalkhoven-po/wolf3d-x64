@@ -6,10 +6,14 @@
 
 #ifdef _WIN32
 #include <direct.h>
+#include <process.h>
+#define WOLF_GETPID() _getpid()
 #define WOLF_MKDIR(p) _mkdir(p)
 #else
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
+#define WOLF_GETPID() getpid()
 #define WOLF_MKDIR(p) mkdir((p), 0755)
 #endif
 
@@ -271,7 +275,7 @@ boolean Wolf_ConfigSave(void)
 /* the high score table, per pack: scores.WL1 / scores.WL6 */
 static void scores_path(const char *pack, char *out, size_t out_sz)
 {
-    char name[32];
+    char name[48];
     snprintf(name, sizeof(name), "scores.%s", pack);
     (void)Wolf_GetAppDataPath(name, out, out_sz);
 }
@@ -472,6 +476,7 @@ boolean Wolf_UserDataSmokeVerify(void)
     char dir[WOLF_PATH_MAX];
     char cfg[WOLF_PATH_MAX];
     char savep[WOLF_PATH_MAX];
+    char smokename[32], savename[48];
     int old_scale;
     boolean ok = true;
 
@@ -523,7 +528,10 @@ boolean Wolf_UserDataSmokeVerify(void)
     }
 
     /* the save file format, on a file of its own: the player's slots stay untouched */
-    if (!Wolf_GetAppDataPath("smoke_save.w64", savep, sizeof(savep))) {
+    /* files of this process's own: the WL1 and WL6 smoke tests run at the same time */
+    snprintf(smokename, sizeof(smokename), "smoke%d", (int)WOLF_GETPID());
+    snprintf(savename, sizeof(savename), "%s_save.w64", smokename);
+    if (!Wolf_GetAppDataPath(savename, savep, sizeof(savep))) {
         ok = false;
     } else {
         static byte data[1000], back[1000];
@@ -556,15 +564,15 @@ boolean Wolf_UserDataSmokeVerify(void)
         byte back[66];
         char path[WOLF_PATH_MAX];
 
-        if (!Wolf_ScoresSave("smoke", scores, sizeof(scores)) ||
-            !Wolf_ScoresLoad("smoke", back, sizeof(back)) ||
+        if (!Wolf_ScoresSave(smokename, scores, sizeof(scores)) ||
+            !Wolf_ScoresLoad(smokename, back, sizeof(back)) ||
             memcmp(scores, back, sizeof(back)) != 0) {
             fprintf(stderr, "UserData smoke: high score file roundtrip failed\n");
             ok = false;
         } else {
             printf("UserData smoke: high score file OK\n");
         }
-        scores_path("smoke", path, sizeof(path));
+        scores_path(smokename, path, sizeof(path));
         remove(path);
     }
 

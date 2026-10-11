@@ -387,21 +387,23 @@ static void test_golden_trace(void)
 
 /* ------------------------------------------------------------ boss specials */
 
-static int g_pause, g_intro, g_outro;
+/* the death cam's screen work: VW_WaitVBL (100), the 70-frame fizzle, IN_UserInput (300) */
+static int g_pause, g_fizzle, g_seeagain;
 
-static void count_pause(void)
+static void count_pause(int vbls)
 {
-    g_pause++;
+    g_pause += vbls == 100;
 }
 
-static void count_intro(void)
+static void count_fizzle(int x, int y, int width, int height, int frames)
 {
-    g_intro++;
+    g_fizzle += x == 0 && y == 0 && width == 320 && height == 200 - STATUSLINES && frames == 70;
 }
 
-static void count_outro(void)
+static boolean count_seeagain(int32_t tics)
 {
-    g_outro++;
+    g_seeagain += tics == 300;
+    return false;
 }
 
 static objtype *find_class(classtype c)
@@ -547,10 +549,10 @@ static void test_death_cam(void)
     AT(plane1, 10, 20) = 19;
     AT(plane1, 20, 20) = 215;
     load_level(gd_hard);
-    orig_hooks.death_cam_pause = count_pause;
-    orig_hooks.death_cam_intro = count_intro;
-    orig_hooks.death_cam_outro = count_outro;
-    g_pause = g_intro = g_outro = 0;
+    orig_hooks.wait_vbl = count_pause;
+    orig_hooks.fizzle = count_fizzle;
+    orig_hooks.user_input = count_seeagain;
+    g_pause = g_fizzle = g_seeagain = 0;
     gift = find_class(giftobj);
     CHECK(s_giftdie2.tictime == 140); /* digitized sound on */
 
@@ -570,7 +572,7 @@ static void test_death_cam(void)
 
     /* die1 1 + die2 140 + die3..5 10 each + die6 20 */
     CHECK(cam_tic == 191);
-    CHECK(g_intro == 1 && g_outro == 1 && g_pause == 2);
+    CHECK(g_fizzle == 1 && g_seeagain == 1 && g_pause == 2);
     CHECK(player->state == &s_deathcam && fizzlein);
     CHECK(player->angle == 0); /* the boss is due east of where it died */
     /* first try, 0x14000 back: costable[0] is 0xffff, so 0x13ffe rather than 1.25 tiles */

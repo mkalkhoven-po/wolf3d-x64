@@ -20,7 +20,7 @@
 #include "orig.h"
 
 #define SAVE_VERSION 2
-#define NUMLEVELRATIOS 8 /* LevelRatios: kept for the intermission (P5), zero until then */
+#define NUMLEVELRATIOS 8 /* LevelRatios: each floor's intermission tally */
 
 /* ------------------------------------------------------------ the stream */
 
@@ -231,10 +231,10 @@ size_t SaveTheGame(byte *buf, size_t cap)
     W16(&w, SAVE_VERSION);
     WriteGamestate(&w, &gamestate);
     for (i = 0; i < NUMLEVELRATIOS; i++) {
-        W16(&w, 0); /* kill, secret, treasure */
-        W16(&w, 0);
-        W16(&w, 0);
-        W32(&w, 0); /* time */
+        W16(&w, (uint16_t)LevelRatios[i].kill);
+        W16(&w, (uint16_t)LevelRatios[i].secret);
+        W16(&w, (uint16_t)LevelRatios[i].treasure);
+        W32(&w, (uint32_t)LevelRatios[i].time);
     }
 
     WBytes(&w, tilemap, sizeof(tilemap));
@@ -316,6 +316,7 @@ static struct {
     int16_t pwalldir;
     int rndindex, killer, attacker;
     int16_t gotgatgun;
+    LRstruct ratios[NUMLEVELRATIOS];
 } sv;
 
 static boolean ReadSave(reader_t *r)
@@ -356,10 +357,10 @@ static boolean ReadSave(reader_t *r)
     g->killy = RS32(r);
     g->victoryflag = R8(r) != 0;
     for (i = 0; i < NUMLEVELRATIOS; i++) {
-        (void)R16(r);
-        (void)R16(r);
-        (void)R16(r);
-        (void)RS32(r);
+        sv.ratios[i].kill = RS16(r);
+        sv.ratios[i].secret = RS16(r);
+        sv.ratios[i].treasure = RS16(r);
+        sv.ratios[i].time = RS32(r);
     }
     /* demos keep the absolute map in mapon with episode 0, so check the sum */
     if (g->episode < 0 || g->mapon < 0 || g->mapon + 10 * g->episode >= 60 ||
@@ -493,6 +494,7 @@ boolean LoadTheGame(const byte *buf, size_t len)
     }
 
     gamestate = sv.game;
+    memcpy(LevelRatios, sv.ratios, sizeof(LevelRatios));
     loadedgame = true; /* SetupGameLevel keeps the level totals */
     if (!SetupGameLevel()) {
         return false;

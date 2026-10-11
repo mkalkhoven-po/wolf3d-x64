@@ -44,7 +44,7 @@ build\wolf3d.exe --data "%WOLF3D_DATA%"
 The game is a faithful port of the original engine (fixed point, 70 Hz, the
 original AI and renderer, the original control panel; see ADR-002). **Esc**
 in the game opens the control panel; **Back to Game** returns. Still to come
-in P5: the intermission screens (P5c) and the credits / high scores / demos
+in P5: the credits / high scores / demos
 between title pages (P5d).
 
 Smoke harness (no full play loop):

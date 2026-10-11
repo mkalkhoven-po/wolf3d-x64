@@ -823,10 +823,8 @@ void Died(void)
 = GameLoop
 =
 = The original's level loop: set up the level, play it, then go on by how
-= it ended. The intermission (level_completed), the end of the game
-= (game_over, victory) and the high scores are P5's screens and come
-= through hooks until P5c ports them. Returns when the game is over, won,
-= or the platform set abortgame.
+= it ended: the intermission, the victory, the high scores. Returns when
+= the game is over, won, or abortgame was set.
 =
 ===================
 */
@@ -880,9 +878,9 @@ restartgame:
         case ex_secretlevel:
             gamestate.keys = 0;
             DrawKeys();
-            if (orig_hooks.level_completed) {
-                orig_hooks.level_completed(); /* do the intermission */
-            }
+            VW_FadeOut();
+
+            LevelCompleted(); /* do the intermission */
 
             gamestate.oldscore = gamestate.score;
 
@@ -906,18 +904,20 @@ restartgame:
                 break; /* more lives left */
             }
 
-            if (orig_hooks.game_over) {
-                orig_hooks.game_over(); /* CheckHighScore */
-            }
+            VW_FadeOut();
+
+            CheckHighScore(gamestate.score, (uint16_t)(gamestate.mapon + 1));
 
             strcpy(MainMenu[viewscores].string, STR_VS);
             MainMenu[viewscores].routine = CP_ViewScores;
             return;
 
         case ex_victorious:
-            if (orig_hooks.victory) {
-                orig_hooks.victory(); /* Victory, CheckHighScore */
-            }
+            VW_FadeOut();
+
+            Victory();
+
+            CheckHighScore(gamestate.score, (uint16_t)(gamestate.mapon + 1));
 
             strcpy(MainMenu[viewscores].string, STR_VS);
             MainMenu[viewscores].routine = CP_ViewScores;
