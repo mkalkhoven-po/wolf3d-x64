@@ -1,5 +1,7 @@
 #include "wolf_present.h"
 
+#include "wolf_icon.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -146,6 +148,16 @@ boolean Wolf_PresentCreate(wolf_present_t *pr, const char *title, int scale,
         return false;
     }
 
+    {
+        /* the window's icon (the title bar, the task bar; on Windows the exe has it too) */
+        SDL_Surface *icon = SDL_CreateRGBSurfaceWithFormatFrom(
+            (void *)wolf_icon_rgba, WOLF_ICON_SIZE, WOLF_ICON_SIZE, 32, WOLF_ICON_SIZE * 4,
+            SDL_PIXELFORMAT_RGBA32);
+        if (icon) {
+            SDL_SetWindowIcon(pr->window, icon);
+            SDL_FreeSurface(icon);
+        }
+    }
     pr->renderer = SDL_CreateRenderer(
         pr->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!pr->renderer) {

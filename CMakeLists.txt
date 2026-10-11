@@ -53,6 +53,7 @@ set(WOLF_PLATFORM_SOURCES
   src/platform/win_sdl/wolf_winutil.c
   src/platform/win_sdl/wolf_pad.c
   src/platform/win_sdl/pad_map.c
+  src/platform/win_sdl/wolf_icon.c
 )
 
 # Faithful engine (P4, ADR-002). No SDL dependency; built next to the legacy engine.
@@ -101,6 +102,14 @@ target_include_directories(wolf3d PRIVATE
 )
 
 target_compile_definitions(wolf3d PRIVATE SDL_MAIN_HANDLED)
+
+# The exe's icon and version information (Windows); the icon is drawn by scripts/make_icon.py.
+if(WIN32)
+  enable_language(RC)
+  set(WOLF_RES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/res)
+  configure_file(res/wolf3d-x64.rc.in ${CMAKE_CURRENT_BINARY_DIR}/wolf3d-x64.rc @ONLY)
+  target_sources(wolf3d PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/wolf3d-x64.rc)
+endif()
 target_link_libraries(wolf3d PRIVATE SDL2::SDL2)
 
 # Applies to project targets only, never to SDL2.
