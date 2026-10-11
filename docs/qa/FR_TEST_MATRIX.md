@@ -15,7 +15,7 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 
 > Seeded at Q0. Update when blocks close. Game data remains user-owned.  
 > Reviewed 2026-10-06 (P2): FR-GAME-006 and FR-GAME-007 lowered from Met to Partial against the faithful-port bar ([ADR-002](../adr/002-faithful-fixed-point-port.md)); FR-DATA-001 was lowered too and restored to Met after P3 (WL1 layout).
-> Reviewed 2026-10-11 (P5e, Q5): the faithful engine (P4) and the original screens (P5) close the Partial gameplay, input and audio items; evidence below. Only FR-VID-005 stays Partial.
+> Reviewed 2026-10-11 (P5e, Q5): the faithful engine (P4) and the original screens (P5) close the Partial gameplay, input and audio items; evidence below. No Partial items remain.
 
 ## Platform & process
 
@@ -46,7 +46,7 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 | FR-VID-002 | Title palette paint non-empty | A/M | Met | Q1/Q2 | |
 | FR-VID-003 | Integer scale 4:3 letterbox | A/M | Met | Q2 | Whole multiples by default (`scale` in config.ini); Video → Fill the screen: 4:3 sharp bilinear (P5b2) |
 | FR-VID-004 | Esc / window close | M | Met | Q2 | Player sign-off |
-| FR-VID-005 | Alt-tab no crash | M | Partial | Q2/Q4 | Informal |
+| FR-VID-005 | Alt-tab no crash | M | Met | Q2/Q4 | Maintainer check 2026-10-11 |
 
 ## Input
 

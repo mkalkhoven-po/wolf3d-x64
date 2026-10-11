@@ -16,7 +16,7 @@ The **Evidence** column says how an item is covered: an automated test (CTest na
 | 4 | Quit (Y) or closing the window ends cleanly | Pass | `test_orig_menu` (Quit); maintainer playtests |
 | 5 | F11 / Video → Fullscreen toggles and restores | Pass | maintainer 2026-10-11 |
 | 6 | Video → Fill the screen: 4:3, not stretched wrong | Pass | maintainer 2026-10-11 |
-| 7 | Alt-tab out and in, no crash | | open |
+| 7 | Alt-tab out and in, no crash | Pass | maintainer 2026-10-11 |
 
 ## Q3 — World & combat (#53)
 
@@ -40,7 +40,7 @@ Step-by-step + fidelity snapshot: [E1M1_ANYPERCENT_REFERENCE.md](E1M1_ANYPERCENT
 |---|------|-------|----------|
 | 1 | Hear the pistol and doors (digitized) and the pickups (AdLib) | Pass | `smoke_only` (digitized map per pack, AdLib effect); maintainer ear check |
 | 2 | Music in the menus and on every floor | Pass | `smoke_only` (music keys notes); level music table identical to the original; maintainer ear check |
-| 3 | Sound → Sound devices: effects, digitized and music off still runs, silent | | `smoke_only` (each switch); open: hear it once |
+| 3 | Sound → Sound devices: effects, digitized and music off still runs, silent | Pass | `smoke_only` (each switch); maintainer 2026-10-11 |
 | 4 | Sound → Music / Effects volume: each on its own, 0 is silent | Pass | `smoke_only` (the mixer at 0 and at full); maintainer 2026-10-10 |
 | 5 | Save Game (F2) with a typed name creates `%APPDATA%\Wolf3DWin64\savegam<slot>.WL6` (or `.WL1`); F8 then saves there at once | Pass | `test_orig_menu` (save, F8) |
 | 6 | Load Game (F3) / F9 restores the level exactly (actors, doors, pickups, position) | Pass | `orig_loop_maps` (a save halfway through a demo ends identically) |
