@@ -185,6 +185,7 @@ int main(int argc, char *argv[])
     int i;
     int rc;
 
+    Wolf_SetupOutput();
 #ifdef _MSC_VER
     /*
      * The Microsoft CRT has no line buffering, and _IOLBF with size 0 is an

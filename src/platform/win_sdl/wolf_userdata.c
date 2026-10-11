@@ -8,6 +8,10 @@
 #include <sys/types.h>
 
 #ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #include <direct.h>
 #define WOLF_PATH_SEP '\\'
 #ifndef S_IFMT
@@ -27,6 +31,33 @@
 
 wolf_config_t g_config;
 boolean g_config_found;
+
+void Wolf_SetupOutput(void)
+{
+#ifdef _WIN32
+    /*
+     * The game is a windowed program (no console of its own). Output that
+     * already goes somewhere (redirected to a file or pipe, as in the tests)
+     * stays there; started from a terminal it shows there; double-clicked,
+     * it goes to wolf3d.log in the settings folder, for bug reports.
+     */
+    char path[WOLF_PATH_MAX];
+    const HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    if (out && out != INVALID_HANDLE_VALUE && GetFileType(out) != FILE_TYPE_UNKNOWN) {
+        return;
+    }
+    if (AttachConsole(ATTACH_PARENT_PROCESS)) {
+        (void)freopen("CONOUT$", "w", stdout);
+        (void)freopen("CONOUT$", "w", stderr);
+        return;
+    }
+    if (Wolf_GetAppDataPath("wolf3d.log", path, sizeof(path)) && freopen(path, "w", stdout)) {
+        (void)freopen(path, "a", stderr);
+        setvbuf(stderr, NULL, _IONBF, 0);
+    }
+#endif
+}
 
 /* where the per-user folders live: %APPDATA% (Windows), ~/.local/share (elsewhere) */
 static boolean user_base_dir(char *out, size_t out_sz)

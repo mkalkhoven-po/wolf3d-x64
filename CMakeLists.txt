@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(wolf3d-x64 VERSION 0.8.0 LANGUAGES C)
+project(wolf3d-x64 VERSION 0.9.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -140,7 +140,11 @@ if(UNIX OR MINGW)
 endif()
 
 if(WIN32)
-  set_target_properties(wolf3d PROPERTIES WIN32_EXECUTABLE FALSE)
+  # a windowed program: no console window when double-clicked (output: Wolf_SetupOutput)
+  set_target_properties(wolf3d PROPERTIES WIN32_EXECUTABLE TRUE)
+  if(MSVC)
+    target_link_options(wolf3d PRIVATE /ENTRY:mainCRTStartup) # main(), not WinMain
+  endif()
 endif()
 
 if(WIN32 AND TARGET SDL2)
@@ -152,7 +156,31 @@ if(WIN32 AND TARGET SDL2)
   )
 endif()
 
-install(TARGETS wolf3d RUNTIME DESTINATION bin)
+# The release package (cpack, after a build): the game, SDL2.dll on Windows,
+# the papers and an empty data folder. Never any game data.
+install(TARGETS wolf3d RUNTIME DESTINATION .)
+if(WIN32 AND TARGET SDL2)
+  install(FILES $<TARGET_FILE:SDL2> DESTINATION .)
+endif()
+configure_file(packaging/README.txt.in ${CMAKE_CURRENT_BINARY_DIR}/README.txt @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/README.txt DESTINATION .)
+install(FILES LICENSE DESTINATION . RENAME LICENSE.txt)
+install(FILES THIRD_PARTY_NOTICES.md DESTINATION . RENAME THIRD_PARTY_NOTICES.txt)
+install(FILES packaging/data-README.txt DESTINATION data RENAME README.txt)
+
+if(WIN32)
+  set(CPACK_GENERATOR ZIP)
+  set(WOLF_PACKAGE_OS windows)
+else()
+  set(CPACK_GENERATOR TGZ)
+  set(WOLF_PACKAGE_OS linux)
+endif()
+set(CPACK_PACKAGE_NAME wolf3d-x64)
+set(CPACK_PACKAGE_VENDOR "Wolf3D x64")
+set(CPACK_PACKAGE_FILE_NAME "wolf3d-x64-${PROJECT_VERSION}-${WOLF_PACKAGE_OS}-x64")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
+set(CPACK_STRIP_FILES ON)
+include(CPack)
 
 if(WOLF_BUILD_TESTS)
   enable_testing()

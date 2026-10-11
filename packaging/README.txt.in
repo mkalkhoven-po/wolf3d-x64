@@ -1,0 +1,78 @@
+Wolf3D x64 @PROJECT_VERSION@ (preview)
+==============================
+
+A faithful port of id Software's Wolfenstein 3-D (1992) to 64-bit Windows
+and Linux: the original engine, AI, screens and control panel, the AdLib
+music and the Sound Blaster effects, with mouse, game pad and scalable
+windows added. Free software under the GPL-2.0 (LICENSE.txt).
+
+This is a preview: everything is in, and the first players are the
+playtest. Found something? https://github.com/mkalkhoven-po/wolf3d-x64/issues
+
+
+What you need: your own game files
+----------------------------------
+
+This package holds the game program only, no game data. Use your own
+Wolfenstein 3-D files, version 1.4:
+
+  - the shareware (episode 1): the files end in .WL1
+  - the full version (all six episodes): the files end in .WL6
+    (the copies sold today, for instance on Steam or GOG, are this one)
+
+The files needed: VSWAP, VGAGRAPH, VGAHEAD, VGADICT, GAMEMAPS, MAPHEAD,
+AUDIOHED and AUDIOT, each ending in .WL1 or .WL6.
+
+
+Starting
+--------
+
+Easiest: copy those files into the "data" folder next to the game, then
+start the game. Or start it anywhere: when it finds no game files it asks
+for the folder they are in, and remembers it.
+
+Windows: double-click wolf3d.exe. Windows may say "Windows protected your
+PC", because the program is new and not signed: choose "More info", then
+"Run anyway". SDL2.dll must stay next to wolf3d.exe.
+
+Linux: run ./wolf3d. It needs SDL2 (Debian / Ubuntu: sudo apt install
+libsdl2-2.0-0; Fedora: sudo dnf install SDL2). Asking for the folder
+needs zenity or kdialog; without them, start it as
+./wolf3d --data /path/to/your/files
+
+
+Playing
+-------
+
+As in the original: any key on the title pages opens the control panel,
+New Game starts. Esc in the game opens the control panel again. The
+original keys (arrows, Ctrl shoots, Space opens doors, Alt strafes,
+Shift runs, 1-4 pick a weapon); F11 switches fullscreen. Mouse: turn on
+Mouse Enabled in the Control menu. Game pad (Xbox, PlayStation and
+others): left stick walks, right stick turns, RT or A shoots, X opens
+doors, Start is Esc. The Sound, Video and Control menus hold the
+settings.
+
+
+Where your settings and saves are
+---------------------------------
+
+Windows: %APPDATA%\Wolf3D-x64\
+Linux:   ~/.local/share/Wolf3D-x64/
+
+config.ini (settings), the high scores, the ten save slots of each
+version, and on Windows wolf3d.log (what the last start printed; please
+add it to a bug report).
+
+
+Source code and license
+-----------------------
+
+The source code is at https://github.com/mkalkhoven-po/wolf3d-x64 (the
+release @PROJECT_VERSION@ is tag v@PROJECT_VERSION@). Wolf3D x64 is licensed
+under the GNU General Public License, version 2 (LICENSE.txt); it derives
+from id Software's Wolfenstein 3-D source code, released under the GPL in
+2012. SDL2 is under the zlib license (THIRD_PARTY_NOTICES.txt).
+
+Wolfenstein is a trademark of ZeniMax Media. This project is not affiliated
+with or endorsed by id Software or ZeniMax.

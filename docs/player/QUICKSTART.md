@@ -1,7 +1,7 @@
-# Player quickstart (Windows 11)
+# Player quickstart (Windows and Linux)
 
 ## What you need
-1. A build of `wolf3d.exe` (and `SDL2.dll` beside it).
+1. The game: the package from the [Releases page](https://github.com/mkalkhoven-po/wolf3d-x64/releases) (`wolf3d-x64-<version>-windows-x64.zip` or `-linux-x64.tar.gz`, see its `README.txt`), or your own build of `wolf3d.exe` (and `SDL2.dll` beside it).
 2. **Your own** Wolfenstein 3-D game files: the free **shareware** version (Episode 1, files ending `.WL1`) or the **full version** (all six episodes, files ending `.WL6`), both version 1.4.  
    Example local drop used in development: `D:\wolf3d-master\Wolf3dgame`
 
@@ -173,6 +173,7 @@ choice is kept in `config.ini` (`sfx_on`, `digi_on`, `music_on`).
   config.ini        scale, fullscreen, the Sound, Video and Control menus, last_data
   scores.WL6 / .WL1 the high score table of the full version / the shareware
   savegam0.WL6 …    the ten save slots of each (.WL1 for the shareware)
+  wolf3d.log        Windows: what the game printed when last double-clicked (add it to a bug report)
 ```
 
 On Linux the same files live in `~/.local/share/Wolf3D-x64/` (or `$XDG_DATA_HOME/Wolf3D-x64/` when that is set).
@@ -197,7 +198,7 @@ cmake --build build
 ./build/wolf3d --data ~/games/wolf3d
 ```
 
-The game files may be named in any case (`VSWAP.WL6` or `vswap.wl6`); a `Wolf3dgame` folder next to the binary is found by itself, as on Windows. The release (R1) will also come as a Linux package.
+The game files may be named in any case (`VSWAP.WL6` or `vswap.wl6`); a `Wolf3dgame` or `data` folder next to the binary is found by itself, as on Windows. The Linux package (`wolf3d-x64-<version>-linux-x64.tar.gz`) needs only SDL2 from the system (`sudo apt install libsdl2-2.0-0`): unpack it, put the game files in its `data` folder, run `./wolf3d`.
 
 ## Support notes
 - Missing data → non-zero exit, optional popup; `MISSING:` list on console when pack incomplete.
