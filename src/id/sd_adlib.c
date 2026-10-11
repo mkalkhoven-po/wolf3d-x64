@@ -246,12 +246,24 @@ void SDA_Render(int32_t *out, int frames)
     int i;
 
     for (i = 0; i < frames; i++) {
+        int32_t effects, music;
+
+        SDA_RenderSplit(&effects, &music, 1);
+        out[i] = effects + music;
+    }
+}
+
+void SDA_RenderSplit(int32_t *effects, int32_t *music, int frames)
+{
+    int i;
+
+    for (i = 0; i < frames; i++) {
         tickfrac += SDA_TICKRATE;
         if (tickfrac >= SDA_RATE) {
             tickfrac -= SDA_RATE;
             TimerService();
         }
-        out[i] = OPL2_Sample(&chip);
+        OPL2_SampleSplit(&chip, &effects[i], &music[i]);
     }
 }
 

@@ -4,7 +4,9 @@
  * into orig_keys / LastScan / LastASCII as the keyboard interrupt did, one
  * step per input poll, and the menus run as they do in the game: the main
  * menu and Quit, New Game (episodes, difficulty), Sound, Save and Load with
- * a typed name, the quick keys F8 / F9, Change View and the high scores.
+ * a typed name, the quick keys F8 / F9, Change View, the high scores, the
+ * Control menu (mouse, sensitivity, a key customized, More options) and
+ * Read This!.
  *
  * UI_DUMP=name writes the screens the script marks as name.<screen>.bmp.
  */
@@ -30,7 +32,7 @@ static const press_t *g_script;
 static int g_nscript, g_step, g_phase, g_polls, g_pressed;
 static boolean g_runaway;
 
-#define MAXSNAPS 16
+#define MAXSNAPS 32
 static const char *g_snapname[MAXSNAPS];
 static uint32_t g_snaphash[MAXSNAPS];
 static int g_numsnaps;
@@ -190,6 +192,24 @@ static size_t read_game(int slot, byte *buf, size_t cap)
     return g_slotlen[slot];
 }
 
+/* the mouse is there and does not move; the More options settings */
+static void still_mouse(int *dx, int *dy)
+{
+    *dx = *dy = 0;
+}
+
+static int g_option[NUMOPTIONS];
+
+static int get_option(int which)
+{
+    return g_option[which];
+}
+
+static void set_option(int which, int value)
+{
+    g_option[which] = value;
+}
+
 static void run_script(const press_t *script, int n)
 {
     install_hooks();
@@ -201,6 +221,9 @@ static void run_script(const press_t *script, int n)
     orig_hooks.save_name = save_name;
     orig_hooks.write_game = write_game;
     orig_hooks.read_game = read_game;
+    orig_hooks.mouse_delta = still_mouse;
+    orig_hooks.get_option = get_option;
+    orig_hooks.set_option = set_option;
     memset(orig_keys, 0, sizeof(orig_keys));
     g_script = script;
     g_nscript = n;
@@ -241,6 +264,12 @@ static void check_screens(void)
         {"typed", 0xf59a9da6u, 0xf59a9da6u},
         {"changeview", 0x6521edadu, 0x6521edadu},
         {"scores", 0x66da3e84u, 0x4b5e6d16u},
+        {"control", 0x371fbb89u, 0x371fbb89u},
+        {"mousesens", 0x7641c575u, 0x7641c575u},
+        {"customize", 0xb6374824u, 0xb6374824u},
+        {"moreopts", 0x8fde6839u, 0x8fde6839u},
+        {"help1", 0x174b84c4u, 0x174b84c4u}, /* both packs' help starts the same */
+        {"help2", 0xd152ab99u, 0xd152ab99u},
     };
     size_t i;
 
@@ -447,6 +476,89 @@ static void test_change_view(void)
     NewViewSize(15);
 }
 
+static void test_control_menu(void)
+{
+    static const press_t script[] = {
+        SNAPKEY(sc_Return, "control"), /* Mouse Enabled: off */
+        KEY(sc_Return),                /* and on again */
+        KEY(sc_DownArrow),             /* past the joystick lines, greyed: Mouse Sensitivity */
+        KEY(sc_Return),
+        SNAPKEY(sc_RightArrow, "mousesens"),
+        KEY(sc_RightArrow),
+        KEY(sc_Return),
+        KEY(sc_DownArrow), /* Customize controls */
+        KEY(sc_Return),
+        SNAPKEY(sc_DownArrow, "customize"), /* past the joystick: the keyboard buttons */
+        KEY(sc_Return),
+        KEY(sc_Return),   /* Run: pick a key */
+        {sc_Q, 'q', NULL}, /* Q runs */
+        KEY(sc_Escape),
+        KEY(sc_Escape),
+        KEY(sc_DownArrow), /* More options */
+        KEY(sc_Return),
+        SNAPKEY(sc_Return, "moreopts"), /* Music volume */
+        KEY(sc_LeftArrow),
+        KEY(sc_LeftArrow),
+        KEY(sc_Return),
+        KEY(sc_DownArrow),
+        KEY(sc_Return), /* Effects volume: left, then Esc puts it back */
+        KEY(sc_LeftArrow),
+        KEY(sc_Escape),
+        KEY(sc_DownArrow),
+        KEY(sc_DownArrow),
+        KEY(sc_Return), /* Fill the screen: on */
+        KEY(sc_Escape),
+        KEY(sc_Escape),
+    };
+    const int16_t run = buttonscan[bt_run];
+
+    mouseenabled = true;
+    mouseadjustment = 5;
+    joystickenabled = false;
+    g_option[OPT_MUSICVOL] = g_option[OPT_EFFECTSVOL] = 9;
+    g_option[OPT_PADSENS] = 5;
+    g_option[OPT_FILLSCREEN] = g_option[OPT_FULLSCREEN] = 0;
+    run_script(script, N(script));
+    CP_Control(0);
+    printf("  control: mouse %d, sensitivity %d, run key %02x, music %d, effects %d, fill %d\n",
+           mouseenabled, mouseadjustment, buttonscan[bt_run], g_option[OPT_MUSICVOL],
+           g_option[OPT_EFFECTSVOL], g_option[OPT_FILLSCREEN]);
+    CHECK(script_done());
+    CHECK(mouseenabled && mouseadjustment == 7);
+    CHECK(buttonscan[bt_run] == sc_Q);
+    CHECK(g_option[OPT_MUSICVOL] == 7 && g_option[OPT_EFFECTSVOL] == 9);
+    CHECK(g_option[OPT_FILLSCREEN] == 1 && g_option[OPT_FULLSCREEN] == 0);
+    buttonscan[bt_run] = run;
+}
+
+/* Read This!: the help text, a page on and back, the frame around it */
+static void test_help(void)
+{
+    static const press_t script[] = {
+        SNAPKEY(sc_RightArrow, "help1"),
+        SNAPKEY(sc_LeftArrow, "help2"),
+        SNAPKEY(sc_Escape, "help1again"),
+    };
+    const struct { /* the chunk numbers depend on the pack */
+        int chunk, width, height;
+    } frame[] = {{H_TOPWINDOWPIC, 320, 8},
+                 {H_LEFTWINDOWPIC, 8, 192},
+                 {H_RIGHTWINDOWPIC, 8, 192},
+                 {H_BOTTOMINFOPIC, 304, 24}};
+    size_t i;
+
+    for (i = 0; i < sizeof(frame) / sizeof(frame[0]); i++) {
+        CHECK(pictable[frame[i].chunk - STARTPICS].width == frame[i].width &&
+              pictable[frame[i].chunk - STARTPICS].height == frame[i].height);
+    }
+
+    run_script(script, N(script));
+    HelpScreens();
+    CHECK(script_done());
+    CHECK(snap_hash("help1") != snap_hash("help2"));
+    CHECK(snap_hash("help1") == snap_hash("help1again"));
+}
+
 static void test_high_scores(void)
 {
     run_script(NULL, 0);
@@ -483,6 +595,8 @@ int main(int argc, char **argv)
     test_quick_keys();
     test_change_view();
     test_high_scores();
+    test_control_menu();
+    test_help();
 
     check_screens();
 

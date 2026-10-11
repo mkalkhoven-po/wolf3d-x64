@@ -1,5 +1,6 @@
 #include "id_sd.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -300,9 +301,32 @@ static const byte *audio_chunk(int chunk, size_t *size)
 
 /* ---- mixer ---- */
 
+/* the settings page's volumes (not in the original), as gains */
+static float music_gain = 1.0f, effects_gain = 1.0f;
+
+/* 0 is silent, then 3 dB a step up to 9 at full volume */
+static float LevelGain(int level)
+{
+    if (level <= 0) {
+        return 0.0f;
+    }
+    if (level >= SD_MAXVOLUME) {
+        return 1.0f;
+    }
+    return powf(10.0f, -3.0f * (float)(SD_MAXVOLUME - level) / 20.0f);
+}
+
+void SD_SetVolumes(int music, int effects)
+{
+    LOCK();
+    music_gain = LevelGain(music);
+    effects_gain = LevelGain(effects);
+    UNLOCK();
+}
+
 static void mix_callback(void *userdata, Uint8 *stream, int len)
 {
-    static int32_t opl[MIX_SAMPLES];
+    static int32_t fxopl[MIX_SAMPLES], musopl[MIX_SAMPLES];
     float *out = (float *)stream;
     int frames = len / (int)(2 * sizeof(float));
     const uint32_t step = (uint32_t)(((uint64_t)DIGI_RATE << 16) / MIX_RATE);
@@ -313,9 +337,9 @@ static void mix_callback(void *userdata, Uint8 *stream, int len)
         const int n = frames > MIX_SAMPLES ? MIX_SAMPLES : frames;
         int i;
 
-        SDA_Render(opl, n);
+        SDA_RenderSplit(fxopl, musopl, n);
         for (i = 0; i < n; i++) {
-            float l = (float)opl[i] * OPL_GAIN;
+            float l = ((float)fxopl[i] * effects_gain + (float)musopl[i] * music_gain) * OPL_GAIN;
             float r = l;
 
             if (digi_data) {
@@ -324,7 +348,7 @@ static void mix_callback(void *userdata, Uint8 *stream, int len)
                 const float frac = (float)(digi_pos & 0xffff) / 65536.0f;
                 const int a = digi_data[s] - 128;
                 const int b = (s + 1 < digi_len ? digi_data[s + 1] : 128) - 128;
-                const float d = ((float)a + (float)(b - a) * frac) * DIGI_GAIN;
+                const float d = ((float)a + (float)(b - a) * frac) * DIGI_GAIN * effects_gain;
 
                 l += d * digi_left;
                 r += d * digi_right;

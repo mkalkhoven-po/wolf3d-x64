@@ -44,6 +44,7 @@ void CA_PrintMapSmoke(int mapnum);
 
 void CA_CacheGrChunk(int chunk);
 void CA_UnCacheGrChunk(int chunk);
+size_t CA_GrChunkSize(int chunk); /* the cached chunk's length in bytes, 0 if not cached */
 void CA_CacheScreen(int chunk);
 boolean CA_LoadFile(const char *filename, memptr *ptr);
 

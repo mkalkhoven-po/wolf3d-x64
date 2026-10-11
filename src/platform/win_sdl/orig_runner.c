@@ -232,7 +232,10 @@ static void PumpEvents(void)
             break;
         case SDL_KEYDOWN:
             if (ev.key.keysym.scancode == SDL_SCANCODE_F11 && !ev.key.repeat) {
-                (void)Bridge_ToggleFullscreen();
+                if (Bridge_ToggleFullscreen()) {
+                    g_config.fullscreen = Bridge_IsFullscreen();
+                    (void)Wolf_ConfigSave();
+                }
                 break;
             }
             if (ev.key.keysym.scancode == SDL_SCANCODE_PAUSE) {
@@ -286,11 +289,17 @@ static void PumpEvents(void)
 /* The pad, twin-stick (pad_map.h), added to what the keyboard and mouse give. */
 static pad_state_t g_padbefore;
 
+static boolean g_relative; /* the mouse captured, as Mouse Enabled has it */
+
 static void PollInput(void)
 {
     pad_state_t pad;
     pad_controls_t c;
 
+    if (!g_fast && g_relative != mouseenabled) {
+        g_relative = mouseenabled;
+        SDL_SetRelativeMouseMode(g_relative ? SDL_TRUE : SDL_FALSE);
+    }
     PumpEvents();
     if (!Wolf_PadRead(&pad)) {
         memset(&g_padbefore, 0, sizeof(g_padbefore));
@@ -645,6 +654,107 @@ static boolean HookSoundAvailable(int which, int mode)
     return Bridge_SoundAvailable(which, mode);
 }
 
+/* ---------------------------------------------- the settings, in config.ini */
+
+/* More options (not in the original) */
+static int HookGetOption(int which)
+{
+    switch (which) {
+    case OPT_MUSICVOL:
+        return g_config.music_volume;
+    case OPT_EFFECTSVOL:
+        return g_config.effects_volume;
+    case OPT_PADSENS:
+        return g_config.pad_sens;
+    case OPT_FILLSCREEN:
+        return g_config.fill_screen;
+    case OPT_FULLSCREEN:
+        return Bridge_IsFullscreen();
+    default:
+        return 0;
+    }
+}
+
+static void HookSetOption(int which, int value)
+{
+    switch (which) {
+    case OPT_MUSICVOL:
+        g_config.music_volume = value;
+        break;
+    case OPT_EFFECTSVOL:
+        g_config.effects_volume = value;
+        break;
+    case OPT_PADSENS:
+        g_config.pad_sens = value;
+        Pad_SetSensitivity(value);
+        break;
+    case OPT_FILLSCREEN:
+        g_config.fill_screen = value != 0;
+        Bridge_SetFill(g_config.fill_screen);
+        break;
+    case OPT_FULLSCREEN:
+        if ((value != 0) != Bridge_IsFullscreen()) {
+            (void)Bridge_ToggleFullscreen();
+        }
+        g_config.fullscreen = Bridge_IsFullscreen();
+        break;
+    default:
+        return;
+    }
+    Bridge_SetVolumes(g_config.music_volume, g_config.effects_volume);
+    (void)Wolf_ConfigSave();
+}
+
+/* the Control menu's settings from the config (the original's CONFIG.WL6) */
+static void ApplyControls(void)
+{
+    int i;
+
+    mouseenabled = g_config.mouse_look != 0;
+    mouseadjustment = (int16_t)g_config.mouse_adjust;
+    joystickenabled = g_config.joystick != 0;
+    joystickport = (int16_t)g_config.joystick_port;
+    joypadenabled = g_config.joypad != 0;
+    for (i = 0; i < NUMBUTTONS && g_config.key_buttons[0] >= 0; i++) {
+        buttonscan[i] = (int16_t)g_config.key_buttons[i];
+    }
+    for (i = 0; i < 4; i++) {
+        if (g_config.key_dirs[0] >= 0) {
+            dirscan[i] = (int16_t)g_config.key_dirs[i];
+        }
+        if (g_config.mouse_buttons[0] >= 0) {
+            buttonmouse[i] = (int16_t)g_config.mouse_buttons[i];
+        }
+        if (g_config.joy_buttons[0] >= 0) {
+            buttonjoy[i] = (int16_t)g_config.joy_buttons[i];
+        }
+    }
+    Bridge_SetVolumes(g_config.music_volume, g_config.effects_volume);
+    Pad_SetSensitivity(g_config.pad_sens);
+}
+
+/* and back, when the control panel may have changed them */
+static void SaveControls(void)
+{
+    int i;
+
+    g_config.mouse_look = mouseenabled;
+    g_config.mouse_adjust = mouseadjustment;
+    g_config.joystick = joystickenabled;
+    g_config.joystick_port = joystickport;
+    g_config.joypad = joypadenabled;
+    for (i = 0; i < NUMBUTTONS; i++) {
+        g_config.key_buttons[i] = buttonscan[i];
+    }
+    for (i = 0; i < 4; i++) {
+        g_config.key_dirs[i] = dirscan[i];
+        g_config.mouse_buttons[i] = buttonmouse[i];
+        g_config.joy_buttons[i] = buttonjoy[i];
+    }
+    g_config.viewsize = viewsize;
+    (void)Wolf_ConfigSave();
+}
+
 /* ------------------------------------------------- screens (until P5 does them) */
 
 /* a framed message over the play area, the original's Message() */
@@ -814,6 +924,9 @@ static void InstallHooks(void)
     orig_hooks.set_sound_mode = HookSetSoundMode;
     orig_hooks.sound_available = HookSoundAvailable;
 
+    orig_hooks.get_option = HookGetOption;
+    orig_hooks.set_option = HookSetOption;
+
     orig_hooks.save_name = HookSaveName;
     orig_hooks.write_game = HookWriteGame;
     orig_hooks.read_game = HookReadGame;
@@ -872,6 +985,7 @@ static void MenuLoop(void)
         }
 
         US_ControlPanel(0);
+        SaveControls();
         if (orig_quit) {
             break;
         }
@@ -879,6 +993,7 @@ static void MenuLoop(void)
             abortgame = false;
             GameLoop();
             SaveScores();
+            SaveControls(); /* the control panel in the game */
             VW_FadeOut();
             StartCPMusic(INTROSONG);
         }
@@ -902,9 +1017,7 @@ int OrigRunner_Run(const orig_run_options_t *opts)
         fprintf(stderr, "Could not open the window\n");
         return 30;
     }
-    if (!g_fast) {
-        SDL_SetRelativeMouseMode(Bridge_MouseLook() ? SDL_TRUE : SDL_FALSE);
-    }
+    g_relative = false; /* PollInput captures the mouse when Mouse Enabled is on */
 
     TicClock_Init(&g_clock, SDL_GetPerformanceFrequency(), SDL_GetPerformanceCounter());
     InitGame();
@@ -912,7 +1025,7 @@ int OrigRunner_Run(const orig_run_options_t *opts)
     orig_getpage = PageForEngine;
     orig_spritestart = (int16_t)Bridge_SpriteStart();
     upload = Bridge_IsShareware();
-    mouseenabled = Bridge_MouseLook() != 0;
+    ApplyControls();
     InitRedShifts();
     InstallHooks();
     VL_SetPalette(gamepal); /* the engine's palette, which fades start from */
@@ -922,8 +1035,7 @@ int OrigRunner_Run(const orig_run_options_t *opts)
 
     if (opts->menu) {
         MenuLoop();
-        g_config.viewsize = viewsize;
-        (void)Wolf_ConfigSave();
+        SaveControls();
     } else if (opts->demo >= 0) {
         size_t length = 0;
         const byte *lump = Bridge_DemoLump(opts->demo, &length);

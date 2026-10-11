@@ -58,12 +58,28 @@ static void present_dst_rect(const wolf_present_t *pr, SDL_Rect *dst)
     if (!pr || !pr->window || !dst) {
         return;
     }
-    SDL_GetWindowSize(pr->window, &ww, &wh);
+    if (SDL_GetRendererOutputSize(pr->renderer, &ww, &wh) != 0) {
+        SDL_GetWindowSize(pr->window, &ww, &wh);
+    }
     if (ww < 1) {
         ww = 1;
     }
     if (wh < 1) {
         wh = 1;
+    }
+    if (pr->fill) {
+        /* the largest 4:3 rectangle that fits */
+        out_w = ww;
+        out_h = ww * 3 / 4;
+        if (out_h > wh) {
+            out_h = wh;
+            out_w = wh * 4 / 3;
+        }
+        dst->w = out_w;
+        dst->h = out_h;
+        dst->x = (ww - out_w) / 2;
+        dst->y = (wh - out_h) / 2;
+        return;
     }
     {
         int sx = ww / 320;
@@ -151,6 +167,7 @@ boolean Wolf_PresentCreate(wolf_present_t *pr, const char *title, int scale,
         Wolf_PresentDestroy(pr);
         return false;
     }
+    SDL_SetTextureScaleMode(pr->texture, SDL_ScaleModeNearest);
 
     pr->pixels = (Uint32 *)malloc((size_t)pr->logical_w * (size_t)pr->logical_h *
                                   sizeof(Uint32));
@@ -170,6 +187,10 @@ void Wolf_PresentDestroy(wolf_present_t *pr)
         free(pr->pixels);
         pr->pixels = NULL;
     }
+    if (pr->prescaled) {
+        SDL_DestroyTexture(pr->prescaled);
+        pr->prescaled = NULL;
+    }
     if (pr->texture) {
         SDL_DestroyTexture(pr->texture);
         pr->texture = NULL;
@@ -181,6 +202,49 @@ void Wolf_PresentDestroy(wolf_present_t *pr)
     if (pr->window) {
         SDL_DestroyWindow(pr->window);
         pr->window = NULL;
+    }
+}
+
+/*
+ * Sharp bilinear: the frame goes up by whole multiples (crisp pixels) to just
+ * above the window's size, then smoothly down to it, so only the pixel edges
+ * blend. False when the renderer cannot draw into a texture.
+ */
+static boolean prescale(wolf_present_t *pr, const SDL_Rect *dst)
+{
+    const int kx = (dst->w + pr->logical_w - 1) / pr->logical_w;
+    const int ky = (dst->h + pr->logical_h - 1) / pr->logical_h;
+
+    if (!SDL_RenderTargetSupported(pr->renderer)) {
+        return false;
+    }
+    if (!pr->prescaled || pr->prescale_x != kx || pr->prescale_y != ky) {
+        if (pr->prescaled) {
+            SDL_DestroyTexture(pr->prescaled);
+        }
+        pr->prescaled = SDL_CreateTexture(pr->renderer, SDL_PIXELFORMAT_ARGB8888,
+                                          SDL_TEXTUREACCESS_TARGET, pr->logical_w * kx,
+                                          pr->logical_h * ky);
+        if (!pr->prescaled) {
+            return false;
+        }
+        SDL_SetTextureScaleMode(pr->prescaled, SDL_ScaleModeLinear);
+        pr->prescale_x = kx;
+        pr->prescale_y = ky;
+    }
+    if (SDL_SetRenderTarget(pr->renderer, pr->prescaled) != 0) {
+        return false;
+    }
+    SDL_RenderCopy(pr->renderer, pr->texture, NULL, NULL);
+    SDL_SetRenderTarget(pr->renderer, NULL);
+    SDL_RenderCopy(pr->renderer, pr->prescaled, NULL, dst);
+    return true;
+}
+
+void Wolf_PresentSetFill(wolf_present_t *pr, int fill)
+{
+    if (pr) {
+        pr->fill = fill ? 1 : 0;
     }
 }
 
@@ -205,7 +269,9 @@ void Wolf_PresentFrame(wolf_present_t *pr)
     SDL_SetRenderDrawColor(pr->renderer, 0, 0, 0, 255);
     SDL_RenderClear(pr->renderer);
     present_dst_rect(pr, &dst);
-    SDL_RenderCopy(pr->renderer, pr->texture, NULL, &dst);
+    if (!pr->fill || !prescale(pr, &dst)) {
+        SDL_RenderCopy(pr->renderer, pr->texture, NULL, &dst);
+    }
     SDL_RenderPresent(pr->renderer);
 }
 

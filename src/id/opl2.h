@@ -59,3 +59,10 @@ void OPL2_Write(opl2_t *chip, int reg, int val);
 
 /* The next output sample: the sum of the nine channels (roughly +-37000 at most). */
 int32_t OPL2_Sample(opl2_t *chip);
+
+/*
+ * The same sample split into channel 0 and the other eight. Wolfenstein 3-D
+ * plays its AdLib sound effects on channel 0 and music on channels 1-8, so
+ * the two can have their own volume.
+ */
+void OPL2_SampleSplit(opl2_t *chip, int32_t *first, int32_t *rest);

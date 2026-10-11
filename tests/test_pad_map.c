@@ -160,6 +160,25 @@ static void test_menu(void)
     CHECK(b == 0);
 }
 
+/* the settings page's pad turning: the default as before, slower at 0, faster at 9 */
+static void test_sensitivity(void)
+{
+    const int normal = map(0, 0, 32767, 0, 0).controlx;
+    int slow, fast;
+
+    Pad_SetSensitivity(0);
+    slow = map(0, 0, 32767, 0, 0).controlx;
+    Pad_SetSensitivity(9);
+    fast = map(0, 0, 32767, 0, 0).controlx;
+    Pad_SetSensitivity(PAD_SENS_DEFAULT);
+    CHECK(map(0, 0, 32767, 0, 0).controlx == normal);
+    CHECK(slow > 0 && slow < normal && fast > normal);
+    CHECK(slow == normal * 40 / 100 && fast == normal * 148 / 100);
+    Pad_SetSensitivity(99); /* clamped */
+    CHECK(map(0, 0, 32767, 0, 0).controlx == fast);
+    Pad_SetSensitivity(PAD_SENS_DEFAULT);
+}
+
 int main(void)
 {
     test_stick();
@@ -168,6 +187,7 @@ int main(void)
     test_buttons();
     test_next_weapon();
     test_menu();
+    test_sensitivity();
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

@@ -80,6 +80,7 @@ set(WOLF_ORIG_SOURCES
   src/orig/orig_scale.c
   src/orig/orig_state.c
   src/orig/orig_states.c
+  src/orig/orig_text.c
   src/orig/orig_vh.c
 )
 

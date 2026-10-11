@@ -330,6 +330,43 @@ static void test_determinism(void)
     CHECK(h1 == h2);
 }
 
+/* channel 0 (the game's sound effects) apart from channels 1-8 (its music), same sum */
+static void test_split(void)
+{
+    static opl2_t again;
+    int i, first_peak = 0, rest_peak = 0;
+    int same = 1;
+
+    plain_tone(345, 4, 1); /* channel 0 */
+    OPL2_Write(&chip, 0x24, 0x21); /* channel 1's carrier, another tone */
+    OPL2_Write(&chip, 0x44, 0x00);
+    OPL2_Write(&chip, 0x64, 0xf0);
+    OPL2_Write(&chip, 0xc1, 0x01);
+    OPL2_Write(&chip, 0xa1, 0x80);
+    OPL2_Write(&chip, 0xb1, 0x20 | (3 << 2) | 1);
+    again = chip;
+    for (i = 0; i < 4000; i++) {
+        int32_t first, rest;
+
+        OPL2_SampleSplit(&chip, &first, &rest);
+        same &= OPL2_Sample(&again) == first + rest;
+        first_peak = abs(first) > first_peak ? abs(first) : first_peak;
+        rest_peak = abs(rest) > rest_peak ? abs(rest) : rest_peak;
+    }
+    CHECK(same);
+    CHECK(first_peak > 1000 && rest_peak > 1000);
+
+    plain_tone(345, 4, 1); /* channel 0 alone: nothing in the rest */
+    rest_peak = 0;
+    for (i = 0; i < 4000; i++) {
+        int32_t first, rest;
+
+        OPL2_SampleSplit(&chip, &first, &rest);
+        rest_peak = abs(rest) > rest_peak ? abs(rest) : rest_peak;
+    }
+    CHECK(rest_peak == 0);
+}
+
 int main(void)
 {
     test_silence();
@@ -341,6 +378,7 @@ int main(void)
     test_fm_and_feedback();
     test_all_registers();
     test_determinism();
+    test_split();
 
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);

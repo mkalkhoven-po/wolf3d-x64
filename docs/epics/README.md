@@ -10,7 +10,8 @@ Direction ([ADR-002](../adr/002-faithful-fixed-point-port.md)): reimplement game
 | P2 | Honest docs: known gaps, `GO_NO_GO.md` assessment, ADR-002, FR matrix corrections, outdated plan header and WL1/WL6 wording | **Done** |
 | P3 | WL1 data layer: WL1 and WL6 graphics layouts selected by pack extension (`src/id/gfxv.h`); layout is validated against the pack and unsupported versions fail with a clear error | **Done** for the Apogee 1.4 shareware pack (smoke passes on WL1 and WL6); manual WL1 playthrough not yet done |
 | P4 | Engine core: fixed-point + 70 Hz loop, original object/AI/state tables, player code, fixed-point renderer (re-run the L1.5 matrix) | **Done** (S0–S7): the faithful engine is the only engine and passes the fidelity gate (all eight original demos in sync, golden frames, E1M1, L1.5); a manual playtest sign-off is the last open check |
-| P5 | Game flow: real menus (episode and skill choice, save slots with names, sound and control settings with **separate music and effects volume**), intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | **In progress**: P5a, P5b1 done; P5b2 next |
+| P5 | Game flow: real menus (episode and skill choice, save slots with names, sound and control settings with **separate music and effects volume**), intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | **In progress**: P5a, P5b done; P5c next |
+| R1 | Release readiness (after P5): a shareable download where players drop in their own WL1/WL6 files, for **Windows and Linux** | Planned (see the R1 breakdown below) |
 | P6 | WL6: all episodes / 60 maps, remaining enemies and chunks | Planned |
 | F4 | Dual pistols — optional, **last**, only after P6 | Deferred |
 
@@ -50,13 +51,25 @@ The screens around the game, ported into the engine: they draw into the same 320
 |------|-------|--------|
 | P5a | UI toolkit: `ID_VH.C` / `ID_VL.C` / `ID_US_1.C` drawing (pictures, the proportional fonts, bars and lines, the print window, palette fades), every VGAGRAPH name for both packs, the status bar and "Get Psyched!" drawn by the engine, `Message()` | **Done**: `src/orig/orig_vh.c`, `orig_menu.c` (window drawing, `Message`), `orig_inter.c` (`PreloadGraphics`); `gfxv.h` has all `GFXV_WL6.H` names, and the 1.4 shareware is the same layout shifted by 12 after its 12 extra help pictures (every picture checked by size in both packs); fades as the original (`DrawPlayScreen`, `PlayDemo`, `PlayLoop`'s fade-in, Get Psyched); `Died`'s red fizzle in the engine; `CheckKeys` keeps `LastScan` from before the MLI cheat clears it, as the original |
 | P5b1 | `WL_MENU.C` control panel: main menu, New Game (episode, skill), Sound, Load / Save with ten named slots (`US_LineInput`), Change View, View Scores (`DrawHighScores`, the original table), Quit and End Game with the original messages, `CheckKeys` with F1-F10, pause and the BAT message; the title page leads to it; the stand-in menu is gone | **Done**: `src/orig/orig_menu.c` with the menus' input as the original read it (keyboard table, mouse, joystick) plus a pad (`pad_menu` hook); scripted-input tests on both packs (`test_orig_menu`) with the screens pinned after checking them by eye; per-pack save slots and high scores in `%APPDATA%` |
-| P5b2 | Control menu (mouse / joystick, sensitivity, customize keys) plus separate music / effects volume and pad sensitivity; Read This! / F1 help screens (`WL_TEXT.C`) | Planned |
+| P5b2 | Control menu (mouse / joystick, sensitivity, customize keys) plus separate music / effects volume and pad sensitivity; Read This! / F1 help screens (`WL_TEXT.C`) | **Done**: the Control menu, Mouse Sensitivity and Customize controls as the original (settings kept in `config.ini`); Read This! / F1 and `EndText` from `src/orig/orig_text.c`; not in the original, a More options page (last line of Control): music and effects volume apart (the OPL2 emulator gives channel 0, the game's AdLib effects, apart from the music's channels 1-8), pad turning speed, fill the screen (sharp bilinear, no black bars), fullscreen |
 | P5c | `WL_INTER.C`: level completed (tallies, bonuses, par times), victory, high scores and name entry; death cam text | Planned |
 | P5d | `WL_MAIN.C` DemoLoop: title, credits, high scores, demos at the player's view size | Planned |
 | P5e | Q4 audio pass, Q5 go/no-go | Planned |
 
 ### Known gaps
-- Menus: the original control panel runs from the title page (P5b1). The Control menu and Read This! (P5b2), the intermission and high score entry (P5c) and the credits / high scores / demos between title pages (P5d) are still to come.
+- Menus: the original control panel runs from the title page (P5b). The intermission and high score entry (P5c) and the credits / high scores / demos between title pages (P5d) are still to come.
+
+### R1 breakdown (release readiness, after P5)
+
+| Item | Scope |
+|------|-------|
+| License | GPL-2.0 (id's 2012 source release is GPL-2.0); `LICENSE` and notices |
+| GitHub | README refreshed for players, screenshots, repo made presentable (and public when ready) |
+| Identity | an original pixel-art icon drawn in code (no id artwork; "Wolfenstein" is a ZeniMax trademark), version info in the exe, window title without "(faithful engine)" |
+| Package | CI builds a zip on a version tag (exe, `SDL2.dll`, README, LICENSE, an empty `data\` folder "put your WL1/WL6 files here") and attaches it to a GitHub release; game data is never bundled |
+| Drop-in | a first-run "choose your game folder" dialog when no data is found |
+| Linux | data files found whatever their case (`vswap.wl6`), the "no data" message through SDL, DPI setup only on Windows, a Linux CI build, a tarball or AppImage beside the zip; the renderer stays SDL's choice per platform (Direct3D on Windows, OpenGL on Linux) |
+| Windows | a note on SmartScreen for the unsigned exe |
 - Demos depend on the view size, as in the original: at the default 15 the shareware demo 0 ends 97 frames early (see S7). The attract loop (P5) will play them at the player's view size, as the original did.
 - Only the Apogee 1.4 shareware WL1 layout is supported; other WL1 versions are rejected at startup.
 
@@ -117,6 +130,6 @@ Runtime pack = WL6 under `Wolf3dgame/` (not `assets/` PNG sheets) — [`docs/pro
 |-----------|------------|--------|
 | L1 | [Level geometry & secrets](L1-level-geometry-secrets.md) · **#109** | Pushwalls #110 · projection #111 · floor/ceil #112 · textures #113 · matrix #114 |
 
-**Recommended order of open work:** P1 → P2 → P3 (WL1) → P4 → P5 (incl. **Q4**, **Q5**) → P6 (WL6) → **F4**. The older L1-first order is superseded.
+**Recommended order of open work:** P1 → P2 → P3 (WL1) → P4 → P5 (incl. **Q4**, **Q5**) → **R1** (release, Windows + Linux) → P6 (WL6) → **F4**. The older L1-first order is superseded.
 
 Gap seed (historical): [LEVEL_GEOMETRY_AUTHENTICITY.md](LEVEL_GEOMETRY_AUTHENTICITY.md) (points at L1).

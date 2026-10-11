@@ -39,6 +39,8 @@ boolean SDA_MusicActive(void);
 
 /* Advance by frames samples at SDA_RATE, running the timer service on the way. */
 void SDA_Render(int32_t *out, int frames);
+/* The same, with the sound effects (channel 0) and the music (channels 1-8) apart. */
+void SDA_RenderSplit(int32_t *effects, int32_t *music, int frames);
 
 /* The chip, for tests and the smoke check. */
 const opl2_t *SDA_Chip(void);

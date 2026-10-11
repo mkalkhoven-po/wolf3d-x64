@@ -7,7 +7,7 @@ These are **out of scope** for the MVP and must not appear as acceptance criteri
 - [ ] DOSBox, PCem, or other full-system emulation as the ship vehicle
 - [ ] Borland C++ 3.x / TASM build as a requirement
 - [ ] 16-bit or WOW64 DOS executables
-- [ ] Supporting non-Windows hosts in MVP (Linux/macOS later optional)
+- [ ] Supporting non-Windows hosts in MVP (Linux is planned for the R1 release track after P5; macOS later optional)
 - [ ] Raw Direct3D/Vulkan engine rewrite of the raycaster
 
 ## Engine fidelity traps

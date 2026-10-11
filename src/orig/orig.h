@@ -493,3 +493,7 @@ boolean US_LineInput(int x, int y, char *buf, const char *def, boolean escok, in
                      int maxwidth);
 
 void ShowViewSize(int width); /* WL_MAIN.C: the border for a view size, for Change View */
+
+/* WL_TEXT.C: the articles (orig_text.c) */
+void HelpScreens(void); /* Read This!, F1 */
+void EndText(void);     /* after a victory: T_ENDART1 + episode */
