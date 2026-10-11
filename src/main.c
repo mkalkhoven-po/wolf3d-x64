@@ -20,6 +20,7 @@
 #include "platform/win_sdl/wolf_pad.h"
 #include "platform/win_sdl/wolf_present.h"
 #include "platform/win_sdl/wolf_userdata.h"
+#include "platform/win_sdl/wolf_folder.h"
 #include "platform/win_sdl/wolf_message.h"
 #include "platform/win_sdl/wolf_winutil.h"
 
@@ -35,6 +36,16 @@ static int has_data_cli_arg(int argc, char **argv)
         }
     }
     return 0;
+}
+
+/* a folder with a complete set of game files (the folder picker's check) */
+static int folder_has_game_files(const char *folder)
+{
+    char *argv[4] = {(char *)"wolf3d", (char *)"--data", (char *)folder, NULL};
+    wolf_data_dir_t dir;
+
+    memset(&dir, 0, sizeof(dir));
+    return Wolf_ResolveDataDir(3, argv, &dir) && Wolf_CheckRequiredFiles(&dir);
 }
 
 static int resolve_data_or_die(int argc, char **argv, wolf_data_dir_t *data_dir,
@@ -54,6 +65,32 @@ static int resolve_data_or_die(int argc, char **argv, wolf_data_dir_t *data_dir,
         if (Wolf_ResolveDataDir(3, fallback_argv, data_dir)) {
             printf("Using last_data from AppData config: %s\n", g_config.last_data);
             return 1;
+        }
+    }
+
+    /*
+     * Nothing found and no --data given: ask for the folder (it is
+     * remembered as last_data, so this comes once). A wrong --data still
+     * just fails (FR-DATA-003).
+     */
+    if (!smoke_only && !has_data_cli_arg(argc, argv)) {
+        char folder[WOLF_PATH_MAX];
+        const int chosen = Wolf_ChooseDataFolder(folder_has_game_files, folder, sizeof(folder));
+
+        if (chosen > 0) {
+            char *pick_argv[4];
+
+            pick_argv[0] = argv[0] ? argv[0] : (char *)"wolf3d";
+            pick_argv[1] = (char *)"--data";
+            pick_argv[2] = folder;
+            pick_argv[3] = NULL;
+            if (Wolf_ResolveDataDir(3, pick_argv, data_dir)) {
+                printf("Using the chosen folder: %s\n", folder);
+                return 1;
+            }
+        }
+        if (chosen == 0) {
+            return 0; /* the player chose Quit */
         }
     }
 

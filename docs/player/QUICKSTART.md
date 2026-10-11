@@ -26,7 +26,7 @@ The game looks for:
 3. `Wolf3dgame` or `data` in the **current folder**
 4. Same names **next to the .exe** and **one folder up** (`..\Wolf3dgame`)
 
-If data is still missing, a **message box** explains how to fix it (window no longer just flashes closed).
+If none of these has the game files, the game **asks for the folder**: "Choose folder..." opens the folder dialog (Windows; on Linux zenity or kdialog), and the folder you pick is remembered. A folder without game files gets "Choose another...". Without a folder dialog (a Linux desktop without zenity or kdialog), a message explains `--data` instead.
 
 ### Explicit path (always works)
 ```bat
