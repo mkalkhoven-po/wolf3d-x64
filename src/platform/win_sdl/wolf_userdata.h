@@ -48,6 +48,13 @@ boolean Wolf_GetAppDataDir(char *out, size_t out_sz);
 /* Full path under AppData. */
 boolean Wolf_GetAppDataPath(const char *filename, char *out, size_t out_sz);
 
+/*
+ * Windows: where printf goes for a windowed program: left alone when
+ * redirected, the terminal it was started from, else wolf3d.log in the
+ * settings folder. Call first thing in main. Nothing elsewhere.
+ */
+void Wolf_SetupOutput(void);
+
 void Wolf_ConfigSetDefaults(void);
 boolean Wolf_ConfigLoad(void);
 boolean Wolf_ConfigSave(void);

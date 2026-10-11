@@ -4,7 +4,7 @@ A faithful **x64 port of the 1992 *Wolfenstein 3-D* engine**, rebuilt from id So
 
 You bring the game files: the free **shareware** version (Episode 1) or the **full version** (the registered game, all six episodes), both version 1.4. No game data is in this repository.
 
-> **Status:** the faithful engine and all of the original's screens are done (P1–P5) and the go/no-go was signed off **Go** (2026-10-11). In progress: **R1**, a downloadable package for Windows and Linux. The repository is private until then.
+> **Status:** the faithful engine and all of the original's screens are done (P1–P5) and the go/no-go was signed off **Go** (2026-10-11). In progress: **R1**, the release: the packages for Windows and Linux are ready (first version 0.9.0, a preview; 1.0.0 after the live playtest). The repository is private until the release.
 
 ## What you get
 
@@ -12,6 +12,15 @@ You bring the game files: the free **shareware** version (Episode 1) or the **fu
 - **The original screens**: rating screen, title, credits and high scores with the demos in between; the full control panel (new game, sound, control and Customize, load and save with ten named slots, view size, Read This! for the shareware); "Get Psyched!", the intermission tally, victory, high score entry, the death cam.
 - **Sound as on a Sound Blaster Pro**: digitized effects placed left and right, and AdLib music and effects through an OPL2 emulator written for this port ([ADR-003](docs/adr/003-own-opl2-emulator.md)).
 - **Modern additions, kept apart from the game logic**: XInput and other game pads (twin-stick), separate music and effects volume, controller look speed, fill-the-screen scaling with sharp pixels, fullscreen, mouse wheel in the menus, settings and saves in `%APPDATA%\Wolf3D-x64\`.
+
+## Download
+
+Each release on the [Releases page](https://github.com/mkalkhoven-po/wolf3d-x64/releases) has two packages:
+
+- **Windows** (64-bit, Windows 10 or 11): `wolf3d-x64-<version>-windows-x64.zip`. Unzip it, put your game files in its `data` folder (or anywhere: the game asks for the folder), double-click `wolf3d.exe`. The exe is not signed, so Windows may warn "Windows protected your PC": **More info**, then **Run anyway**.
+- **Linux** (64-bit, Ubuntu 22.04 or newer and the like): `wolf3d-x64-<version>-linux-x64.tar.gz`. Needs SDL2 (`sudo apt install libsdl2-2.0-0`); unpack, put your game files in `data`, run `./wolf3d`.
+
+Each package has a `README.txt` for players. `SHA256SUMS.txt` lists the checksums.
 
 ## Play
 
@@ -37,7 +46,20 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build -j
 ```
 
-`SDL2.dll` is copied next to `wolf3d.exe`.
+`SDL2.dll` is copied next to `wolf3d.exe`. On Windows `wolf3d.exe` is a windowed program: started from a terminal it prints there, double-clicked its output goes to `%APPDATA%\Wolf3D-x64\wolf3d.log`.
+
+### Packages and releases
+
+`cpack` in the build folder makes the release package of that system: `wolf3d-x64-<version>-windows-x64.zip` or `-linux-x64.tar.gz` (the game, `SDL2.dll` on Windows, [`packaging/README.txt.in`](packaging/README.txt.in) as `README.txt`, the license papers, an empty `data` folder). The version is the one in `project()` in `CMakeLists.txt`.
+
+A release: set the version there, add `docs/releases/v<version>.md` (the release notes), merge, then tag `main` and push the tag:
+
+```bat
+git tag v0.9.0
+git push origin v0.9.0
+```
+
+The [release workflow](.github/workflows/release.yml) builds both packages (Windows with MSYS2 UCRT64, Linux on Ubuntu 22.04) and puts them in a **draft** release on GitHub; read it over and publish it there.
 
 ### Tests
 
@@ -48,7 +70,7 @@ cmake -S . -B build
 ctest --test-dir build --output-on-failure
 ```
 
-Without game data the unit tests run (also in CI). With one or both packs set at configure time, the engine tests run on real data: demo sync per view size, golden frames, the E1M1 route, every menu and screen driven by scripted input with pinned screenshots, smoke, cold start, settings migration (49 tests with both packs). `-DWOLF_SANITIZE=ON` builds with sanitizers where the compiler has them.
+Without game data the unit tests run (also in CI). With one or both packs set at configure time, the engine tests run on real data: demo sync per view size, golden frames, the E1M1 route, every menu and screen driven by scripted input with pinned screenshots, smoke, cold start, settings migration (50 tests with both packs). `-DWOLF_SANITIZE=ON` builds with sanitizers where the compiler has them.
 
 Troubleshooting: with Windows 11 **Smart App Control** on, a freshly built unsigned `wolf3d.exe` or `SDL2.dll` can be blocked ("Bad Image", status `0xc0e90002`, or ctest "BAD_COMMAND"; Code Integrity event 3077). That is an OS policy, not a build error.
 
