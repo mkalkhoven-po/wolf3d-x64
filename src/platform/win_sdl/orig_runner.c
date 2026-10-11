@@ -866,6 +866,13 @@ static void SaveScores(void)
     (void)Wolf_ScoresSave(Pack(), data, sizeof(data));
 }
 
+/* WriteConfig: the Control menu's settings, the view size, the high scores */
+static void HookWriteConfig(void)
+{
+    SaveControls();
+    SaveScores();
+}
+
 /* ------------------------------------------------------------------- run */
 
 static const byte *PageForEngine(int page)
@@ -890,6 +897,7 @@ static void InstallHooks(void)
     orig_hooks.set_sound_mode = HookSetSoundMode;
     orig_hooks.sound_available = HookSoundAvailable;
 
+    orig_hooks.write_config = HookWriteConfig;
     orig_hooks.get_option = HookGetOption;
     orig_hooks.set_option = HookSetOption;
 
@@ -918,46 +926,6 @@ static void InstallHooks(void)
         orig_hooks.read_time = ReadClock;
         orig_hooks.write_time = WriteClock;
         orig_hooks.wait_time = WaitClock;
-    }
-}
-
-/*
- * DemoLoop (WL_MAIN.C) as far as P5b goes: the title page, then the control
- * panel; a new or loaded game plays until it ends, then back to the title.
- * The credits, the high scores and the demos between title pages are P5d.
- */
-static void MenuLoop(void)
-{
-    if (g_config_found) { /* ReadConfig: not the first run */
-        MainMenu[readthis].active = 1;
-        MainItems.curpos = 0;
-    }
-
-    StartCPMusic(INTROSONG);
-    while (!orig_quit) {
-        /* title page */
-        VWB_DrawPic(0, 0, TITLEPIC);
-        VW_UpdateScreen();
-        VW_FadeIn();
-        IN_Ack();
-        VW_FadeOut();
-        if (orig_quit) {
-            break;
-        }
-
-        US_ControlPanel(0);
-        SaveControls();
-        if (orig_quit) {
-            break;
-        }
-        if (startgame || loadedgame) {
-            abortgame = false;
-            GameLoop();
-            SaveScores();
-            SaveControls(); /* the control panel in the game */
-            VW_FadeOut();
-            StartCPMusic(INTROSONG);
-        }
     }
 }
 
@@ -995,8 +963,12 @@ int OrigRunner_Run(const orig_run_options_t *opts)
     LoadScores();
 
     if (opts->menu) {
-        MenuLoop();
-        SaveControls();
+        if (g_config_found) { /* ReadConfig: not the first run */
+            MainMenu[readthis].active = 1;
+            MainItems.curpos = 0;
+        }
+        DemoLoop();
+        HookWriteConfig();
     } else if (opts->demo >= 0) {
         size_t length = 0;
         const byte *lump = Bridge_DemoLump(opts->demo, &length);

@@ -1022,3 +1022,120 @@ void SetSoundLoc(fixed gx, fixed gy)
     leftchannel = lefttable[x][y + ATABLEMAX];
     rightchannel = righttable[x][y + ATABLEMAX];
 }
+
+/*
+=============================================================================
+
+                        THE ATTRACT LOOP (WL_MAIN.C)
+
+=============================================================================
+*/
+
+void WriteConfig(void)
+{
+    if (orig_hooks.write_config) {
+        orig_hooks.write_config();
+    }
+}
+
+/* the rating screen, once at the start */
+void PG13(void)
+{
+    VW_FadeOut();
+    VWB_Bar(0, 0, 320, 200, 0x82); /* background */
+
+    VWB_DrawPic(216, 110, PG13PIC);
+    VW_UpdateScreen();
+
+    VW_FadeIn();
+    IN_UserInput(TICRATE * 7); /* TickBase*7 */
+
+    VW_FadeOut();
+}
+
+/* PlayDemo (WL_GAME.C) by number: the pack's demo chunks T_DEMO0..3 */
+static void PlayDemoNumber(int demonumber)
+{
+    const int chunk = T_DEMO0 + demonumber;
+
+    CA_CacheGrChunk(chunk);
+    if (!PlayDemo(grsegs[chunk], CA_GrChunkSize(chunk))) {
+        playstate = ex_demodone; /* not in the original: a bad lump plays nothing */
+    }
+}
+
+/*
+=====================
+=
+= DemoLoop
+=
+= The title page, the credits, the high scores and a demo, round again
+= until a key: then the control panel, and a game when one was started.
+= The demos play at the player's view size, as in the original (their sync
+= depends on it). The shareware and the registered 1.4 (GOODTIMES) both skip
+= the original's "not shareware" notice. Not in the original: returns when
+= orig_quit is set (Quit, or the window closed).
+=
+=====================
+*/
+
+void DemoLoop(void)
+{
+    static int LastDemo;
+
+    StartCPMusic(INTROSONG);
+    PG13();
+
+    while (!orig_quit) {
+        for (;;) {
+            /* title page */
+            VWB_DrawPic(0, 0, TITLEPIC); /* CA_CacheScreen */
+            VW_UpdateScreen();
+            VW_FadeIn();
+            if (IN_UserInput(TICRATE * 15) || orig_quit) {
+                break;
+            }
+            VW_FadeOut();
+
+            /* credits page */
+            VWB_DrawPic(0, 0, CREDITSPIC);
+            VW_UpdateScreen();
+            VW_FadeIn();
+            if (IN_UserInput(TICRATE * 10) || orig_quit) {
+                break;
+            }
+            VW_FadeOut();
+
+            /* high scores */
+            DrawHighScores();
+            VW_UpdateScreen();
+            VW_FadeIn();
+            if (IN_UserInput(TICRATE * 10) || orig_quit) {
+                break;
+            }
+
+            /* demo */
+            PlayDemoNumber(LastDemo++ % 4);
+            if (playstate == ex_abort || orig_quit) {
+                break;
+            }
+            StartCPMusic(INTROSONG);
+        }
+
+        VW_FadeOut();
+        if (orig_quit) {
+            break;
+        }
+
+        US_ControlPanel(0);
+        WriteConfig();
+
+        if ((startgame || loadedgame) && !orig_quit) {
+            abortgame = false;
+            GameLoop();
+            WriteConfig(); /* the high score, the control panel in the game */
+            VW_FadeOut();
+            StartCPMusic(INTROSONG);
+        }
+    }
+}

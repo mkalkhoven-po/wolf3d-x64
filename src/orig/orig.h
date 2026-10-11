@@ -281,6 +281,9 @@ void DrawPlayBorder(void);
 void DrawPlayScreen(void);
 void Died(void);
 void GameLoop(void);
+void PG13(void);        /* the rating screen */
+void WriteConfig(void); /* the settings and high scores, kept by the platform */
+void DemoLoop(void); /* title, credits, high scores, demos; the control panel on a key */
 
 /* sound placement (WL_GAME.C): SetSoundLoc fills leftchannel/rightchannel, 0-8 */
 extern fixed globalsoundx, globalsoundy;

@@ -96,6 +96,13 @@ typedef struct {
     void (*idle)(void); /* a moment's rest in a 2D screen's wait loop */
 
     /*
+     * WriteConfig: keep the settings (the Control menu's, the view size) and
+     * the high scores. The original wrote CONFIG.WL6 only at Quit; DemoLoop
+     * calls this after the control panel and after a game too.
+     */
+    void (*write_config)(void);
+
+    /*
      * Not in the original: the settings this port adds (the Sound and Video
      * pages, the controller's look speed), OPT_* below.
      * The sliders go 0-9, the switches 0 / 1; the platform applies and

@@ -8,8 +8,8 @@
  * The engine's hooks are wired to the shared platform layer here: the 70 Hz
  * clock, DOS scan-code input, presenting the 320x200 frame with palette
  * shifts and FizzleFade, sound and music, the save slots (format v2) and the
- * high scores. Without game options it runs the title page and the
- * control panel (P5b); the attract loop between title pages is P5d.
+ * high scores. Without game options it runs the original's attract loop
+ * (DemoLoop: title pages, demos, the control panel).
  */
 
 #include "wl_types.h"
