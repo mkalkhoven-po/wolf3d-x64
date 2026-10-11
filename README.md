@@ -2,7 +2,7 @@
 
 A faithful **x64 port of the 1992 *Wolfenstein 3-D* engine**, rebuilt from id Software's original source code: the same fixed-point maths, 70 Hz game clock, AI, renderer and screens, so it plays like the DOS game. Windows 11 today; Linux comes with the first release (R1).
 
-You bring the game files: the free **shareware** episode (WL1, Apogee 1.4) or the **full game** (WL6, registered 1.4). No game data is in this repository.
+You bring the game files: the free **shareware** version (Episode 1) or the **full version** (the registered game, all six episodes), both version 1.4. No game data is in this repository.
 
 > **Status:** the faithful engine and all of the original's screens are done (P1–P5) and the go/no-go was signed off **Go** (2026-10-11). In progress: **R1**, a downloadable package for Windows and Linux. The repository is private until then.
 
@@ -42,8 +42,8 @@ cmake --build build -j
 ### Tests
 
 ```bat
-set WOLF3D_DATA=D:\path\to\wl6
-set WOLF3D_DATA_WL1=D:\path\to\wl1
+set WOLF3D_DATA=D:\path\to\full-version
+set WOLF3D_DATA_WL1=D:\path\to\shareware
 cmake -S . -B build
 ctest --test-dir build --output-on-failure
 ```
@@ -57,7 +57,7 @@ Troubleshooting: with Windows 11 **Smart App Control** on, a freshly built unsig
 | Phase | | Status |
 |-------|-|--------|
 | E0–E8, Q0–Q3, F1–F3, L1 | First playable shell, data loading, QA harness (a float engine, since replaced) | Done |
-| P1–P3 | Safety net (warnings, unit tests, CI), honest docs, WL1 data layer | Done |
+| P1–P3 | Safety net (warnings, unit tests, CI), honest docs, shareware data layer | Done |
 | P4 | The faithful engine core: fixed point, 70 Hz, original AI, player, renderer; fidelity gate | Done |
 | P5 | The original game flow: menus, intermission, attract loop; audio pass and go/no-go (Go) | Done |
 | **R1** | **Release: GPL-2.0 license, icon, Windows zip and Linux build, first-run folder picker** | **In progress** |
@@ -85,7 +85,7 @@ Details: [docs/epics/README.md](docs/epics/README.md). Boards: [Wolf3D x64 — D
 
 Wolf3D x64 is free software under the **GNU General Public License, version 2** ([LICENSE](LICENSE)), as id Software's 2012 release of the *Wolfenstein 3-D* source it derives from. SDL2 is under the zlib license; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-- No game data is in this repository and the license does not cover it: point the game at files you are entitled to use ([GAME_DATA.md](docs/product/GAME_DATA.md)). Pull requests adding `.WL1` / `.WL6` files are not accepted.
+- No game data is in this repository and the license does not cover it: point the game at files you are entitled to use ([GAME_DATA.md](docs/product/GAME_DATA.md)). Pull requests adding game files (`.WL1` shareware, `.WL6` full version) are not accepted.
 - *Wolfenstein* is a trademark of ZeniMax Media; this project is not affiliated with or endorsed by id Software or ZeniMax.
 
 ## Credits

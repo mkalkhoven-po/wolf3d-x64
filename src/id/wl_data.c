@@ -145,7 +145,7 @@ static boolean fill_from_path(const char *in_path, wolf_data_dir_t *out)
     }
     if (!detect_extension(out->path, ext, sizeof(ext))) {
         fprintf(stderr, "No VSWAP.* found in: %s\n", out->path);
-        fprintf(stderr, "Expected one of: VSWAP.WL6 VSWAP.WL1 VSWAP.SOD VSWAP.SDM\n");
+        fprintf(stderr, "Expected the shareware (VSWAP.WL1) or the full version (VSWAP.WL6)\n");
         return false;
     }
     snprintf(out->extension, sizeof(out->extension), "%s", ext);
@@ -259,12 +259,12 @@ void Wolf_PrintDataUsage(void)
             "  wolf3d.exe --data <dir> [--map N] [--skill 0-3] [--viewsize 4-20]\n"
             "             [--demo 0-3] [--load 0-9] [--screenshot N file.bmp]\n"
             "    (any of these starts the game directly instead of the menu;\n"
-            "     in the game F8 saves and F9 loads, Esc returns to the menu)\n"
+            "     in the game Esc opens the menu, F8 / F9 quick save and load)\n"
             "\n"
             "Also tries (no flags): ./Wolf3dgame, ./data, then those folders\n"
             "next to the .exe and one level up (so double-click from build\\ works\n"
             "when the pack lives at repo\\Wolf3dgame).\n"
             "\n"
-            "dir must contain VSWAP + VGA* + MAP* + AUDIO* with a common extension\n"
-            "(.WL6 / .WL1 / .SOD / ...). See docs/product/GAME_DATA.md\n");
+            "dir must hold the game files: the shareware (VSWAP.WL1, VGAGRAPH.WL1, ...)\n"
+            "or the full version (the same names ending .WL6). See docs/product/GAME_DATA.md\n");
 }
