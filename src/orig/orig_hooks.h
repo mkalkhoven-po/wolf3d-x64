@@ -104,6 +104,18 @@ typedef struct {
 
     void (*idle)(void); /* a moment's rest in a 2D screen's wait loop */
 
+    /*
+     * Not in the original: the settings this port adds (the Sound and Video
+     * pages, the controller's look speed), OPT_* below.
+     * The sliders go 0-9, the switches 0 / 1; the platform applies and
+     * keeps them.
+     */
+    int (*get_option)(int which);
+    void (*set_option)(int which, int value);
+
+    /* not in the original: mouse wheel notches since the last call, up positive (menus) */
+    int (*mouse_wheel)(void);
+
     /* palette: red shift 1-6, white shift 1-3, or 0 / 0 for the game palette */
     void (*set_palette_shift)(int red, int white);
 
@@ -131,6 +143,15 @@ typedef struct {
     void (*victory)(void);
     void (*sound_update)(void);  /* SD_Poll and UpdateSoundLoc, once a frame */
 } orig_hooks_t;
+
+enum {
+    OPT_MUSICVOL,   /* music volume, 0 silent .. 9 full */
+    OPT_EFFECTSVOL, /* sound effects volume (AdLib and digitized), 0 .. 9 */
+    OPT_PADSENS,    /* the pad's turn speed, 0 .. 9 */
+    OPT_FILLSCREEN, /* 1: fill the window at 4:3; 0: whole multiples only */
+    OPT_FULLSCREEN, /* 1: fullscreen; 0: a window */
+    NUMOPTIONS
+};
 
 extern orig_hooks_t orig_hooks;
 

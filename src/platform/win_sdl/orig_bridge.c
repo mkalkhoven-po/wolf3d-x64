@@ -15,7 +15,26 @@ static wolf_present_t g_present;
 
 boolean Bridge_OpenWindow(const char *title)
 {
-    return Wolf_PresentCreate(&g_present, title, g_config.scale, g_config.fullscreen);
+    if (!Wolf_PresentCreate(&g_present, title, g_config.scale, g_config.fullscreen)) {
+        return false;
+    }
+    Wolf_PresentSetFill(&g_present, g_config.fill_screen);
+    return true;
+}
+
+boolean Bridge_IsFullscreen(void)
+{
+    return g_present.fullscreen != 0;
+}
+
+void Bridge_SetFill(int fill)
+{
+    Wolf_PresentSetFill(&g_present, fill);
+}
+
+void Bridge_SetVolumes(int music, int effects)
+{
+    SD_SetVolumes(music, effects);
 }
 
 void Bridge_CloseWindow(void)
@@ -125,11 +144,6 @@ boolean Bridge_IsShareware(void)
 boolean Bridge_MapExists(int map)
 {
     return map >= 0 && map < NUMMAPS && mapheaderseg[map] != NULL;
-}
-
-int Bridge_MouseLook(void)
-{
-    return g_config.mouse_look;
 }
 
 /* the control panel's sound modes: which 0 effects, 1 digitized, 2 music (orig_hooks.h) */

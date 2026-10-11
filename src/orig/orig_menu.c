@@ -1,9 +1,11 @@
 /*
  * WL_MENU.C: the control panel (P5b). The main menu, New Game, Sound,
- * Load / Save Game, Change View, View Scores, Quit and the quick keys
- * F7-F10, drawn into screenbuf as the original drew them. The Control menu
- * and Read This! (the help screens, WL_TEXT.C) are P5b2; until then their
- * items show a note.
+ * Load / Save Game, Change View, Control (mouse, joystick, Customize),
+ * Read This! (orig_text.c), View Scores, Quit and the quick keys F7-F10,
+ * drawn into screenbuf as the original drew them. Not in the original:
+ * Sound opens a page with the sound screen and the music and effects
+ * volume, Change View became Video (the view size, fill the screen,
+ * fullscreen), and the Control menu's last line sets the pad's look speed.
  *
  * Hardware the menus read directly in the original comes through hooks:
  * the keyboard table (orig_keys, as KbdDefs reads it), the mouse driver,
@@ -88,7 +90,7 @@
 #define STR_CL "Control"
 #define STR_LG "Load Game"
 #define STR_SG "Save Game"
-#define STR_CV "Change View"
+#define STR_VIDEO "Video" /* not in the original: Change View, fill and fullscreen */
 #define STR_EG "End Game"
 #define STR_BD "Back to Demo"
 #define STR_QT "Quit"
@@ -126,6 +128,9 @@ static const char endStrings[9][80] = {
     "For guns and glory, press N.\nFor work and worry, press Y.",
 };
 
+static void CP_SoundPage(int temp1);
+static void CP_Video(int temp1);
+
 /* the table entries for the routines that take a quick flag */
 static void MenuLoadGame(int temp1)
 {
@@ -143,11 +148,11 @@ static CP_iteminfo SndItems = {SM_X, SM_Y1, 12, 0, 52}, LSItems = {LSM_X, LSM_Y,
 
 CP_itemtype MainMenu[] = {
     {1, STR_NG, CP_NewGame},
-    {1, STR_SD, CP_Sound},
+    {1, STR_SD, CP_SoundPage},
     {1, STR_CL, CP_Control},
     {1, STR_LG, MenuLoadGame},
     {0, STR_SG, MenuSaveGame},
-    {1, STR_CV, CP_ChangeView},
+    {1, STR_VIDEO, CP_Video},
     {2, "Read This!", CP_ReadThis},
     {1, STR_VS, CP_ViewScores},
     {1, STR_BD, NULL},
@@ -208,6 +213,7 @@ static void PrintLSEntry(int w, int color);
 static void TrackWhichGame(int w);
 static void DrawLSAction(int which);
 static void DrawChangeView(int view);
+static void HomeMouse(void);
 
 /*
  * Quit (ID_US_1.C) for the menus: not in the original, the program does not
@@ -218,6 +224,35 @@ static void Quit(void)
     orig_quit = true;
     abortgame = true;
     playstate = ex_abort;
+}
+
+/*
+ * The main menu as shown: MainMenu's lines, without Read This! when the
+ * pack has no help of its own (HelpAvailable). The registered 1.4 left it
+ * out (GOODTIMES): nine lines, the cursor starting on New Game. MainMenu
+ * and MainItems.curpos keep the full numbering.
+ */
+static CP_itemtype MainShown[10];
+static int MainShownFrom[10]; /* the MainMenu line of each line shown */
+static CP_iteminfo MainShownItems;
+
+static void BuildMainShown(void)
+{
+    int i, n = 0;
+
+    MainShownItems = MainItems;
+    MainShownItems.curpos = 0;
+    for (i = 0; i < 10; i++) {
+        if (i == readthis && !HelpAvailable()) {
+            continue;
+        }
+        if (i == MainItems.curpos) {
+            MainShownItems.curpos = (int16_t)n;
+        }
+        MainShown[n] = MainMenu[i];
+        MainShownFrom[n++] = i;
+    }
+    MainShownItems.amount = (int16_t)n;
 }
 
 /*
@@ -246,7 +281,7 @@ void US_ControlPanel(byte scancode)
     /* F-KEYS FROM WITHIN GAME */
     switch (scancode) {
     case sc_F1:
-        CP_ReadThis(0); /* HelpScreens */
+        HelpScreens(); /* nothing in the registered 1.4, see HelpAvailable */
         CleanupControlPanel();
         return;
 
@@ -261,7 +296,7 @@ void US_ControlPanel(byte scancode)
         return;
 
     case sc_F4:
-        CP_Sound(0);
+        CP_SoundPage(0);
         CleanupControlPanel();
         return;
 
@@ -282,7 +317,9 @@ void US_ControlPanel(byte scancode)
 
     /* MAIN MENU LOOP */
     do {
-        which = HandleMenu(&MainItems, &MainMenu[0], NULL);
+        which = HandleMenu(&MainShownItems, &MainShown[0], NULL);
+        which = which >= 0 ? MainShownFrom[which] : -1;
+        MainItems.curpos = (int16_t)MainShownFrom[MainShownItems.curpos];
 
         switch (which) {
         case viewscores:
@@ -348,31 +385,53 @@ void DrawMainMenu(void)
         MainMenu[backtodemo].active = 1;
     }
 
-    DrawMenu(&MainItems, &MainMenu[0]);
+    BuildMainShown();
+    DrawMenu(&MainShownItems, &MainShown[0]);
     VW_UpdateScreen();
 }
 
 /*
- * The screens P5b2 ports: the help screens (HelpScreens, WL_TEXT.C) and the
- * Control menu. Until then a note in a window, as Message draws it.
- */
-static void NotPortedYet(const char *what)
-{
-    char text[128];
+====================
+=
+= IN_GetScanName (WL_MENU.C)
+=
+= The name of a scan code, for the Customize screen
+=
+====================
+*/
 
-    snprintf(text, sizeof(text), "%s\nis not ported yet.\n\nPress a key.", what);
-    ClearMScreen();
-    VWB_DrawPic(112, 184, C_MOUSELBACKPIC);
-    WindowX = WindowY = 0;
-    WindowW = 320;
-    WindowH = 200;
-    Message(text);
-    MenuFadeIn();
-    IN_ClearKeysDown();
-    IN_Ack();
-    WaitKeyUp();
-    MenuFadeOut();
-    fontnumber = 1;
+static const char *const ScanNames[] = { /* Scan code names with single chars */
+    "?", "?", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "+", "?", "?",
+    "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "|", "?", "A", "S",
+    "D", "F", "G", "H", "J", "K", "L", ";", "\"", "?", "?", "?", "Z", "X", "C", "V",
+    "B", "N", "M", ",", ".", "/", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?",
+    "?", "?", "?", "?", "?", "?", "?", "?", "\x0f", "?", "-", "\x15", "5", "\x11", "+", "?",
+    "\x13", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?",
+    "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?",
+    "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?"};
+
+static const byte ExtScanCodes[] = { /* Scan codes with >1 char names */
+    1,    0xe,  0xf,  0x1d, 0x2a, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
+    0x40, 0x41, 0x42, 0x43, 0x44, 0x57, 0x59, 0x46, 0x1c, 0x36, 0x37, 0x38,
+    0x47, 0x49, 0x4f, 0x51, 0x52, 0x53, 0x45, 0x48, 0x50, 0x4b, 0x4d, 0x00};
+
+static const char *const ExtScanNames[] = { /* Names corresponding to ExtScanCodes */
+    "Esc",   "BkSp", "Tab", "Ctrl", "LShft", "Space", "CapsLk", "F1",  "F2",
+    "F3",    "F4",   "F5",  "F6",   "F7",    "F8",    "F9",     "F10", "F11",
+    "F12",   "ScrlLk", "Enter", "RShft", "PrtSc", "Alt", "Home", "PgUp", "End",
+    "PgDn",  "Ins",  "Del", "NumLk", "Up",   "Down",  "Left",   "Right", ""};
+
+static const char *IN_GetScanName(byte scan)
+{
+    int i;
+
+    for (i = 0; ExtScanCodes[i]; i++) {
+        if (ExtScanCodes[i] == scan) {
+            return ExtScanNames[i];
+        }
+    }
+
+    return scan < sizeof(ScanNames) / sizeof(ScanNames[0]) ? ScanNames[scan] : "?";
 }
 
 /* READ THIS! */
@@ -380,15 +439,1037 @@ void CP_ReadThis(int temp1)
 {
     (void)temp1;
     StartCPMusic(CORNER_MUS);
-    NotPortedYet("Read This!"); /* HelpScreens (P5b2) */
+    HelpScreens();
     StartCPMusic(MENUSONG);
 }
 
-/* DEFINE CONTROLS (P5b2) */
+/*
+=============================================================================
+
+                            DEFINE CONTROLS
+
+=============================================================================
+*/
+
+#define CTL_X 24
+#define CTL_Y 70
+#define CTL_W 284
+#define CTL_H (13 * 8 - 7) /* the original's 13*7-7, plus a line for the controller */
+
+#define CST_X 20
+#define CST_Y 48
+#define CST_START 60
+#define CST_SPC 60
+
+#define STR_MOUSEEN "Mouse Enabled"
+#define STR_JOYEN "Joystick Enabled"
+#define STR_PORT2 "Use joystick port 2"
+#define STR_GAMEPAD "Gravis GamePad Enabled"
+#define STR_SENS "Mouse Sensitivity"
+#define STR_CUSTOM "Customize controls"
+#define STR_PADSPEED "Controller look speed" /* not in the original */
+#define STR_PADADJ "Adjust Controller Look Speed"
+#define STR_MOUSEADJ "Adjust Mouse Sensitivity"
+#define STR_SLOW "Slow"
+#define STR_FAST "Fast"
+#define STR_CRUN "Run"
+#define STR_COPEN "Open"
+#define STR_CFIRE "Fire"
+#define STR_CSTRAFE "Strafe"
+#define STR_LEFT "Left"
+#define STR_RIGHT "Right"
+#define STR_FRWD "Frwd"
+#define STR_BKWD "Bkwrd"
+
+static void MouseSensitivity(int temp1);
+static void CustomControls(int temp1);
+static void ControllerSpeed(int temp1);
+
+static CP_iteminfo CtlItems = {CTL_X, CTL_Y, 7, -1, 56}, CusItems = {8, CST_Y + 13 * 2, 9, -1, 0};
+
+static CP_itemtype CtlMenu[] = {
+    {0, STR_MOUSEEN, NULL},
+    {0, STR_JOYEN, NULL},
+    {0, STR_PORT2, NULL},
+    {0, STR_GAMEPAD, NULL},
+    {0, STR_SENS, MouseSensitivity},
+    {1, STR_CUSTOM, CustomControls},
+    {1, STR_PADSPEED, ControllerSpeed},
+};
+
+static CP_itemtype CusMenu[] = {
+    {1, "", NULL}, {0, "", NULL}, {0, "", NULL}, {1, "", NULL}, {0, "", NULL},
+    {0, "", NULL}, {1, "", NULL}, {0, "", NULL}, {1, "", NULL},
+};
+
+/* the machine: a mouse when the platform reads one; no DOS joystick (a pad is read apart) */
+static boolean MousePresent(void)
+{
+    return orig_hooks.mouse_delta != NULL;
+}
+
+static const boolean JoysPresent[2] = {false, false};
+
+static void DrawCtlScreen(void);
+
 void CP_Control(int temp1)
 {
+    enum { MOUSEENABLE, JOYENABLE, USEPORT2, PADENABLE, MOUSESENS, CUSTOMIZE, PADSPEED };
+    int which;
+
     (void)temp1;
-    NotPortedYet("The Control menu");
+    DrawCtlScreen();
+    MenuFadeIn();
+    WaitKeyUp();
+
+    do {
+        which = HandleMenu(&CtlItems, &CtlMenu[0], NULL);
+        switch (which) {
+        case MOUSEENABLE:
+            mouseenabled ^= 1;
+            HomeMouse();
+            DrawCtlScreen();
+            CusItems.curpos = -1;
+            ShootSnd();
+            break;
+
+        case JOYENABLE:
+            joystickenabled ^= 1; /* CalibrateJoystick: there is no DOS joystick to calibrate */
+            DrawCtlScreen();
+            CusItems.curpos = -1;
+            ShootSnd();
+            break;
+
+        case USEPORT2:
+            joystickport ^= 1;
+            DrawCtlScreen();
+            ShootSnd();
+            break;
+
+        case PADENABLE:
+            joypadenabled ^= 1;
+            DrawCtlScreen();
+            ShootSnd();
+            break;
+
+        case MOUSESENS:
+        case CUSTOMIZE:
+        case PADSPEED:
+            DrawCtlScreen();
+            MenuFadeIn();
+            WaitKeyUp();
+            break;
+        }
+        /*
+         * Not in the original: a mouse or pad button still down would choose
+         * the switch again at once (the keyboard's keys were cleared).
+         */
+        WaitKeyUp();
+    } while (which >= 0 && !orig_quit);
+
+    MenuFadeOut();
+}
+
+/* the slider of the mouse sensitivity screen */
+static void DrawSliderBar(int value)
+{
+    VWB_Bar(60, 97, 200, 10, TEXTCOLOR);
+    DrawOutline(60, 97, 200, 10, 0, HIGHLIGHT);
+    DrawOutline(60 + 20 * value, 97, 20, 10, 0, READCOLOR);
+    VWB_Bar(61 + 20 * value, 98, 19, 9, READHCOLOR);
+}
+
+/* DRAW MOUSE SENSITIVITY SCREEN */
+static void DrawSliderScreen(const char *title, int value)
+{
+    ClearMScreen();
+    VWB_DrawPic(112, 184, C_MOUSELBACKPIC);
+    DrawWindow(10, 80, 300, 30, BKGDCOLOR);
+
+    WindowX = 0;
+    WindowW = 320;
+    PrintY = 82;
+    SETFONTCOLOR(READCOLOR, BKGDCOLOR);
+    US_CPrint(title);
+
+    SETFONTCOLOR(TEXTCOLOR, BKGDCOLOR);
+    PrintX = 14;
+    PrintY = 95;
+    US_Print(STR_SLOW);
+    PrintX = 269;
+    US_Print(STR_FAST);
+
+    DrawSliderBar(value);
+
+    VW_UpdateScreen();
+    MenuFadeIn();
+}
+
+/* until the key is let go */
+static void WaitKeyRelease(byte scan)
+{
+    while (orig_keys[scan] && !orig_quit) {
+        IN_Pump();
+    }
+}
+
+/* ADJUST MOUSE SENSITIVITY: value 0-9, apply on each step, put back on Esc */
+static void SliderScreen(const char *title, int value, void (*apply)(int value))
+{
+    ControlInfo ci;
+    int exit = 0;
+    const int old = value;
+
+    DrawSliderScreen(title, value);
+    do {
+        ReadAnyControl(&ci);
+        switch (ci.dir) {
+        case dir_North:
+        case dir_West:
+            if (value) {
+                apply(--value);
+                DrawSliderBar(value);
+                VW_UpdateScreen();
+                OrigSD_PlaySound(MOVEGUN1SND);
+                WaitKeyRelease(sc_LeftArrow);
+                WaitKeyUp();
+            }
+            break;
+
+        case dir_South:
+        case dir_East:
+            if (value < 9) {
+                apply(++value);
+                DrawSliderBar(value);
+                VW_UpdateScreen();
+                OrigSD_PlaySound(MOVEGUN1SND);
+                WaitKeyRelease(sc_RightArrow);
+                WaitKeyUp();
+            }
+            break;
+
+        default:
+            break;
+        }
+
+        if (ci.button0 || orig_keys[sc_Space] || orig_keys[sc_Enter]) {
+            exit = 1;
+        } else if (ci.button1 || orig_keys[sc_Escape] || orig_quit) {
+            exit = 2;
+        }
+
+    } while (!exit);
+
+    if (exit == 2) {
+        apply(old);
+        OrigSD_PlaySound(ESCPRESSEDSND);
+    } else {
+        OrigSD_PlaySound(SHOOTSND);
+    }
+
+    WaitKeyUp();
+    MenuFadeOut();
+}
+
+static void ApplyMouseSens(int value)
+{
+    mouseadjustment = (int16_t)value;
+}
+
+static void MouseSensitivity(int temp1)
+{
+    (void)temp1;
+    SliderScreen(STR_MOUSEADJ, mouseadjustment, ApplyMouseSens);
+}
+
+/* the platform's settings (not in the original) */
+static int GetOption(int which)
+{
+    return orig_hooks.get_option ? orig_hooks.get_option(which) : 0;
+}
+
+static void SetOption(int which, int value)
+{
+    if (orig_hooks.set_option) {
+        orig_hooks.set_option(which, value);
+    }
+}
+
+static void ApplyPadSpeed(int value)
+{
+    SetOption(OPT_PADSENS, value);
+}
+
+/* not in the original: how fast the pad's right stick turns, as Mouse Sensitivity */
+static void ControllerSpeed(int temp1)
+{
+    (void)temp1;
+    SliderScreen(STR_PADADJ, GetOption(OPT_PADSENS), ApplyPadSpeed);
+}
+
+/* DRAW CONTROL MENU SCREEN */
+static void DrawCtlScreen(void)
+{
+    int i, x, y;
+
+    ClearMScreen();
+    DrawStripes(10);
+    VWB_DrawPic(80, 0, C_CONTROLPIC);
+    VWB_DrawPic(112, 184, C_MOUSELBACKPIC);
+    DrawWindow(CTL_X - 8, CTL_Y - 5, CTL_W, CTL_H, BKGDCOLOR);
+    WindowX = 0;
+    WindowW = 320;
+    SETFONTCOLOR(TEXTCOLOR, BKGDCOLOR);
+
+    if (JoysPresent[0]) {
+        CtlMenu[1].active = CtlMenu[2].active = CtlMenu[3].active = 1;
+    }
+
+    CtlMenu[2].active = CtlMenu[3].active = joystickenabled;
+
+    if (MousePresent()) {
+        CtlMenu[4].active = CtlMenu[0].active = 1;
+    }
+
+    CtlMenu[4].active = mouseenabled;
+
+    DrawMenu(&CtlItems, &CtlMenu[0]);
+
+    x = CTL_X + CtlItems.indent - 24;
+    y = CTL_Y + 3;
+    VWB_DrawPic(x, y, mouseenabled ? C_SELECTEDPIC : C_NOTSELECTEDPIC);
+
+    y = CTL_Y + 16;
+    VWB_DrawPic(x, y, joystickenabled ? C_SELECTEDPIC : C_NOTSELECTEDPIC);
+
+    y = CTL_Y + 29;
+    VWB_DrawPic(x, y, joystickport ? C_SELECTEDPIC : C_NOTSELECTEDPIC);
+
+    y = CTL_Y + 42;
+    VWB_DrawPic(x, y, joypadenabled ? C_SELECTEDPIC : C_NOTSELECTEDPIC);
+
+    /* PICK FIRST AVAILABLE SPOT */
+    if (CtlItems.curpos < 0 || !CtlMenu[CtlItems.curpos].active) {
+        for (i = 0; i < CtlItems.amount; i++) {
+            if (CtlMenu[i].active) {
+                CtlItems.curpos = (int16_t)i;
+                break;
+            }
+        }
+    }
+
+    DrawMenuGun(&CtlItems);
+    VW_UpdateScreen();
+}
+
+/*
+====================
+=
+= CUSTOMIZE CONTROLS
+=
+====================
+*/
+
+enum { FIRE, STRAFE, RUN, OPEN };
+static const char mbarray[4][3] = {"b0", "b1", "b2", "b3"};
+static const int order[4] = {RUN, OPEN, FIRE, STRAFE};
+
+enum { MOUSE, JOYSTICK, KEYBOARDBTNS, KEYBOARDMOVE }; /* FOR INPUT TYPES */
+
+typedef struct {
+    int allowed[4];
+} CustomCtrls;
+
+static void DrawCustomScreen(void);
+static void FixupCustom(int w);
+static void DrawCustMouse(int hilight);
+static void DrawCustJoy(int hilight);
+static void DrawCustKeybd(int hilight);
+static void DrawCustKeys(int hilight);
+static void PrintCustMouse(int i);
+static void PrintCustJoy(int i);
+static void PrintCustKeybd(int i);
+static void PrintCustKeys(int i);
+static void EnterCtrlData(int index, const CustomCtrls *cust, void (*DrawRtn)(int),
+                          void (*PrintRtn)(int), int type);
+
+static void CustomControls(int temp1)
+{
+    static const CustomCtrls mouseallowed = {{0, 1, 1, 1}}, allowed = {{1, 1, 1, 1}};
+    int which;
+
+    (void)temp1;
+    DrawCustomScreen();
+    do {
+        which = HandleMenu(&CusItems, &CusMenu[0], FixupCustom);
+        switch (which) {
+        case 0: /* DefineMouseBtns */
+            EnterCtrlData(2, &mouseallowed, DrawCustMouse, PrintCustMouse, MOUSE);
+            DrawCustMouse(1);
+            break;
+        case 3: /* DefineJoyBtns */
+            EnterCtrlData(5, &allowed, DrawCustJoy, PrintCustJoy, JOYSTICK);
+            DrawCustJoy(0);
+            break;
+        case 6: /* DefineKeyBtns */
+            EnterCtrlData(8, &allowed, DrawCustKeybd, PrintCustKeybd, KEYBOARDBTNS);
+            DrawCustKeybd(0);
+            break;
+        case 8: /* DefineKeyMove */
+            EnterCtrlData(10, &allowed, DrawCustKeys, PrintCustKeys, KEYBOARDMOVE);
+            DrawCustKeys(0);
+            break;
+        }
+    } while (which >= 0 && !orig_quit);
+
+    MenuFadeOut();
+}
+
+/* ENTER CONTROL DATA FOR ANY TYPE OF CONTROL */
+enum { FWRD, RIGHT, BKWD, LEFT };
+static const int moveorder[4] = {LEFT, RIGHT, FWRD, BKWD};
+
+static void EnterCtrlData(int index, const CustomCtrls *cust, void (*DrawRtn)(int),
+                          void (*PrintRtn)(int), int type)
+{
+    int j, exit, tick, redraw, which = 0, x = 0, picked;
+    ControlInfo ci;
+
+    ShootSnd();
+    PrintY = (uint16_t)(CST_Y + 13 * index);
+    IN_ClearKeysDown();
+    exit = 0;
+    redraw = 1;
+
+    /* FIND FIRST SPOT IN ALLOWED ARRAY */
+    for (j = 0; j < 4; j++) {
+        if (cust->allowed[j]) {
+            which = j;
+            break;
+        }
+    }
+
+    do {
+        if (redraw) {
+            x = CST_START + CST_SPC * which;
+            DrawWindow(5, PrintY - 1, 310, 13, BKGDCOLOR);
+
+            DrawRtn(1);
+            DrawWindow(x - 2, PrintY, CST_SPC, 11, TEXTCOLOR);
+            DrawOutline(x - 2, PrintY, CST_SPC, 11, 0, HIGHLIGHT);
+            SETFONTCOLOR(0, TEXTCOLOR);
+            PrintRtn(which);
+            PrintX = (uint16_t)x;
+            SETFONTCOLOR(TEXTCOLOR, BKGDCOLOR);
+            VW_UpdateScreen();
+            WaitKeyUp();
+            redraw = 0;
+        }
+
+        ReadAnyControl(&ci);
+
+        if (type == MOUSE || type == JOYSTICK) {
+            if (orig_keys[sc_Enter] || orig_keys[sc_Control] || orig_keys[sc_Alt]) {
+                IN_ClearKeysDown();
+                ci.button0 = ci.button1 = false;
+            }
+        }
+
+        /* CHANGE BUTTON VALUE? */
+        if ((ci.button0 | ci.button1 | ci.button2 | ci.button3) ||
+            ((type == KEYBOARDBTNS || type == KEYBOARDMOVE) && orig_lastscan == sc_Enter)) {
+            tick = picked = 0;
+            SetTimeCount(0);
+            SETFONTCOLOR(0, TEXTCOLOR);
+
+            do {
+                int button, result = 0;
+
+                if (type == KEYBOARDBTNS || type == KEYBOARDMOVE) {
+                    IN_ClearKeysDown();
+                }
+                IN_Pump();
+
+                /* FLASH CURSOR */
+                if (GetTimeCount() > 10) {
+                    switch (tick) {
+                    case 0:
+                        VWB_Bar(x, PrintY + 1, CST_SPC - 2, 10, TEXTCOLOR);
+                        break;
+                    case 1:
+                        PrintX = (uint16_t)x;
+                        US_Print("?");
+                        OrigSD_PlaySound(HITWALLSND);
+                    }
+                    tick ^= 1;
+                    SetTimeCount(0);
+                    VW_UpdateScreen();
+                }
+
+                /*
+                 * Not in the original: Esc gives up without becoming the key
+                 * (the original read it as the new key before checking for Esc).
+                 */
+                if (orig_keys[sc_Escape] || orig_quit) {
+                    picked = 1;
+                    continue;
+                }
+
+                /* WHICH TYPE OF INPUT DO WE PROCESS? */
+                switch (type) {
+                case MOUSE:
+                    button = orig_hooks.mouse_buttons ? orig_hooks.mouse_buttons() : 0;
+                    switch (button) {
+                    case 1:
+                        result = 1;
+                        break;
+                    case 2:
+                        result = 2;
+                        break;
+                    case 4:
+                        result = 3;
+                        break;
+                    }
+
+                    if (result) {
+                        int z;
+
+                        for (z = 0; z < 4; z++) {
+                            if (order[which] == buttonmouse[z]) {
+                                buttonmouse[z] = bt_nobutton;
+                                break;
+                            }
+                        }
+
+                        buttonmouse[result - 1] = (int16_t)order[which];
+                        picked = 1;
+                        OrigSD_PlaySound(SHOOTDOORSND);
+                    }
+                    break;
+
+                case JOYSTICK:
+                    if (ci.button0) {
+                        result = 1;
+                    } else if (ci.button1) {
+                        result = 2;
+                    } else if (ci.button2) {
+                        result = 3;
+                    } else if (ci.button3) {
+                        result = 4;
+                    }
+
+                    if (result) {
+                        int z;
+
+                        for (z = 0; z < 4; z++) {
+                            if (order[which] == buttonjoy[z]) {
+                                buttonjoy[z] = bt_nobutton;
+                                break;
+                            }
+                        }
+
+                        buttonjoy[result - 1] = (int16_t)order[which];
+                        picked = 1;
+                        OrigSD_PlaySound(SHOOTDOORSND);
+                    }
+                    break;
+
+                case KEYBOARDBTNS:
+                    if (orig_lastscan) {
+                        buttonscan[order[which]] = orig_lastscan;
+                        picked = 1;
+                        ShootSnd();
+                        IN_ClearKeysDown();
+                    }
+                    break;
+
+                case KEYBOARDMOVE:
+                    if (orig_lastscan) {
+                        dirscan[moveorder[which]] = orig_lastscan;
+                        picked = 1;
+                        ShootSnd();
+                        IN_ClearKeysDown();
+                    }
+                    break;
+                }
+
+            } while (!picked);
+
+            SETFONTCOLOR(TEXTCOLOR, BKGDCOLOR);
+            redraw = 1;
+            WaitKeyUp();
+            continue;
+        }
+
+        if (ci.button1 || orig_keys[sc_Escape] || orig_quit) {
+            exit = 1;
+        }
+
+        /* MOVE TO ANOTHER SPOT? */
+        switch (ci.dir) {
+        case dir_West:
+            do {
+                which--;
+                if (which < 0) {
+                    which = 3;
+                }
+            } while (!cust->allowed[which]);
+            redraw = 1;
+            OrigSD_PlaySound(MOVEGUN1SND);
+            while (ReadAnyControl(&ci), ci.dir != dir_None && !orig_quit) {
+            }
+            IN_ClearKeysDown();
+            break;
+
+        case dir_East:
+            do {
+                which++;
+                if (which > 3) {
+                    which = 0;
+                }
+            } while (!cust->allowed[which]);
+            redraw = 1;
+            OrigSD_PlaySound(MOVEGUN1SND);
+            while (ReadAnyControl(&ci), ci.dir != dir_None && !orig_quit) {
+            }
+            IN_ClearKeysDown();
+            break;
+        case dir_North:
+        case dir_South:
+            exit = 1;
+            break;
+        default:
+            break;
+        }
+    } while (!exit);
+
+    OrigSD_PlaySound(ESCPRESSEDSND);
+    WaitKeyUp();
+    DrawWindow(5, PrintY - 1, 310, 13, BKGDCOLOR);
+}
+
+/* the two lines either side of the gun, which it overdraws */
+static void FixupLines(int w)
+{
+    const int y = CST_Y + 26 + w * 13;
+
+    VWB_Hlin(7, 32, y - 1, DEACTIVE);
+    VWB_Hlin(7, 32, y + 12, BORD2COLOR);
+    VWB_Hlin(7, 32, y - 2, BORDCOLOR);
+    VWB_Hlin(7, 32, y + 13, BORDCOLOR);
+}
+
+/* FIXUP GUN CURSOR OVERDRAW SHIT */
+static void FixupCustom(int w)
+{
+    static int lastwhich = -1;
+
+    FixupLines(w);
+
+    switch (w) {
+    case 0:
+        DrawCustMouse(1);
+        break;
+    case 3:
+        DrawCustJoy(1);
+        break;
+    case 6:
+        DrawCustKeybd(1);
+        break;
+    case 8:
+        DrawCustKeys(1);
+    }
+
+    if (lastwhich >= 0) {
+        FixupLines(lastwhich);
+
+        if (lastwhich != w) {
+            switch (lastwhich) {
+            case 0:
+                DrawCustMouse(0);
+                break;
+            case 3:
+                DrawCustJoy(0);
+                break;
+            case 6:
+                DrawCustKeybd(0);
+                break;
+            case 8:
+                DrawCustKeys(0);
+            }
+        }
+    }
+
+    lastwhich = w;
+}
+
+/* one row of the four action names */
+static void PrintActionNames(void)
+{
+    SETFONTCOLOR(TEXTCOLOR, BKGDCOLOR);
+    PrintX = CST_START;
+    US_Print(STR_CRUN);
+    PrintX = CST_START + CST_SPC * 1;
+    US_Print(STR_COPEN);
+    PrintX = CST_START + CST_SPC * 2;
+    US_Print(STR_CFIRE);
+    PrintX = CST_START + CST_SPC * 3;
+    US_Print(STR_CSTRAFE "\n");
+}
+
+/* DRAW CUSTOMIZE SCREEN */
+static void DrawCustomScreen(void)
+{
+    int i;
+
+    ClearMScreen();
+    WindowX = 0;
+    WindowW = 320;
+    VWB_DrawPic(112, 184, C_MOUSELBACKPIC);
+    DrawStripes(10);
+    VWB_DrawPic(80, 0, C_CUSTOMIZEPIC);
+
+    /* MOUSE */
+    SETFONTCOLOR(READCOLOR, BKGDCOLOR);
+    WindowX = 0;
+    WindowW = 320;
+    PrintY = CST_Y;
+    US_CPrint("Mouse\n");
+
+    PrintActionNames();
+    DrawWindow(5, PrintY - 1, 310, 13, BKGDCOLOR);
+    DrawCustMouse(0);
+    US_Print("\n");
+
+    /* JOYSTICK/PAD */
+    SETFONTCOLOR(READCOLOR, BKGDCOLOR);
+    US_CPrint("Joystick/Gravis GamePad\n");
+
+    PrintActionNames();
+    DrawWindow(5, PrintY - 1, 310, 13, BKGDCOLOR);
+    DrawCustJoy(0);
+    US_Print("\n");
+
+    /* KEYBOARD */
+    SETFONTCOLOR(READCOLOR, BKGDCOLOR);
+    US_CPrint("Keyboard\n");
+    PrintActionNames();
+    DrawWindow(5, PrintY - 1, 310, 13, BKGDCOLOR);
+    DrawCustKeybd(0);
+    US_Print("\n");
+
+    /* KEYBOARD MOVE KEYS */
+    SETFONTCOLOR(TEXTCOLOR, BKGDCOLOR);
+    PrintX = CST_START;
+    US_Print(STR_LEFT);
+    PrintX = CST_START + CST_SPC * 1;
+    US_Print(STR_RIGHT);
+    PrintX = CST_START + CST_SPC * 2;
+    US_Print(STR_FRWD);
+    PrintX = CST_START + CST_SPC * 3;
+    US_Print(STR_BKWD "\n");
+    DrawWindow(5, PrintY - 1, 310, 13, BKGDCOLOR);
+    DrawCustKeys(0);
+
+    /* PICK STARTING POINT IN MENU */
+    if (CusItems.curpos < 0) {
+        for (i = 0; i < CusItems.amount; i++) {
+            if (CusMenu[i].active) {
+                CusItems.curpos = (int16_t)i;
+                break;
+            }
+        }
+    }
+
+    VW_UpdateScreen();
+    MenuFadeIn();
+}
+
+static void PrintCustMouse(int i)
+{
+    int j;
+
+    for (j = 0; j < 4; j++) {
+        if (order[i] == buttonmouse[j]) {
+            PrintX = (uint16_t)(CST_START + CST_SPC * i);
+            US_Print(mbarray[j]);
+            break;
+        }
+    }
+}
+
+static void DrawCustMouse(int hilight)
+{
+    int i;
+
+    SETFONTCOLOR(hilight ? HIGHLIGHT : TEXTCOLOR, BKGDCOLOR);
+
+    if (!mouseenabled) {
+        SETFONTCOLOR(DEACTIVE, BKGDCOLOR);
+        CusMenu[0].active = 0;
+    } else {
+        CusMenu[0].active = 1;
+    }
+
+    PrintY = CST_Y + 13 * 2;
+    for (i = 0; i < 4; i++) {
+        PrintCustMouse(i);
+    }
+}
+
+static void PrintCustJoy(int i)
+{
+    int j;
+
+    for (j = 0; j < 4; j++) {
+        if (order[i] == buttonjoy[j]) {
+            PrintX = (uint16_t)(CST_START + CST_SPC * i);
+            US_Print(mbarray[j]);
+            break;
+        }
+    }
+}
+
+static void DrawCustJoy(int hilight)
+{
+    int i;
+
+    SETFONTCOLOR(hilight ? HIGHLIGHT : TEXTCOLOR, BKGDCOLOR);
+
+    if (!joystickenabled) {
+        SETFONTCOLOR(DEACTIVE, BKGDCOLOR);
+        CusMenu[3].active = 0;
+    } else {
+        CusMenu[3].active = 1;
+    }
+
+    PrintY = CST_Y + 13 * 5;
+    for (i = 0; i < 4; i++) {
+        PrintCustJoy(i);
+    }
+}
+
+static void PrintCustKeybd(int i)
+{
+    PrintX = (uint16_t)(CST_START + CST_SPC * i);
+    US_Print(IN_GetScanName((byte)buttonscan[order[i]]));
+}
+
+static void DrawCustKeybd(int hilight)
+{
+    int i;
+
+    SETFONTCOLOR(hilight ? HIGHLIGHT : TEXTCOLOR, BKGDCOLOR);
+
+    PrintY = CST_Y + 13 * 8;
+    for (i = 0; i < 4; i++) {
+        PrintCustKeybd(i);
+    }
+}
+
+static void PrintCustKeys(int i)
+{
+    PrintX = (uint16_t)(CST_START + CST_SPC * i);
+    US_Print(IN_GetScanName((byte)dirscan[moveorder[i]]));
+}
+
+static void DrawCustKeys(int hilight)
+{
+    int i;
+
+    SETFONTCOLOR(hilight ? HIGHLIGHT : TEXTCOLOR, BKGDCOLOR);
+
+    PrintY = CST_Y + 13 * 10;
+    for (i = 0; i < 4; i++) {
+        PrintCustKeys(i);
+    }
+}
+
+/*
+====================
+=
+= Settings pages
+=
+= Not in the original: the settings this port adds, on pages drawn like
+= the Control menu. Sound has the original sound screen, then music and
+= effects volume; Video has the original Change View, then fill the screen
+= and fullscreen. A slider works as in Mouse Sensitivity: choose it, then
+= left and right (or the mouse wheel), Enter keeps and Esc puts it back; a
+= change is heard at once. The values live with the platform (get_option /
+= set_option).
+=
+====================
+*/
+
+#define SP_X 24
+#define SP_Y 70
+#define SP_W 284
+#define SP_BARX 188 /* the sliders: ten steps of 10 pixels */
+#define SP_BARW 100
+
+typedef struct {
+    const char *title;
+    CP_iteminfo *info;
+    CP_itemtype *items;
+    const int8_t *option;    /* OPT_* for each line, or -1 for the line that opens a screen */
+    void (*open)(int temp1); /* that screen */
+} settings_t;
+
+static CP_iteminfo SoundItems = {SP_X, SP_Y, 3, 0, 56}, VideoItems = {SP_X, SP_Y, 3, 0, 56};
+
+static CP_itemtype SoundPage[] = {
+    {1, "Sound devices", NULL},
+    {1, "Music", NULL},
+    {1, "Effects", NULL},
+};
+static const int8_t soundoptions[] = {-1, OPT_MUSICVOL, OPT_EFFECTSVOL};
+
+static CP_itemtype VideoPage[] = {
+    {1, "View size", NULL},
+    {1, "Fill the screen", NULL},
+    {1, "Fullscreen", NULL},
+};
+static const int8_t videooptions[] = {-1, OPT_FILLSCREEN, OPT_FULLSCREEN};
+
+static const settings_t soundsettings = {"Sound", &SoundItems, SoundPage, soundoptions, CP_Sound},
+                        videosettings = {"Video", &VideoItems, VideoPage, videooptions,
+                                         CP_ChangeView};
+
+static boolean IsSlider(int option)
+{
+    return option == OPT_MUSICVOL || option == OPT_EFFECTSVOL;
+}
+
+/* a slider as Mouse Sensitivity draws it, scaled to the row */
+static void DrawOptionBar(int line, int value)
+{
+    const int y = SP_Y + line * 13 + 1;
+
+    VWB_Bar(SP_BARX, y, SP_BARW, 9, TEXTCOLOR);
+    DrawOutline(SP_BARX, y, SP_BARW, 9, 0, HIGHLIGHT);
+    DrawOutline(SP_BARX + 10 * value, y, 10, 9, 0, READCOLOR);
+    VWB_Bar(SP_BARX + 1 + 10 * value, y + 1, 9, 8, READHCOLOR);
+}
+
+static void DrawSettings(const settings_t *page)
+{
+    int i;
+
+    ClearMScreen();
+    DrawStripes(10);
+    VWB_DrawPic(112, 184, C_MOUSELBACKPIC);
+
+    fontnumber = 1;
+    SETFONTCOLOR(READHCOLOR, 0);
+    WindowX = 0;
+    WindowW = 320;
+    PrintY = 14;
+    US_CPrint(page->title);
+
+    DrawWindow(SP_X - 8, SP_Y - 5, SP_W, 13 * page->info->amount + 6, BKGDCOLOR);
+    DrawMenu(page->info, page->items);
+
+    for (i = 0; i < page->info->amount; i++) {
+        const int option = page->option[i];
+
+        if (IsSlider(option)) {
+            DrawOptionBar(i, GetOption(option));
+        } else if (option >= 0) {
+            VWB_DrawPic(SP_X + page->info->indent - 24, SP_Y + i * 13 + 3,
+                        GetOption(option) ? C_SELECTEDPIC : C_NOTSELECTEDPIC);
+        }
+    }
+
+    DrawMenuGun(page->info);
+    VW_UpdateScreen();
+}
+
+/* right / up (or the wheel up) for more, left / down for less; Enter keeps it, Esc puts it back */
+static void AdjustOption(int line, int option)
+{
+    ControlInfo ci;
+    int exit = 0, value = GetOption(option), step;
+    const int old = value;
+
+    WaitKeyUp();
+    do {
+        ReadAnyControl(&ci);
+        step = (ci.dir == dir_East || ci.dir == dir_North)  ? 1
+               : (ci.dir == dir_West || ci.dir == dir_South) ? -1
+                                                              : 0;
+        if (step && value + step >= 0 && value + step <= 9) {
+            value += step;
+            SetOption(option, value);
+            DrawOptionBar(line, value);
+            VW_UpdateScreen();
+            OrigSD_PlaySound(MOVEGUN1SND);
+            TicDelay(20);
+        }
+
+        if (ci.button0 || orig_keys[sc_Space] || orig_keys[sc_Enter]) {
+            exit = 1;
+        } else if (ci.button1 || orig_keys[sc_Escape] || orig_quit) {
+            exit = 2;
+        }
+    } while (!exit);
+
+    if (exit == 2) {
+        SetOption(option, old);
+        DrawOptionBar(line, old);
+        VW_UpdateScreen();
+        OrigSD_PlaySound(ESCPRESSEDSND);
+    } else {
+        ShootSnd();
+    }
+    WaitKeyUp();
+    IN_ClearKeysDown();
+}
+
+static void SettingsPage(const settings_t *page)
+{
+    int which;
+
+    DrawSettings(page);
+    MenuFadeIn();
+    WaitKeyUp();
+
+    do {
+        which = HandleMenu(page->info, page->items, NULL);
+        if (which < 0) {
+            break;
+        }
+        if (page->option[which] < 0) { /* the original screen */
+            ShootSnd();
+            MenuFadeOut();
+            page->open(0);
+            DrawSettings(page);
+            MenuFadeIn();
+        } else if (IsSlider(page->option[which])) {
+            AdjustOption(which, page->option[which]);
+            DrawSettings(page);
+        } else {
+            SetOption(page->option[which], !GetOption(page->option[which]));
+            ShootSnd();
+            DrawSettings(page);
+        }
+        WaitKeyUp(); /* a button still down would choose again at once */
+    } while (!orig_quit);
+
+    MenuFadeOut();
+}
+
+/* SOUND: the devices (CP_Sound), music and effects volume */
+static void CP_SoundPage(int temp1)
+{
+    (void)temp1;
+    SettingsPage(&soundsettings);
+}
+
+/* VIDEO: the view size (CP_ChangeView), fill the screen, fullscreen */
+static void CP_Video(int temp1)
+{
+    (void)temp1;
+    SettingsPage(&videosettings);
 }
 
 /*
@@ -1216,6 +2297,9 @@ void DrawOutline(int x, int y, int w, int h, int color1, int color2)
 /* the mouse driver's position, homed at CENTER (Mouse(3) / Mouse(4)) */
 static int mousex = CENTER, mousey = CENTER;
 
+static int wheelsteps; /* not in the original: mouse wheel notches still to give, up positive */
+static boolean wheelgiven;
+
 static void HomeMouse(void)
 {
     int dx, dy;
@@ -1224,6 +2308,10 @@ static void HomeMouse(void)
     if (orig_hooks.mouse_delta) {
         orig_hooks.mouse_delta(&dx, &dy);
     }
+    if (orig_hooks.mouse_wheel) {
+        (void)orig_hooks.mouse_wheel(); /* turns made during play */
+    }
+    wheelsteps = 0;
 }
 
 /* the episodes this pack has (CheckForEpisodes, WL_MENU.C) */
@@ -1705,6 +2793,22 @@ void ReadAnyControl(ControlInfo *ci)
         }
         StickControl(ci, jx, jy, orig_hooks.joy_buttons ? orig_hooks.joy_buttons() : 0,
                      joypadenabled);
+    }
+
+    /*
+     * Not in the original: the mouse wheel, one notch as one press of up or
+     * down, with a read without it between (so TicDelay ends and the next
+     * notch moves again).
+     */
+    if (orig_hooks.mouse_wheel) {
+        wheelsteps += orig_hooks.mouse_wheel();
+    }
+    if (wheelsteps && !wheelgiven && ci->dir == dir_None) {
+        ci->dir = wheelsteps > 0 ? dir_North : dir_South;
+        wheelsteps += wheelsteps > 0 ? -1 : 1;
+        wheelgiven = true;
+    } else {
+        wheelgiven = false;
     }
 
     /* not in the original: a game pad, whether or not the joystick is enabled for play */

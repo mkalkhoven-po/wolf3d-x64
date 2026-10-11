@@ -12,11 +12,14 @@ typedef struct {
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Texture *texture;
+    SDL_Texture *prescaled; /* fill mode: the frame at a whole multiple, smoothed down to the window */
+    int prescale_x, prescale_y;
     Uint32 *pixels;
     int logical_w;
     int logical_h;
     int scale;
     int fullscreen;
+    int fill;    /* 0: whole multiples only (black bars); 1: fill the window at 4:3, sharp bilinear */
     int running;
 } wolf_present_t;
 
@@ -35,6 +38,9 @@ boolean Wolf_PresentToggleFullscreen(wolf_present_t *pr);
 
 /* Change integer scale 1..8 while windowed. */
 boolean Wolf_PresentSetScale(wolf_present_t *pr, int scale);
+
+/* Fill the window at 4:3 (sharp bilinear) instead of whole multiples only. */
+void Wolf_PresentSetFill(wolf_present_t *pr, int fill);
 
 /* Apply config aspect: keep 4:3 logical size; black bars on resize. */
 void Wolf_PresentHandleResize(wolf_present_t *pr);

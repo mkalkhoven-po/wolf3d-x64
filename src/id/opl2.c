@@ -321,8 +321,16 @@ void OPL2_Write(opl2_t *chip, int reg, int val)
 
 int32_t OPL2_Sample(opl2_t *chip)
 {
+    int32_t first, rest;
+
+    OPL2_SampleSplit(chip, &first, &rest);
+    return first + rest;
+}
+
+void OPL2_SampleSplit(opl2_t *chip, int32_t *first, int32_t *rest)
+{
     const int tremolo = Tremolo(chip);
-    int32_t sum = 0;
+    int32_t sum = 0, sum0 = 0;
     int c;
 
     for (c = 0; c < 9; c++) {
@@ -359,7 +367,12 @@ int32_t OPL2_Sample(opl2_t *chip)
 
         mod->phase = (mod->phase + PhaseStep(chip, ch, mod)) & 0xfffff;
         car->phase = (car->phase + PhaseStep(chip, ch, car)) & 0xfffff;
+        if (c == 0) {
+            sum0 = sum; /* channel 0 apart */
+            sum = 0;
+        }
     }
     chip->clock++;
-    return sum;
+    *first = sum0;
+    *rest = sum;
 }

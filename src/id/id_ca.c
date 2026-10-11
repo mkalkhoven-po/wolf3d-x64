@@ -17,10 +17,10 @@ int mapon = -1;
 uint16_t rlew_tag;
 
 /* registered 1.4 (GFXV_WL6.H) */
-const gfx_layout_t gfx_layout_wl6 = {"WL6", 149, 132, 135, 136, 0};
+const gfx_layout_t gfx_layout_wl6 = {"WL6", 149, 132, 135, 136, 0, 6};
 
 /* Apogee 1.4 shareware: 12 more help pictures, then the WL6 layout; 8 externs */
-const gfx_layout_t gfx_layout_wl1 = {"WL1", 156, 144, 147, 148, 12};
+const gfx_layout_t gfx_layout_wl1 = {"WL1", 156, 144, 147, 148, 12, 17};
 
 const gfx_layout_t *g_gfx = &gfx_layout_wl6;
 
@@ -31,6 +31,7 @@ static wolf_data_dir_t g_map_dir;
 /* Graphics (VGAGRAPH) */
 pictabletype *pictable;
 byte *grsegs[NUMCHUNKS_MAX];
+static size_t grsizes[NUMCHUNKS_MAX]; /* expanded length of each cached chunk */
 static FILE *grhandle;
 static int32_t grstarts[NUMCHUNKS_MAX + 1];
 typedef struct {
@@ -724,6 +725,12 @@ void CA_CacheGrChunk(int chunk)
     }
 
     grsegs[chunk] = destination;
+    grsizes[chunk] = (size_t)expanded;
+}
+
+size_t CA_GrChunkSize(int chunk)
+{
+    return chunk >= 0 && chunk < NUMCHUNKS && grsegs[chunk] ? grsizes[chunk] : 0;
 }
 
 void CA_UnCacheGrChunk(int chunk)

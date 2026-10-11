@@ -4,7 +4,10 @@
  * into orig_keys / LastScan / LastASCII as the keyboard interrupt did, one
  * step per input poll, and the menus run as they do in the game: the main
  * menu and Quit, New Game (episodes, difficulty), Sound, Save and Load with
- * a typed name, the quick keys F8 / F9, Change View and the high scores.
+ * a typed name, the quick keys F8 / F9, Change View, the high scores, the
+ * Control menu (mouse, sensitivity, a key customized, the controller's look
+ * speed, a pad button held on a switch), the Sound and Video pages (volumes,
+ * the mouse wheel, fill the screen, fullscreen, view size) and Read This!.
  *
  * UI_DUMP=name writes the screens the script marks as name.<screen>.bmp.
  */
@@ -22,15 +25,23 @@ typedef struct {
     const char *snap;  /* hash (and with UI_DUMP, save) the screen before the key */
 } press_t;
 
+#define PADA_SCAN 0xfe  /* not a key: the pad's A, held for PADHOLD polls */
+#define WHEEL_UP 0xfd   /* not a key: a mouse wheel notch up */
+#define WHEEL_DOWN 0xfc /* and down */
+#define PADRIGHT_SCAN 0xfb /* not a key: the pad's D-pad right, held for PADHOLD polls */
+
 #define HOLD 3  /* polls a key stays down */
 #define GAP 40  /* polls before the next key */
 #define RUNAWAY 200000
 
+#define PADHOLD 30
+
 static const press_t *g_script;
+static int g_padheld, g_padright, g_wheelnotches;
 static int g_nscript, g_step, g_phase, g_polls, g_pressed;
 static boolean g_runaway;
 
-#define MAXSNAPS 16
+#define MAXSNAPS 32
 static const char *g_snapname[MAXSNAPS];
 static uint32_t g_snaphash[MAXSNAPS];
 static int g_numsnaps;
@@ -112,7 +123,21 @@ static void script_poll(void)
         g_phase++;
         return;
     }
-    if (g_phase == 0) {
+    if (g_phase == 0 && p->scan >= PADRIGHT_SCAN) {
+        if (p->snap) {
+            snap(p->snap);
+        }
+        if (p->scan == PADA_SCAN) {
+            g_padheld = PADHOLD;
+            orig_lastscan = 0xff; /* as the platform: any pad button is a key for IN_Ack */
+        } else if (p->scan == PADRIGHT_SCAN) {
+            g_padright = PADHOLD;
+            orig_lastscan = 0xff;
+        } else {
+            g_wheelnotches += p->scan == WHEEL_UP ? 1 : -1;
+        }
+        g_pressed++;
+    } else if (g_phase == 0) {
         if (p->snap) {
             snap(p->snap);
         }
@@ -120,13 +145,37 @@ static void script_poll(void)
         orig_lastscan = p->scan;
         orig_lastascii = (byte)p->ascii;
         g_pressed++;
-    } else if (g_phase == HOLD) {
+    } else if (g_phase == HOLD && p->scan < PADRIGHT_SCAN) {
         orig_keys[p->scan] = 0;
     }
     if (++g_phase >= HOLD + GAP) {
         g_phase = 0;
         g_step++;
     }
+}
+
+/* the pad: connected, still, A down while the script holds it */
+static boolean pad_menu(int *dx, int *dy, int *buttons)
+{
+    *dx = *dy = 0;
+    *buttons = 0;
+    if (g_padheld > 0) {
+        g_padheld--;
+        *buttons = 1;
+    }
+    if (g_padright > 0) {
+        g_padright--;
+        *dx = 127;
+    }
+    return true;
+}
+
+static int mouse_wheel(void)
+{
+    const int n = g_wheelnotches;
+
+    g_wheelnotches = 0;
+    return n;
 }
 
 static boolean ack(void)
@@ -190,6 +239,24 @@ static size_t read_game(int slot, byte *buf, size_t cap)
     return g_slotlen[slot];
 }
 
+/* the mouse is there and does not move; the settings this port adds */
+static void still_mouse(int *dx, int *dy)
+{
+    *dx = *dy = 0;
+}
+
+static int g_option[NUMOPTIONS];
+
+static int get_option(int which)
+{
+    return g_option[which];
+}
+
+static void set_option(int which, int value)
+{
+    g_option[which] = value;
+}
+
 static void run_script(const press_t *script, int n)
 {
     install_hooks();
@@ -201,6 +268,12 @@ static void run_script(const press_t *script, int n)
     orig_hooks.save_name = save_name;
     orig_hooks.write_game = write_game;
     orig_hooks.read_game = read_game;
+    orig_hooks.mouse_delta = still_mouse;
+    orig_hooks.get_option = get_option;
+    orig_hooks.set_option = set_option;
+    orig_hooks.pad_menu = pad_menu;
+    orig_hooks.mouse_wheel = mouse_wheel;
+    g_padheld = g_padright = g_wheelnotches = 0;
     memset(orig_keys, 0, sizeof(orig_keys));
     g_script = script;
     g_nscript = n;
@@ -219,13 +292,17 @@ static boolean script_done(void)
 }
 
 #define KEY(sc) {sc, 0, NULL}
+#define PADA {PADA_SCAN, 0, NULL}
+#define PADRIGHT(name) {PADRIGHT_SCAN, 0, name}
+#define WHEEL(n) {(n) > 0 ? WHEEL_UP : WHEEL_DOWN, 0, NULL}
 #define SNAPKEY(sc, name) {sc, 0, name}
 #define N(a) ((int)(sizeof(a) / sizeof((a)[0])))
 
 /*
  * The screens, checked by eye against the original (UI_DUMP) and pinned.
- * WL1 differs in the locked episodes (READCOLOR) and the high score levels
- * (no episode: UPLOAD).
+ * WL1 differs in the main menu (WL6 has no Read This!, as the registered 1.4),
+ * the locked episodes (READCOLOR) and the high score levels (no episode:
+ * UPLOAD).
  */
 static void check_screens(void)
 {
@@ -233,7 +310,7 @@ static void check_screens(void)
         const char *name;
         uint32_t wl6, wl1;
     } pins[] = {
-        {"mainmenu", 0xedea899cu, 0xedea899cu},
+        {"mainmenu", 0xd49ec5f2u, 0x7d198dd6u},
         {"episodes", 0xdb1e2c11u, 0xa2b07c15u},
         {"difficulty", 0x0df46d54u, 0x0df46d54u},
         {"sound", 0xb1a9424eu, 0xb1a9424eu},
@@ -241,6 +318,14 @@ static void check_screens(void)
         {"typed", 0xf59a9da6u, 0xf59a9da6u},
         {"changeview", 0x6521edadu, 0x6521edadu},
         {"scores", 0x66da3e84u, 0x4b5e6d16u},
+        {"control", 0x02938571u, 0x02938571u},
+        {"mousesens", 0x7641c575u, 0x7641c575u},
+        {"customize", 0xb6374824u, 0xb6374824u},
+        {"padspeed", 0x8fb3eebcu, 0x8fb3eebcu},
+        {"soundpage", 0x5a62485du, 0x5a62485du},
+        {"videopage", 0xa26fd24cu, 0xa26fd24cu},
+        {"help1", 0, 0x174b84c4u}, /* WL6: no help shown (the registered 1.4 had none) */
+        {"help2", 0, 0xd152ab99u},
     };
     size_t i;
 
@@ -256,7 +341,7 @@ static void check_screens(void)
 
 static void test_main_menu_and_quit(void)
 {
-    /* the cursor on "Read This!", as on a first run */
+    /* a first run: the cursor on "Read This!" (WL1); WL6 has no Read This!, it starts on New Game */
     static const press_t script[] = {
         SNAPKEY(sc_Escape, "mainmenu"), /* Esc: Quit? */
         SNAPKEY(sc_N, "quit"),          /* no */
@@ -447,6 +532,157 @@ static void test_change_view(void)
     NewViewSize(15);
 }
 
+static void test_control_menu(void)
+{
+    static const press_t script[] = {
+        SNAPKEY(sc_Return, "control"), /* Mouse Enabled: off */
+        KEY(sc_Return),                /* and on again */
+        KEY(sc_DownArrow),             /* past the joystick lines, greyed: Mouse Sensitivity */
+        KEY(sc_Return),
+        SNAPKEY(sc_RightArrow, "mousesens"),
+        KEY(sc_RightArrow),
+        KEY(sc_Return),
+        KEY(sc_DownArrow), /* Customize controls */
+        KEY(sc_Return),
+        SNAPKEY(sc_DownArrow, "customize"), /* past the joystick: the keyboard buttons */
+        KEY(sc_Return),
+        KEY(sc_Return),    /* Run: pick a key */
+        {sc_Q, 'q', NULL}, /* Q runs */
+        KEY(sc_Escape),
+        KEY(sc_Escape),
+        KEY(sc_DownArrow), /* Controller look speed */
+        KEY(sc_Return),
+        SNAPKEY(sc_LeftArrow, "padspeed"),
+        KEY(sc_Return),
+        KEY(sc_UpArrow), /* up to Mouse Enabled, past the greyed lines */
+        KEY(sc_UpArrow),
+        KEY(sc_UpArrow),
+        PADA,              /* Mouse Enabled with the pad's A held down: toggles once */
+        KEY(sc_Escape),
+    };
+    const int16_t run = buttonscan[bt_run];
+
+    mouseenabled = true;
+    mouseadjustment = 5;
+    joystickenabled = false;
+    g_option[OPT_PADSENS] = 5;
+    run_script(script, N(script));
+    CP_Control(0);
+    printf("  control: mouse %d, sensitivity %d, run key %02x, look speed %d\n", mouseenabled,
+           mouseadjustment, buttonscan[bt_run], g_option[OPT_PADSENS]);
+    CHECK(script_done());
+    CHECK(!mouseenabled && mouseadjustment == 7); /* off: one toggle for the held button */
+    CHECK(buttonscan[bt_run] == sc_Q);
+    CHECK(g_option[OPT_PADSENS] == 4);
+    buttonscan[bt_run] = run;
+    mouseenabled = true;
+}
+
+/* Sound (F4): the sound devices screen behind the first line, then the volumes */
+static void test_sound_page(void)
+{
+    static const press_t script[] = {
+        SNAPKEY(sc_DownArrow, "soundpage"), /* Music */
+        KEY(sc_Return),
+        KEY(sc_LeftArrow),
+        WHEEL(-1), /* the wheel down: one less */
+        KEY(sc_Return),
+        KEY(sc_DownArrow), /* Effects: less, then Esc puts it back */
+        KEY(sc_Return),
+        KEY(sc_LeftArrow),
+        KEY(sc_Escape),
+        KEY(sc_UpArrow), /* the wheel and the arrows move the gun: up twice to Sound devices */
+        WHEEL(1),
+        KEY(sc_Return),
+        SNAPKEY(sc_Escape, "sounddevices"),
+        KEY(sc_Escape),
+    };
+
+    g_option[OPT_MUSICVOL] = g_option[OPT_EFFECTSVOL] = 9;
+    g_soundmode[0] = g_soundmode[1] = 2;
+    g_soundmode[2] = 1;
+    run_script(script, N(script));
+    US_ControlPanel(sc_F4);
+    printf("  sound: music %d, effects %d\n", g_option[OPT_MUSICVOL], g_option[OPT_EFFECTSVOL]);
+    CHECK(script_done());
+    CHECK(g_option[OPT_MUSICVOL] == 7 && g_option[OPT_EFFECTSVOL] == 9);
+}
+
+/* Video (the main menu's line for Change View): the view size, fill the screen, fullscreen */
+static void test_video_page(void)
+{
+    static const press_t script[] = {
+        KEY(sc_Return), /* Video */
+        SNAPKEY(sc_DownArrow, "videopage"),
+        PADA,           /* Fill the screen, the pad's A held down: on once */
+        KEY(sc_DownArrow),
+        KEY(sc_Return), /* Fullscreen: on */
+        KEY(sc_UpArrow),
+        KEY(sc_UpArrow),
+        KEY(sc_Return), /* View size: the original Change View */
+        KEY(sc_UpArrow),
+        KEY(sc_Return),
+        KEY(sc_Escape),
+        KEY(sc_Escape), /* the main menu: Quit? yes */
+        KEY(sc_Y),
+    };
+
+    NewViewSize(15);
+    ingame = false;
+    MainItems.curpos = changeview;
+    g_option[OPT_FILLSCREEN] = g_option[OPT_FULLSCREEN] = 0;
+    run_script(script, N(script));
+    US_ControlPanel(0);
+    printf("  video: fill %d, fullscreen %d, view size %d\n", g_option[OPT_FILLSCREEN],
+           g_option[OPT_FULLSCREEN], viewsize);
+    CHECK(script_done() && orig_quit);
+    CHECK(g_option[OPT_FILLSCREEN] == 1 && g_option[OPT_FULLSCREEN] == 1);
+    CHECK(viewsize == 16);
+    CHECK(strcmp(MainMenu[changeview].string, "Video") == 0);
+    orig_quit = false;
+    abortgame = false;
+    NewViewSize(15);
+}
+
+/* Read This!: the help text, a page on and back, the frame around it */
+static void test_help(void)
+{
+    static const press_t script[] = {
+        SNAPKEY(sc_RightArrow, "help1"),
+        SNAPKEY(sc_LeftArrow, "help2"),
+        PADRIGHT("help1again"), /* the D-pad turns the page too */
+        SNAPKEY(sc_Escape, "help2again"),
+    };
+    const struct { /* the chunk numbers depend on the pack */
+        int chunk, width, height;
+    } frame[] = {{H_TOPWINDOWPIC, 320, 8},
+                 {H_LEFTWINDOWPIC, 8, 192},
+                 {H_RIGHTWINDOWPIC, 8, 192},
+                 {H_BOTTOMINFOPIC, 304, 24}};
+    size_t i;
+
+    for (i = 0; i < sizeof(frame) / sizeof(frame[0]); i++) {
+        CHECK(pictable[frame[i].chunk - STARTPICS].width == frame[i].width &&
+              pictable[frame[i].chunk - STARTPICS].height == frame[i].height);
+    }
+
+    if (!g_wl1) {
+        /* the registered data's help text is the shareware's: not shown, as the registered 1.4 */
+        CHECK(!HelpAvailable());
+        run_script(NULL, 0);
+        HelpScreens();
+        CHECK(g_polls == 0);
+        return;
+    }
+    CHECK(HelpAvailable());
+    run_script(script, N(script));
+    HelpScreens();
+    CHECK(script_done());
+    CHECK(snap_hash("help1") != snap_hash("help2"));
+    CHECK(snap_hash("help1") == snap_hash("help1again"));
+    CHECK(snap_hash("help2") == snap_hash("help2again"));
+}
+
 static void test_high_scores(void)
 {
     run_script(NULL, 0);
@@ -483,6 +719,10 @@ int main(int argc, char **argv)
     test_quick_keys();
     test_change_view();
     test_high_scores();
+    test_control_menu();
+    test_sound_page();
+    test_video_page();
+    test_help();
 
     check_screens();
 

@@ -60,6 +60,10 @@ void SD_SetSoundMode(SDMode mode);
 void SD_SetDigiDevice(SDSMode mode);
 void SD_SetMusicMode(SMMode mode);
 
+/* Not in the original: music and effects volume, 0 (silent) to SD_MAXVOLUME (full). */
+#define SD_MAXVOLUME 9
+void SD_SetVolumes(int music, int effects);
+
 /* Smoke helpers */
 int SD_NumDigi(void);
 boolean SD_HasDigiFor(word sound);

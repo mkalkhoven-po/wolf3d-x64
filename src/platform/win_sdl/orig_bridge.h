@@ -16,6 +16,9 @@
 boolean Bridge_OpenWindow(const char *title);
 void Bridge_CloseWindow(void);
 boolean Bridge_ToggleFullscreen(void);
+boolean Bridge_IsFullscreen(void);
+void Bridge_SetFill(int fill); /* fill the window at 4:3, or whole multiples only */
+void Bridge_SetVolumes(int music, int effects); /* 0..9 each */
 
 byte *Bridge_Framebuffer(void); /* the 320x200 8-bit frame the window shows */
 void Bridge_Present(void);
@@ -43,4 +46,3 @@ int Bridge_SpriteStart(void);
 const byte *Bridge_DemoLump(int demo, size_t *length);
 boolean Bridge_IsShareware(void); /* a WL1 pack */
 boolean Bridge_MapExists(int map); /* 0-59, in this pack's MAPHEAD */
-int Bridge_MouseLook(void);       /* config: mouse turns */

@@ -62,6 +62,11 @@ void Pad_Stick(int x, int y, int deadzone, int *outx, int *outy);
  */
 void Pad_Map(const pad_state_t *now, const pad_state_t *before, int tics, pad_controls_t *out);
 
+/* The settings page's pad sensitivity (not in the original): the right stick's turn speed. */
+#define PAD_SENS_DEFAULT 5
+#define PAD_SENS_MAX 9
+void Pad_SetSensitivity(int level);
+
 /* The next weapon to ready for a weapon step (0 knife .. 3 chain gun). */
 int Pad_NextWeapon(int weapon, int bestweapon, int step);
 

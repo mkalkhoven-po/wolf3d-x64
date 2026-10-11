@@ -80,12 +80,58 @@ void Wolf_ConfigSetDefaults(void)
     g_config.scale = 3;
     g_config.fullscreen = 0;
     g_config.mouse_look = 1;
-    g_config.mouse_sens = 8;
+    g_config.mouse_adjust = 5;
     g_config.music_on = 1;
     g_config.sfx_on = 1;
     g_config.digi_on = 1;
     g_config.viewsize = 15;
+    memset(g_config.key_buttons, 0xff, sizeof(g_config.key_buttons));
+    memset(g_config.key_dirs, 0xff, sizeof(g_config.key_dirs));
+    memset(g_config.mouse_buttons, 0xff, sizeof(g_config.mouse_buttons));
+    memset(g_config.joy_buttons, 0xff, sizeof(g_config.joy_buttons));
+    g_config.music_volume = 9;
+    g_config.effects_volume = 9;
+    g_config.pad_sens = 5;
     g_config.last_data[0] = '\0';
+}
+
+static int clamp_int(int v, int lo, int hi)
+{
+    return v < lo ? lo : v > hi ? hi : v;
+}
+
+/* "29,56,54" into n ints; false (and nothing changed) unless all n are there */
+static boolean parse_list(const char *val, int *out, int n)
+{
+    int tmp[16], i;
+    char *end;
+
+    for (i = 0; i < n && i < 16; i++) {
+        tmp[i] = (int)strtol(val, &end, 10);
+        if (end == val) {
+            return false;
+        }
+        val = end;
+        if (*val == ',') {
+            val++;
+        }
+    }
+    memcpy(out, tmp, (size_t)n * sizeof(int));
+    return true;
+}
+
+static void print_list(FILE *f, const char *key, const int *v, int n)
+{
+    int i;
+
+    if (v[0] < 0 && n) { /* the engine's defaults */
+        return;
+    }
+    fprintf(f, "%s=", key);
+    for (i = 0; i < n; i++) {
+        fprintf(f, i ? ",%d" : "%d", v[i]);
+    }
+    fprintf(f, "\n");
 }
 
 static void clamp_config(void)
@@ -98,12 +144,14 @@ static void clamp_config(void)
     }
     g_config.fullscreen = g_config.fullscreen ? 1 : 0;
     g_config.mouse_look = g_config.mouse_look ? 1 : 0;
-    if (g_config.mouse_sens < 1) {
-        g_config.mouse_sens = 1;
-    }
-    if (g_config.mouse_sens > 20) {
-        g_config.mouse_sens = 20;
-    }
+    g_config.mouse_adjust = clamp_int(g_config.mouse_adjust, 0, 9);
+    g_config.music_volume = clamp_int(g_config.music_volume, 0, 9);
+    g_config.effects_volume = clamp_int(g_config.effects_volume, 0, 9);
+    g_config.pad_sens = clamp_int(g_config.pad_sens, 0, 9);
+    g_config.fill_screen = g_config.fill_screen ? 1 : 0;
+    g_config.joystick = g_config.joystick ? 1 : 0;
+    g_config.joystick_port = g_config.joystick_port ? 1 : 0;
+    g_config.joypad = g_config.joypad ? 1 : 0;
     g_config.music_on = g_config.music_on ? 1 : 0;
     g_config.sfx_on = g_config.sfx_on ? 1 : 0;
     g_config.digi_on = g_config.digi_on ? 1 : 0;
@@ -140,8 +188,30 @@ boolean Wolf_ConfigLoad(void)
             g_config.fullscreen = atoi(val);
         } else if (strcmp(key, "mouse_look") == 0) {
             g_config.mouse_look = atoi(val);
-        } else if (strcmp(key, "mouse_sens") == 0) {
-            g_config.mouse_sens = atoi(val);
+        } else if (strcmp(key, "mouse_adjust") == 0) {
+            g_config.mouse_adjust = atoi(val);
+        } else if (strcmp(key, "joystick") == 0) {
+            g_config.joystick = atoi(val);
+        } else if (strcmp(key, "joystick_port") == 0) {
+            g_config.joystick_port = atoi(val);
+        } else if (strcmp(key, "joypad") == 0) {
+            g_config.joypad = atoi(val);
+        } else if (strcmp(key, "key_buttons") == 0) {
+            (void)parse_list(val, g_config.key_buttons, WOLF_KEY_BUTTONS);
+        } else if (strcmp(key, "key_dirs") == 0) {
+            (void)parse_list(val, g_config.key_dirs, 4);
+        } else if (strcmp(key, "mouse_buttons") == 0) {
+            (void)parse_list(val, g_config.mouse_buttons, 4);
+        } else if (strcmp(key, "joy_buttons") == 0) {
+            (void)parse_list(val, g_config.joy_buttons, 4);
+        } else if (strcmp(key, "music_volume") == 0) {
+            g_config.music_volume = atoi(val);
+        } else if (strcmp(key, "effects_volume") == 0) {
+            g_config.effects_volume = atoi(val);
+        } else if (strcmp(key, "pad_sens") == 0) {
+            g_config.pad_sens = atoi(val);
+        } else if (strcmp(key, "fill_screen") == 0) {
+            g_config.fill_screen = atoi(val);
         } else if (strcmp(key, "music_on") == 0) {
             g_config.music_on = atoi(val);
         } else if (strcmp(key, "sfx_on") == 0) {
@@ -177,7 +247,18 @@ boolean Wolf_ConfigSave(void)
     fprintf(f, "scale=%d\n", g_config.scale);
     fprintf(f, "fullscreen=%d\n", g_config.fullscreen);
     fprintf(f, "mouse_look=%d\n", g_config.mouse_look);
-    fprintf(f, "mouse_sens=%d\n", g_config.mouse_sens);
+    fprintf(f, "mouse_adjust=%d\n", g_config.mouse_adjust);
+    fprintf(f, "joystick=%d\n", g_config.joystick);
+    fprintf(f, "joystick_port=%d\n", g_config.joystick_port);
+    fprintf(f, "joypad=%d\n", g_config.joypad);
+    print_list(f, "key_buttons", g_config.key_buttons, WOLF_KEY_BUTTONS);
+    print_list(f, "key_dirs", g_config.key_dirs, 4);
+    print_list(f, "mouse_buttons", g_config.mouse_buttons, 4);
+    print_list(f, "joy_buttons", g_config.joy_buttons, 4);
+    fprintf(f, "music_volume=%d\n", g_config.music_volume);
+    fprintf(f, "effects_volume=%d\n", g_config.effects_volume);
+    fprintf(f, "pad_sens=%d\n", g_config.pad_sens);
+    fprintf(f, "fill_screen=%d\n", g_config.fill_screen);
     fprintf(f, "music_on=%d\n", g_config.music_on);
     fprintf(f, "sfx_on=%d\n", g_config.sfx_on);
     fprintf(f, "digi_on=%d\n", g_config.digi_on);

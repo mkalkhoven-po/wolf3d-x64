@@ -26,6 +26,7 @@ typedef struct {
     int starttile8;
     int startexterns;
     int shift; /* added to the WL6 number of every chunk from C_OPTIONSPIC on */
+    int helpframe; /* H_TOPWINDOWPIC: the help screens' frame, four pictures */
 } gfx_layout_t;
 
 extern const gfx_layout_t gfx_layout_wl6;
@@ -45,10 +46,11 @@ extern const gfx_layout_t *g_gfx;
 #define H_BJPIC            3 /* WL6 only: the shareware has other help art */
 #define H_CASTLEPIC        4 /* WL6 only: the shareware has other help art */
 #define H_BLAZEPIC         5 /* WL6 only: the shareware has other help art */
-#define H_TOPWINDOWPIC     6 /* WL6 only: the shareware has other help art */
-#define H_LEFTWINDOWPIC    7 /* WL6 only: the shareware has other help art */
-#define H_RIGHTWINDOWPIC   8 /* WL6 only: the shareware has other help art */
-#define H_BOTTOMINFOPIC    9 /* WL6 only: the shareware has other help art */
+/* the help screens' frame: 6-9 in WL6; the shareware has its other help art first (17-20) */
+#define H_TOPWINDOWPIC     (g_gfx->helpframe)
+#define H_LEFTWINDOWPIC    (g_gfx->helpframe + 1)
+#define H_RIGHTWINDOWPIC   (g_gfx->helpframe + 2)
+#define H_BOTTOMINFOPIC    (g_gfx->helpframe + 3)
 #define C_OPTIONSPIC       (10 + GFXSHIFT)
 #define C_CURSOR1PIC       (11 + GFXSHIFT)
 #define C_CURSOR2PIC       (12 + GFXSHIFT)

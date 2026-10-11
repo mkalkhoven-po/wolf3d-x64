@@ -44,8 +44,7 @@ build\wolf3d.exe --data "%WOLF3D_DATA%"
 The game is a faithful port of the original engine (fixed point, 70 Hz, the
 original AI and renderer, the original control panel; see ADR-002). **Esc**
 in the game opens the control panel; **Back to Game** returns. Still to come
-in P5: the Control menu and Read This! (P5b2; their items show a note for
-now), the intermission screens (P5c) and the credits / high scores / demos
+in P5: the intermission screens (P5c) and the credits / high scores / demos
 between title pages (P5d).
 
 Smoke harness (no full play loop):
@@ -93,25 +92,33 @@ The original defaults:
 | Space | Open door / elevator |
 | 1-4 | Knife, pistol, machine gun, chain gun |
 | Esc | The control panel |
-| F1 | Help (Read This!, P5b2) |
+| F1 | Help (Read This!; the shareware only, as in the original) |
 | F2 / F3 | Save Game / Load Game |
-| F4 | Sound |
-| F5 | Change View |
-| F6 | Control (P5b2) |
+| F4 | Sound (devices and volume) |
+| F5 | Change View (view size) |
+| F6 | Control |
 | F7 | End the game |
 | F8 / F9 | Quick save / quick load: the slot last used in the Save or Load menu |
 | F10 | Quit |
 | Pause | Pause |
 | F11 | Fullscreen toggle |
 
-In the control panel: arrows (or the mouse, with `mouse_look` on) move the
-gun, **Enter** / **Space** / **Ctrl** / left click choose, **Esc** / **Alt** /
-right click go back, and the first letter of an item jumps to it, as in the
-original. Questions take **Y** or **N**. The window scale is `scale` in
+In the control panel: arrows, the mouse wheel (or moving the mouse, with
+Mouse Enabled on) move the gun, **Enter** / **Space** / **Ctrl** / left click
+choose, **Esc** / **Alt** / right click go back, and the first letter of an
+item jumps to it, as in the original. Questions take **Y** or **N**. The window scale is `scale` in
 `config.ini`.
 
-With `mouse_look` on in `config.ini` the mouse turns and moves, and its
-buttons shoot, strafe and open doors. When you die, BJ turns towards the
+The settings, kept in `config.ini`. Where the menus differ from the original:
+
+| Menu | |
+|------|-|
+| **Sound** | **Sound devices** is the original screen (AdLib effects, digitized sound, music on or off); **Music** and **Effects** set each volume on its own (Enter, then left / right or the wheel; Enter keeps it, Esc puts it back) |
+| **Video** (the original's Change View) | **View size** is the original Change View screen; **Fill the screen** off: whole multiples of 320×240 with black borders, on: as large as fits at 4:3 with sharp pixel edges; **Fullscreen** as **F11** |
+| **Control** | the original's Mouse Enabled, Mouse Sensitivity and **Customize controls** (pick a row, **Enter**, then press the new key or button; **Esc** cancels), plus **Controller look speed**: how fast the pad's right stick turns |
+
+With **Mouse Enabled** on (Control menu) the mouse turns and moves, and its
+buttons shoot, strafe and open doors (Customize controls changes which). When you die, BJ turns towards the
 killer and the level restarts; out of lives ends the run.
 
 ### Game pad
@@ -160,7 +167,7 @@ choice is kept in `config.ini` (`sfx_on`, `digi_on`, `music_on`).
 ## Where settings live
 ```
 %APPDATA%\Wolf3DWin64\
-  config.ini        scale, fullscreen, mouse, sound menu, view size, last_data
+  config.ini        scale, fullscreen, the Sound, Video and Control menus, last_data
   scores.WL6 / .WL1 the high score table of each pack
   savegam0.WL6 …    the ten save slots of each pack
 ```

@@ -31,6 +31,13 @@ static int TurnCurve(int v)
     return (int)lround((0.4 * t + 0.6 * t * fabs(t)) * 1000.0);
 }
 
+static int g_sensitivity = PAD_SENS_DEFAULT;
+
+void Pad_SetSensitivity(int level)
+{
+    g_sensitivity = level < 0 ? 0 : level > PAD_SENS_MAX ? PAD_SENS_MAX : level;
+}
+
 void Pad_Map(const pad_state_t *now, const pad_state_t *before, int tics, pad_controls_t *out)
 {
     const unsigned pressed = now->buttons & ~(before ? before->buttons : 0);
@@ -48,7 +55,8 @@ void Pad_Map(const pad_state_t *now, const pad_state_t *before, int tics, pad_co
     speed = out->run ? RUNMOVE : BASEMOVE;
     out->controly = ly * speed * tics / 1000;
     out->controlstrafe = lx * speed * tics / 1000;
-    out->controlx = TurnCurve(rx) * PADTURN * tics / 1000;
+    /* the right stick's turn speed by the sensitivity: 40% at 0, 100% at the default, 148% at 9 */
+    out->controlx = TurnCurve(rx) * PADTURN * tics / 1000 * (40 + 12 * g_sensitivity) / 100;
 
     /* the D-pad works as the arrow keys */
     if (now->buttons & PAD_UP) {
