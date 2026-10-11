@@ -1,10 +1,18 @@
 # Wolf3D x64
 
-A faithful **x64 port of the 1992 *Wolfenstein 3-D* engine**, rebuilt from id Software's original source code: the same fixed-point maths, 70 Hz game clock, AI, renderer and screens, so it plays like the DOS game. For Windows 11 and Linux.
+A faithful **x64 port of the 1992 *Wolfenstein 3-D* engine**, rebuilt from id Software's original source code: the same fixed-point maths, 70 Hz game clock, AI, renderer and screens, so it plays like the DOS game. For Windows 10 / 11 and Linux.
+
+<p align="center">
+  <img src="docs/images/title.png" width="49%" alt="The title screen">
+  <img src="docs/images/ingame.png" width="49%" alt="A guard in a red brick hall on floor 6">
+</p>
+<p align="center"><sub>The shareware in Wolf3D x64: the title screen, and floor 6.</sub></p>
 
 You bring the game files: the free **shareware** version (Episode 1) or the **full version** (the registered game, all six episodes), both version 1.4. No game data is in this repository.
 
-> **Status:** the faithful engine and all of the original's screens are done (P1–P5) and the go/no-go was signed off **Go** (2026-10-11). In progress: **R1**, the release: the packages for Windows and Linux are ready (first version 0.9.0, a preview; 1.0.0 after the live playtest). The repository is private until the release.
+**[Download the latest release](https://github.com/mkalkhoven-po/wolf3d-x64/releases/latest)** for Windows or Linux, see [Download](#download).
+
+> **Status:** version **0.9.0, a preview**: the faithful engine and all of the original's screens are done (P1–P5, go/no-go signed off **Go** on 2026-10-11) and released for Windows and Linux (R1). Next is the live playtest (P6): please report what you find as an [issue](https://github.com/mkalkhoven-po/wolf3d-x64/issues). Version 1.0.0 follows the fixes.
 
 ## What you get
 
@@ -82,8 +90,8 @@ Troubleshooting: with Windows 11 **Smart App Control** on, a freshly built unsig
 | P1–P3 | Safety net (warnings, unit tests, CI), honest docs, shareware data layer | Done |
 | P4 | The faithful engine core: fixed point, 70 Hz, original AI, player, renderer; fidelity gate | Done |
 | P5 | The original game flow: menus, intermission, attract loop; audio pass and go/no-go (Go) | Done |
-| **R1** | **Release: GPL-2.0 license, icon, Windows zip and Linux build, first-run folder picker** | **In progress** |
-| P6 | Live playtest after release, bugs as issues | Planned |
+| R1 | Release 0.9.0: GPL-2.0 license, icon, Windows zip and Linux tarball, first-run folder picker | Done |
+| **P6** | **Live playtest after release, bugs as issues; then 1.0.0** | **Next** |
 | F4 | Dual pistols (optional) | Deferred |
 
 Details: [docs/epics/README.md](docs/epics/README.md). Boards: [Wolf3D x64 — Delivery](https://github.com/users/mkalkhoven-po/projects/1) and [Wolf3D x64 — QA & Stabilization](https://github.com/users/mkalkhoven-po/projects/2).
