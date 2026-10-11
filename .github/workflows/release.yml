@@ -22,7 +22,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       # The toolchain the game is developed and tested with (MinGW-w64, UCRT):
       # the .exe and SDL2.dll need only the C runtime that comes with Windows.
       - uses: msys2/setup-msys2@v2
@@ -48,7 +48,7 @@ jobs:
           fi
       - name: Package
         run: cd build && cpack
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: windows
           path: build/wolf3d-x64-*-windows-x64.zip
@@ -58,7 +58,7 @@ jobs:
     # The oldest supported Ubuntu LTS: the binary runs on it and anything newer.
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install SDL2 and Ninja
         run: sudo apt-get update && sudo apt-get install -y libsdl2-dev ninja-build
       - name: Configure (the system's SDL2)
@@ -69,7 +69,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure
       - name: Package
         run: cd build && cpack
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: linux
           path: build/wolf3d-x64-*-linux-x64.tar.gz
@@ -82,8 +82,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
         with:
           path: dist
           merge-multiple: true
