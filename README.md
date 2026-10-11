@@ -1,126 +1,93 @@
-# Wolf3D Win64 Port
+# wolf3d-win64
 
-Native **Windows 11 x64** port of the 1992 id Software *Wolfenstein 3D* engine sources.
+A faithful **x64 port of the 1992 *Wolfenstein 3-D* engine**, rebuilt from id Software's original source code: the same fixed-point maths, 70 Hz game clock, AI, renderer and screens, so it plays like the DOS game. Windows 11 today; Linux comes with the first release (R1).
 
-> **Status:** Playable on the faithful port of the original engine (P4/S6): original AI, renderer and timing, save/load (F8/F9), AppData config, integer scale, fullscreen. Original menus and intermission follow in P5.  
-> **Repo visibility:** Private (sign in as an account with access — guests see “Page not found”)  
-> **MVP:** Shareware **WL1** first (WL6 is supported for development and testing today; WL1 support lands in P3) via SDL2 software renderer, digitized sound and an emulated AdLib (OPL2) for music and effects ([ADR-003](docs/adr/003-own-opl2-emulator.md)). See [ADR-002](docs/adr/002-faithful-fixed-point-port.md).
+You bring the game files: the free **shareware** episode (WL1, Apogee 1.4) or the **full game** (WL6, registered 1.4). No game data is in this repository.
 
-## Player quickstart
+> **Status (2026-10-11):** the faithful engine and all of the original's screens are done (P1–P5) and the go/no-go was signed off **Go**. Next is **R1**: license, icon, a downloadable package for Windows and Linux. The repository is private until then.
 
-See **[docs/player/QUICKSTART.md](docs/player/QUICKSTART.md)** for run instructions, AppData paths, and controls.
+## What you get
+
+- **The original engine**, ported from `WL_*.C` in 16.16 fixed point: original AI and state tables, doors, pushwalls, the raycaster and sprite scaler, `US_RndT`. All eight original demos replay in sync ([ADR-002](docs/adr/002-faithful-fixed-point-port.md)).
+- **The original screens**: rating screen, title, credits and high scores with the demos in between; the full control panel (new game, sound, control and Customize, load and save with ten named slots, view size, Read This! for the shareware); "Get Psyched!", the intermission tally, victory, high score entry, the death cam.
+- **Sound as on a Sound Blaster Pro**: digitized effects placed left and right, and AdLib music and effects through an OPL2 emulator written for this port ([ADR-003](docs/adr/003-own-opl2-emulator.md)).
+- **Modern additions, kept apart from the game logic**: XInput and other game pads (twin-stick), separate music and effects volume, controller look speed, fill-the-screen scaling with sharp pixels, fullscreen, mouse wheel in the menus, settings and saves in `%APPDATA%\Wolf3DWin64\`.
+
+## Play
+
+Full guide: **[docs/player/QUICKSTART.md](docs/player/QUICKSTART.md)** (finding the data, controls, menus, saves, settings).
 
 ```bat
-set WOLF3D_DATA=D:\path\to\your\wolfdata
-build\wolf3d.exe --data "%WOLF3D_DATA%"
+build\wolf3d.exe --data D:\path\to\your\wolf3d
 ```
 
-Start a level directly (any of `--map`, `--skill`, `--demo`, `--load` skips the menu):
+The game also looks for a `Wolf3dgame` or `data` folder next to the exe, and remembers the last folder it used. Any game option starts a game directly:
+
 ```bat
-build\wolf3d.exe --data "%WOLF3D_DATA%" --map 0 --skill 3
+build\wolf3d.exe --data D:\path\to\your\wolf3d --map 0 --skill 3
+build\wolf3d.exe --data D:\path\to\your\wolf3d --demo 0
 ```
 
-Smoke:
-```bat
-build\wolf3d.exe --data "%WOLF3D_DATA%" --smoke-only
-```
+## Build
 
-One-button harness (Git Bash or `scripts\smoke_wl6.bat`):
-```bat
-set WOLF3D_DATA=D:\path\to\your\wolfdata
-scripts\smoke_wl6.bat
-```
-See [docs/qa/SMOKE.md](docs/qa/SMOKE.md).
-
-## Live GitHub
-
-Private repo: https://github.com/mkalkhoven-po/wolf3d-win64  
-
-| Board | URL |
-|-------|-----|
-| **Delivery (M0–M8)** | https://github.com/users/mkalkhoven-po/projects/1 |
-| **QA & Stabilization (Q0–Q5)** | https://github.com/users/mkalkhoven-po/projects/2 |
-
-If links show **Page not found** in chat previews, paste into a browser where you are signed in as **`mkalkhoven-po`**.
-
-## QA
-
-Phase 2 after E8: automated smoke, playtest checklists, FR matrix, bug burn-down.
-
-- **[QA index](docs/qa/README.md)** · [FR matrix](docs/qa/FR_TEST_MATRIX.md) · [Smoke](docs/qa/SMOKE.md) · [Playtest](docs/qa/PLAYTEST_MANUAL.md)
-- Milestones **Q0–Q5** on the repo; epics **#41–#60** on Project #2.
-
-## What this is
-
-| Path | Purpose |
-|------|---------|
-| [`reference/original/`](reference/original/) | Unmodified original DOS/Borland sources (study only) |
-| [`docs/product/`](docs/product/) | Vision, exclusions, functional requirements |
-| [`docs/player/`](docs/player/) | Player quickstart |
-| [`docs/qa/`](docs/qa/) | Test matrix, smoke, playtest, go/no-go |
-| [`docs/epics/`](docs/epics/) | Epic briefs E0–E8 and Q0–Q5 |
-| [`src/`](src/) | Modern port (platform + ID managers + game) |
-
-## Docs
-
-- [Vision](docs/product/VISION.md)
-- [Exclusions](docs/product/EXCLUSIONS.md)
-- [Functional requirements](docs/product/FUNCTIONAL_REQUIREMENTS.md)
-- [User-supplied game assets](docs/product/GAME_DATA.md)
-- [Local assets layout (pack vs PNG lookbook)](docs/product/LOCAL_ASSETS.md)
-- [**Player quickstart**](docs/player/QUICKSTART.md)
-- [**QA index**](docs/qa/README.md)
-- [ADR-001 Platform backend](docs/adr/001-platform-backend.md)
-- [ADR-002 Faithful fixed-point port](docs/adr/002-faithful-fixed-point-port.md)
-- [ADR-003 Own OPL2 emulator](docs/adr/003-own-opl2-emulator.md)
-- [Epic index](docs/epics/README.md)
-- [ID module map](docs/architecture/ID_MODULE_MAP.md)
-
-## Legal / data
-
-- Original game **data** is **not** in this repo.
-- Point `--data` / `WOLF3D_DATA` at a legally owned WL1/WL6 folder (see [GAME_DATA.md](docs/product/GAME_DATA.md)).
-- Config/saves go to `%APPDATA%\Wolf3DWin64\` — not next to the exe.
-- Do **not** open a PR that adds `.WL6` / `.WL1` binaries.
-
-## Building
-
-Prerequisites: CMake 3.20+, C17 toolchain (MinGW-w64 or MSVC 2022), Ninja recommended. First configure fetches SDL2 unless `-DWOLF_FETCH_SDL2=OFF`.
+Prerequisites: CMake 3.20+, a C17 compiler (MinGW-w64 or MSVC 2022), Ninja recommended. The first configure fetches SDL2 (`-DWOLF_FETCH_SDL2=OFF` to use your own).
 
 ```bat
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build -j
-build\wolf3d.exe --data Wolf3dgame --smoke-only
 ```
 
-Tests and checks:
+`SDL2.dll` is copied next to `wolf3d.exe`.
+
+### Tests
+
 ```bat
+set WOLF3D_DATA=D:\path\to\wl6
+set WOLF3D_DATA_WL1=D:\path\to\wl1
+cmake -S . -B build
 ctest --test-dir build --output-on-failure
-cmake -S . -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DWOLF_SANITIZE=ON
 ```
-Unit tests need no game data. Set `WOLF3D_DATA` before configuring to also register the `smoke_only` CTest case (and `WOLF3D_DATA_WL1` for a WL1 pack). Sanitizers need GCC/Clang with ASan support (not every MinGW build has it).
 
-Troubleshooting: on Windows 11 with **Smart App Control** on, a freshly built unsigned `wolf3d.exe` or `SDL2.dll` can be blocked ("Bad Image", status `0xc0e90002`, or ctest "BAD_COMMAND"). The Code Integrity event log (event 3077) confirms it. It is an OS policy, not a build error; retrying later sometimes passes, otherwise turn Smart App Control off or build on another machine/CI.
+Without game data the unit tests run (also in CI). With one or both packs set at configure time, the engine tests run on real data: demo sync per view size, golden frames, the E1M1 route, every menu and screen driven by scripted input with pinned screenshots, smoke, cold start (48 tests with both packs). `-DWOLF_SANITIZE=ON` builds with sanitizers where the compiler has them.
 
-Runtime dependency: **`SDL2.dll`** is copied next to `wolf3d.exe` when using the shared SDL build (`FR-PLAT-004`).
-
-### In-game desktop controls
-
-| Key | Action |
-|-----|--------|
-| F11 | Fullscreen toggle |
-| +/- | Integer scale |
-| F8 / F9 | Quick save / load (slot 0) |
-| Esc | Back to the menu / quit |
-| Game pad | Twin-stick (XInput and SDL-known pads); layout in [QUICKSTART](docs/player/QUICKSTART.md#game-pad) |
+Troubleshooting: with Windows 11 **Smart App Control** on, a freshly built unsigned `wolf3d.exe` or `SDL2.dll` can be blocked ("Bad Image", status `0xc0e90002`, or ctest "BAD_COMMAND"; Code Integrity event 3077). That is an OS policy, not a build error.
 
 ## Roadmap
 
-Milestones **M0–M8** = epics **E0–E8** delivered the platform shell, data loading and Win11 polish. Since P4/S6 the game runs on the faithful port of the original engine (fixed point, 70 Hz, original AI, renderer and state tables); 7 of the 8 original demos replay in sync. Still to come: the original menus and intermission (P5) and the full WL6 pass (P6); see [docs/epics/README.md](docs/epics/README.md).
+| Phase | | Status |
+|-------|-|--------|
+| E0–E8, Q0–Q3, F1–F3, L1 | First playable shell, data loading, QA harness (a float engine, since replaced) | Done |
+| P1–P3 | Safety net (warnings, unit tests, CI), honest docs, WL1 data layer | Done |
+| P4 | The faithful engine core: fixed point, 70 Hz, original AI, player, renderer; fidelity gate | Done |
+| P5 | The original game flow: menus, intermission, attract loop; audio pass and go/no-go (Go) | Done |
+| **R1** | **Release: GPL-2.0 license, icon, Windows zip and Linux build, first-run folder picker** | **Next** |
+| P6 | Live playtest after release, bugs as issues | Planned |
+| F4 | Dual pistols (optional) | Deferred |
 
-Current plan: a faithful fixed-point port driven by the original sources — P1 safety net → P2 docs → P3 WL1 data → P4 engine core → P5 game flow + QA → P6 WL6 → F4 (dual pistols, optional, last). **WL1 shareware first, then WL6.** Details in [docs/epics/README.md](docs/epics/README.md).
+Details: [docs/epics/README.md](docs/epics/README.md). Boards: [Wolf3D Win64 Port](https://github.com/users/mkalkhoven-po/projects/1) (delivery) and [QA & Stabilization](https://github.com/users/mkalkhoven-po/projects/2).
+
+## Docs
+
+- [Player quickstart](docs/player/QUICKSTART.md) · [User-supplied game data](docs/product/GAME_DATA.md)
+- [ADR-001 Platform backend](docs/adr/001-platform-backend.md) · [ADR-002 Faithful fixed-point port](docs/adr/002-faithful-fixed-point-port.md) · [ADR-003 Own OPL2 emulator](docs/adr/003-own-opl2-emulator.md)
+- [QA index](docs/qa/README.md): [FR matrix](docs/qa/FR_TEST_MATRIX.md), [playtest checklists](docs/qa/PLAYTEST_MANUAL.md), [go/no-go](docs/qa/GO_NO_GO.md), [smoke](docs/qa/SMOKE.md)
+- [Epic index and roadmap](docs/epics/README.md) · [ID module map](docs/architecture/ID_MODULE_MAP.md)
+
+| Path | |
+|------|-|
+| [`src/orig/`](src/orig/) | The faithful engine, ported from the original `WL_*.C` and `ID_*.C` |
+| [`src/id/`](src/id/) | Data loading (maps, VSWAP, VGAGRAPH, audio), the OPL2 emulator, the sound mixer |
+| [`src/platform/win_sdl/`](src/platform/win_sdl/) | SDL2 window, input, game pad, settings and saves, the engine's hooks |
+| [`reference/original/`](reference/original/) | id's original DOS sources, unmodified (the reference) |
+| [`tests/`](tests/) | Unit and engine tests (CTest) |
+
+## Legal
+
+- No game data is in this repository; point the game at files you are entitled to use ([GAME_DATA.md](docs/product/GAME_DATA.md)). Pull requests adding `.WL1` / `.WL6` files are not accepted.
+- The code derives from id Software's *Wolfenstein 3-D* source release; the project will carry the **GPL-2.0** (as id's 2012 source release) from R1.
+- *Wolfenstein* is a trademark of ZeniMax Media; this project is not affiliated with or endorsed by id Software or ZeniMax.
 
 ## Credits
 
-- Original game and engine: id Software  
-- This repository: Win64 port planning and implementation
+- The original game and engine: id Software (1992)
+- This port: mkalkhoven-po
