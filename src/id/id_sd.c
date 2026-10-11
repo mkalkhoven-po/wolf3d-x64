@@ -726,6 +726,23 @@ static int keyed_channels(void)
     return keyed;
 }
 
+/* the loudest sample the mixer gives over a quarter of a second (the smoke check) */
+static float mix_peak(void)
+{
+    static float buf[2 * 1024];
+    float peak = 0.0f;
+    int pass, i;
+
+    for (pass = 0; pass < MIX_RATE / 4 / 1024; pass++) {
+        mix_callback(NULL, (Uint8 *)buf, (int)sizeof(buf));
+        for (i = 0; i < 2 * 1024; i++) {
+            const float v = buf[i] < 0 ? -buf[i] : buf[i];
+            peak = v > peak ? v : peak;
+        }
+    }
+    return peak;
+}
+
 boolean SD_AudioSmokeVerify(void)
 {
     boolean ok = true;
@@ -807,6 +824,50 @@ boolean SD_AudioSmokeVerify(void)
             ok = false;
         }
         SD_MusicOff();
+    }
+
+    /*
+     * The Sound menu's switches (CP_Sound): with digitized sound off a sound
+     * falls back to its AdLib version, as in the original; with the effects
+     * off nothing of them plays.
+     */
+    if (!SD_Silent && SoundMode == sdm_AdLib && DigiMode != sds_Off) {
+        const SDSMode olddigi = DigiMode;
+
+        SD_SetDigiDevice(sds_Off);
+        SD_PlaySound(ATKPISTOLSND);
+        if (SD_SoundPlaying() != ATKPISTOLSND) {
+            fprintf(stderr, "Audio smoke: digitized off, the pistol did not play on the AdLib\n");
+            ok = false;
+        }
+        SD_StopSound();
+        SD_SetSoundMode(sdm_Off);
+        SD_PlaySound(ATKPISTOLSND);
+        if (SD_SoundPlaying()) {
+            fprintf(stderr, "Audio smoke: effects off, an AdLib effect still played\n");
+            ok = false;
+        }
+        SD_SetSoundMode(sdm_AdLib);
+        SD_SetDigiDevice(olddigi);
+        printf("  sound switches: digitized off -> AdLib, effects off -> none\n");
+    }
+
+    /* the volume sliders, through the mixer itself: silent at 0, heard at full */
+    if (!SD_Silent && MusicMode == smm_AdLib) {
+        float peak0, peakfull;
+
+        SD_StartMusic(GETTHEM_MUS);
+        SDL_Delay(100);
+        SD_SetVolumes(0, 0);
+        peak0 = mix_peak();
+        SD_SetVolumes(SD_MAXVOLUME, SD_MAXVOLUME);
+        peakfull = mix_peak();
+        SD_MusicOff();
+        printf("  volumes: peak %.3f at 0, %.3f at full\n", peak0, peakfull);
+        if (peak0 != 0.0f || peakfull <= 0.0f) {
+            fprintf(stderr, "Audio smoke: the volumes do not set the level\n");
+            ok = false;
+        }
     }
 
     return ok;

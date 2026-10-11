@@ -15,13 +15,14 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 
 > Seeded at Q0. Update when blocks close. Game data remains user-owned.  
 > Reviewed 2026-10-06 (P2): FR-GAME-006 and FR-GAME-007 lowered from Met to Partial against the faithful-port bar ([ADR-002](../adr/002-faithful-fixed-point-port.md)); FR-DATA-001 was lowered too and restored to Met after P3 (WL1 layout).
+> Reviewed 2026-10-11 (P5e, Q5): the faithful engine (P4) and the original screens (P5) close the Partial gameplay, input and audio items; evidence below. Only FR-VID-005 stays Partial.
 
 ## Platform & process
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
 | FR-PLAT-001 | Build PE32+ x64 `wolf3d.exe` | A | Met | Q1 | MinGW/Ninja delivery path |
-| FR-PLAT-002 | Run as normal user | M | Untested | Q2 | No admin assumed |
+| FR-PLAT-002 | Run as normal user | M | Met | Q5 | Every test, smoke and playtest run from a non-elevated account (checked 2026-10-11) |
 | FR-PLAT-003 | No DOSBox | A/M | Met | Q0 | Native Path A |
 | FR-PLAT-004 | SDL2.dll documented | M | Met | Q0/Q1 | README + player quickstart |
 
@@ -31,8 +32,8 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 |----|--------|-------|--------|-------|-------|
 | FR-DATA-001 | `--data` WL1/WL6 dir | A | Met | P3 | WL1 (Apogee 1.4 shareware) and WL6 smoke pass; other WL1 versions are rejected with an error |
 | FR-DATA-002 | CLI + `WOLF3D_DATA` | A | Met | Q1/Q2 | + last_data fallback if no `--data` |
-| FR-DATA-003 | Bad path lists MISSING, exit ≠0 | A | Met | Q1/Q2 | Explicit bad `--data` must not use last_data |
-| FR-DATA-004 | Files under `%APPDATA%\Wolf3DWin64\` | A/M | Met | Q1/Q4 | config.ini, saves, highscores |
+| FR-DATA-003 | Bad path lists MISSING, exit ≠0 | A | Met | Q1/Q2 | Explicit bad `--data` must not use last_data; `bad_data` CTest |
+| FR-DATA-004 | Files under `%APPDATA%\Wolf3DWin64\` | A/M | Met | Q1/Q4 | config.ini, `savegam<N>.WL1/WL6`, `scores.WL1/WL6`; `cold_start` CTest (empty AppData) |
 | FR-DATA-005 | Repo free of packs | A | Met | Q0 | git ls-tree / PR checks |
 | FR-DATA-006 | GAME_DATA.md present | M | Met | Q0 | docs/product |
 | FR-DATA-007 | data/ gitignore policy | M | Met | Q0 | |
@@ -43,7 +44,7 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 |----|--------|-------|--------|-------|-------|
 | FR-VID-001 | 320×200 logical FB; HUD string for status band | A/M | Met | F1 | STATUSBARPIC strip (F1); was Partial text HUD |
 | FR-VID-002 | Title palette paint non-empty | A/M | Met | Q1/Q2 | |
-| FR-VID-003 | Integer scale 4:3 letterbox | A/M | Met | Q2 | +/- keys, present helper |
+| FR-VID-003 | Integer scale 4:3 letterbox | A/M | Met | Q2 | Whole multiples by default (`scale` in config.ini); Video → Fill the screen: 4:3 sharp bilinear (P5b2) |
 | FR-VID-004 | Esc / window close | M | Met | Q2 | Player sign-off |
 | FR-VID-005 | Alt-tab no crash | M | Partial | Q2/Q4 | Informal |
 
@@ -51,50 +52,50 @@ Smoke column: **A** = covered or planned auto markers; **M** = manual / ear-chec
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
-| FR-IN-001 | WASD/arrows/CTRL/E/1–4 | M | Partial | Q3 | Core set present |
-| FR-IN-002 | Mouse X turn when enabled | M | Partial | Q3/Q4 | config mouse_look |
-| FR-IN-003 | Menu keyboard | M | Met | Q2 | up/down/enter/esc |
+| FR-IN-001 | WASD/arrows/CTRL/E/1–4 | M | Met | Q3 | The original's keys (arrows, Ctrl, Alt, Shift, Space, 1–4); Customize controls sets any key (WASD too); game pad |
+| FR-IN-002 | Mouse X turn when enabled | M | Met | Q3/Q4 | Control → Mouse Enabled, Mouse Sensitivity, mouse buttons customizable |
+| FR-IN-003 | Menu keyboard | A/M | Met | Q2 | The original control panel: keys, mouse, wheel, pad; `test_orig_menu` drives it |
 
 ## Gameplay
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
-| FR-GAME-001 | Title → menu | A/M | Met | Q2 | Attract loop / demos not implemented (P5) |
+| FR-GAME-001 | Title → menu | A/M | Met | Q2 | The original attract loop: rating, title, credits, high scores, demos (P5d) |
 | FR-GAME-002 | New Game starts | M | Met | Q2/Q3 | Player sessions |
 | FR-GAME-003 | Move + wall collide | A/M | Met | Q3 | Raycast smoke |
 | FR-GAME-004 | Doors + pushwalls/secrets | A/M | Met | L1 | Doors #72/#75; pushwalls L1 code |
-| FR-GAME-005 | Pickups | A/M | Met | Q3 | UI; digi pickup SFX quiet (honest digimap) |
-| FR-GAME-006 | Enemies die | A/M | Partial | P4 | Placeholder AI: chase + melee only, no ranged attacks/patrol/door use |
-| FR-GAME-007 | Weapons hitscan/melee | A/M | Partial | P4 | Fixed damage, float timing; not original-accurate yet |
-| FR-GAME-008 | Lives / elevator / episode | A/M | Met | Q3 | Death/R/GO; elev E → N next map (player #56) |
+| FR-GAME-005 | Pickups | A/M | Met | Q3 | The original's GetBonus; AdLib pickup sounds (own OPL2) |
+| FR-GAME-006 | Enemies die | A/M | Met | P4 | The original AI and state tables; all 8 original demos end in sync at their view sizes |
+| FR-GAME-007 | Weapons hitscan/melee | A/M | Met | P4 | The original GunAttack / KnifeAttack in fixed point (demo sync is the check) |
+| FR-GAME-008 | Lives / elevator / episode | A/M | Met | Q3 | The original GameLoop: deaths, intermission, secret floors, victory, high scores (P5c) |
 
 ## Audio
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
 | FR-AUD-001 | Silent fallback | A | Met | Q1/Q4 | |
-| FR-AUD-002 | Digi weapons/doors | A/M | Met | Q4 | 46 samples smoke |
-| FR-AUD-003 | IMF music menu/game | A/M | Partial | Q4 | MusicGroup audible (#69); soft-OPL not NukedOPL |
+| FR-AUD-002 | Digi weapons/doors | A/M | Met | Q4 | 46 samples; the digitized map per pack (smoke); Sound menu switches (smoke) |
+| FR-AUD-003 | IMF music menu/game | A/M | Met | Q4 | Own OPL2 emulator (ADR-003, #74 closed); level music table identical to the original; music and effects volume apart (smoke checks the mixer) |
 
 ## Persistence
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
-| FR-SAVE-001 | F8/F9 versioned save (format v2: the whole level, as the original) | A/M | Met | P4/S6 | `saveN.w64` magic W64S v2; `orig_loop_maps` saves mid-demo and checks the loaded game ends identically; smoke `Engine smoke: save v2` |
-| FR-SAVE-002 | Config + high scores | A/M | Met | Q4 | config.ini + highscores.dat |
+| FR-SAVE-001 | F8/F9 versioned save (format v2: the whole level, as the original) | A/M | Met | P4/S6 | Ten named slots per pack (`savegam<N>.WL6`), magic W64S v2, with the floors' tallies; `orig_loop_maps` saves mid-demo and checks the loaded game ends identically; `test_orig_menu` saves, loads and quick-saves through the menus |
+| FR-SAVE-002 | Config + high scores | A/M | Met | Q4 | config.ini (all menu settings) + `scores.WL1/WL6` in the original's table |
 
 ## Non-functional
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
-| NFR-001 | Frame dt clamp | M | Partial | Q3/Q5 | ~decoupled present |
+| NFR-001 | Frame dt clamp | A/M | Met | Q3/Q5 | The original CalcTics: at most MAXTICS (10) tics a frame |
 | NFR-002 | No JIT heap-exec | M | Met | Q0 | Software path |
 | NFR-003 | Clear English errors | A/M | Met | Q1/Q2 | missing data |
 
 ## Fidelity ladder (F1–F3 visual parity)
 
 Reference stills: `docs/product/references/fidelity/ref-f{1,2,3}.png`.  
-Implementation epics after Q3 playtest closure; bugs #73/#74 feed F3/Q4.
+Implementation epics after Q3 playtest closure; bugs #73/#74 feed F3/Q4. Since P4 the faithful engine draws all of these as the original (golden frames and screen pins in CTest); the notes below are from the legacy renderer.
 
 | ID | Method | Smoke | Status | Owner | Notes |
 |----|--------|-------|--------|-------|-------|
@@ -132,4 +133,4 @@ Implementation epics after Q3 playtest closure; bugs #73/#74 feed F3/Q4.
 | ID | Requirement | Status | Owner |
 |----|-------------|--------|-------|
 | FR-QA-001 | Repeatable local smoke script documents PASS/FAIL | Met | Q1 |
-| FR-QA-002 | This matrix kept current through Q5 + F ladder | In progress | Q0–Q5/F |
+| FR-QA-002 | This matrix kept current through Q5 + F ladder | Met | Q0–Q5/F |

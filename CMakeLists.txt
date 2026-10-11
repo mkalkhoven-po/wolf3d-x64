@@ -220,6 +220,9 @@ if(WOLF_BUILD_TESTS)
   # The legacy engine is gone (P4/S6): asking for it fails before any data is read.
   add_test(NAME engine_legacy_refused COMMAND wolf3d --engine=legacy)
   set_tests_properties(engine_legacy_refused PROPERTIES WILL_FAIL TRUE)
+  # FR-DATA-003: a --data folder without a pack fails with an error (never falls back to last_data)
+  add_test(NAME bad_data COMMAND wolf3d --data ${CMAKE_CURRENT_BINARY_DIR}/no_such_pack --smoke-only)
+  set_tests_properties(bad_data PROPERTIES WILL_FAIL TRUE)
   add_test(NAME opl2 COMMAND test_opl2)
   add_executable(test_pad_map tests/test_pad_map.c src/platform/win_sdl/pad_map.c)
   target_include_directories(test_pad_map PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win_sdl)
@@ -260,6 +263,11 @@ if(WOLF_BUILD_TESTS)
   if(DEFINED ENV{WOLF3D_DATA})
     wolf_add_orig_runner_tests("" "$ENV{WOLF3D_DATA}")
     add_test(NAME smoke_only COMMAND wolf3d --data "$ENV{WOLF3D_DATA}" --smoke-only)
+    if(WIN32)
+      add_test(NAME cold_start COMMAND ${CMAKE_COMMAND} -DEXE=$<TARGET_FILE:wolf3d>
+               "-DDATA=$ENV{WOLF3D_DATA}" -DAPPDATA_DIR=${CMAKE_CURRENT_BINARY_DIR}/cold_appdata
+               -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cold_start.cmake)
+    endif()
     set_tests_properties(smoke_only PROPERTIES
       ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     add_test(NAME demo_chunks COMMAND test_demo_chunks --data "$ENV{WOLF3D_DATA}")

@@ -8,5 +8,5 @@ Blockers burned down; GO_NO_GO signed.
 - #62 go/no-go doc  
 
 ## Acceptance
-- [ ] severity crash/blocker open = 0  
-- [ ] `docs/qa/GO_NO_GO.md` completed  
+- [x] severity crash/blocker open = 0 (2026-10-11)  
+- [ ] `docs/qa/GO_NO_GO.md` completed: assessed 2026-10-11 (all areas Go except Video: Conditional on alt-tab); the maintainer's sign-off is open  
