@@ -46,14 +46,44 @@ static boolean user_base_dir(char *out, size_t out_sz)
     snprintf(out, out_sz, "%s\\AppData\\Roaming", up);
     return true;
 #else
+    /* the XDG base directory: $XDG_DATA_HOME, or ~/.local/share */
+    const char *xdg = getenv("XDG_DATA_HOME");
     const char *home = getenv("HOME");
 
+    if (xdg && xdg[0] == '/') {
+        snprintf(out, out_sz, "%s", xdg);
+        return true;
+    }
     if (!home || !home[0]) {
         return false;
     }
     snprintf(out, out_sz, "%s/.local/share", home);
     return true;
 #endif
+}
+
+/*
+ * mkdir -p: every folder on the path. A new Linux account has no
+ * ~/.local/share yet; %APPDATA% always exists on Windows.
+ */
+static void make_dirs(const char *path)
+{
+    char tmp[WOLF_PATH_MAX + 32];
+    size_t i;
+
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    for (i = 1; tmp[i]; i++) {
+        if (tmp[i] == '/' || tmp[i] == '\\') {
+            const char c = tmp[i];
+
+            tmp[i] = '\0';
+            if (!(i == 2 && tmp[1] == ':')) { /* not a bare drive (C:) */
+                WOLF_MKDIR(tmp);
+            }
+            tmp[i] = c;
+        }
+    }
+    WOLF_MKDIR(tmp);
 }
 
 static boolean dir_exists(const char *path)
@@ -85,7 +115,7 @@ boolean Wolf_GetAppDataDir(char *out, size_t out_sz)
             }
         }
     }
-    WOLF_MKDIR(out);
+    make_dirs(out);
     return true;
 }
 

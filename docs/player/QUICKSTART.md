@@ -175,7 +175,7 @@ choice is kept in `config.ini` (`sfx_on`, `digi_on`, `music_on`).
   savegam0.WL6 …    the ten save slots of each (.WL1 for the shareware)
 ```
 
-On Linux the same files live in `~/.local/share/Wolf3D-x64/`.
+On Linux the same files live in `~/.local/share/Wolf3D-x64/` (or `$XDG_DATA_HOME/Wolf3D-x64/` when that is set).
 
 The game does **not** need write access next to Program Files.
 
