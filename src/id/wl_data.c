@@ -9,9 +9,13 @@
 #include <direct.h>
 #define WOLF_STAT _stat
 #define WOLF_ISDIR(m) (((m) & _S_IFDIR) != 0)
+#define WOLF_SEP '\\'
 #else
+#include <dirent.h>
+#include <strings.h>
 #define WOLF_STAT stat
 #define WOLF_ISDIR(m) S_ISDIR(m)
+#define WOLF_SEP '/'
 #endif
 
 #include "wolf_winutil.h"
@@ -57,36 +61,65 @@ static void trim_trailing_slash(char *path)
     }
 }
 
+/*
+ * dirpath/name, found whatever the case of its letters (vswap.wl6 for
+ * VSWAP.WL6): Linux file systems tell them apart, and the game files come
+ * both ways. False (dst as the exact name) when there is none.
+ */
+static boolean find_file(const char *dirpath, const char *name, char *dst, size_t dst_sz)
+{
+    int n = snprintf(dst, dst_sz, "%s%c%s", dirpath, WOLF_SEP, name);
+
+    /* An empty path fails to open instead of opening a truncated one. */
+    if (n < 0 || (size_t)n >= dst_sz) {
+        if (dst_sz > 0) {
+            dst[0] = '\0';
+        }
+        return false;
+    }
+    if (path_is_file(dst)) {
+        return true;
+    }
+#ifndef _WIN32
+    {
+        DIR *d = opendir(dirpath);
+        struct dirent *e;
+        boolean found = false;
+
+        while (d && !found && (e = readdir(d)) != NULL) {
+            if (strcasecmp(e->d_name, name) == 0) {
+                n = snprintf(dst, dst_sz, "%s%c%s", dirpath, WOLF_SEP, e->d_name);
+                found = n > 0 && (size_t)n < dst_sz && path_is_file(dst);
+            }
+        }
+        if (d) {
+            closedir(d);
+        }
+        if (found) {
+            return true;
+        }
+        snprintf(dst, dst_sz, "%s%c%s", dirpath, WOLF_SEP, name);
+    }
+#endif
+    return false;
+}
+
 void Wolf_MakeDataPath(const wolf_data_dir_t *dir, const char *basename,
                        char *dst, size_t dst_sz)
 {
-    int n = snprintf(dst, dst_sz, "%s%c%s%s",
-                     dir->path,
-#ifdef _WIN32
-                     '\\',
-#else
-                     '/',
-#endif
-                     basename,
-                     dir->extension);
-    /* An empty path fails to open instead of opening a truncated one. */
-    if ((n < 0 || (size_t)n >= dst_sz) && dst_sz > 0) {
-        dst[0] = '\0';
-    }
+    char name[64];
+
+    snprintf(name, sizeof(name), "%s%s", basename, dir->extension);
+    (void)find_file(dir->path, name, dst, dst_sz);
 }
 
 static boolean probe_extension(const char *dirpath, const char *ext_with_dot,
                                char *tmp, size_t tmp_sz)
 {
-    snprintf(tmp, tmp_sz, "%s%cVSWAP%s",
-             dirpath,
-#ifdef _WIN32
-             '\\',
-#else
-             '/',
-#endif
-             ext_with_dot);
-    return path_is_file(tmp);
+    char name[32];
+
+    snprintf(name, sizeof(name), "VSWAP%s", ext_with_dot);
+    return find_file(dirpath, name, tmp, tmp_sz);
 }
 
 static boolean detect_extension(const char *dirpath, char *ext_out, size_t ext_sz)
