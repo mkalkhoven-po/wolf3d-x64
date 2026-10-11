@@ -30,6 +30,7 @@
 static tic_clock_t g_clock;
 static boolean g_fast;      /* no clock: smoke tests */
 static int g_mousedx, g_mousedy;
+static int g_wheel; /* mouse wheel notches, up positive */
 static int g_frames;
 
 /* -------------------------------------------------------------- arguments */
@@ -261,6 +262,9 @@ static void PumpEvents(void)
                 orig_lastascii = (byte)ev.text.text[0];
             }
             break;
+        case SDL_MOUSEWHEEL:
+            g_wheel += ev.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -ev.wheel.y : ev.wheel.y;
+            break;
         case SDL_MOUSEMOTION:
             g_mousedx += ev.motion.xrel;
             g_mousedy += ev.motion.yrel;
@@ -339,6 +343,14 @@ static void MouseDelta(int *dx, int *dy)
     *dx = g_mousedx;
     *dy = g_mousedy;
     g_mousedx = g_mousedy = 0;
+}
+
+static int MouseWheel(void)
+{
+    const int notches = g_wheel;
+
+    g_wheel = 0;
+    return notches;
 }
 
 static boolean CheckAck(void)
@@ -656,7 +668,7 @@ static boolean HookSoundAvailable(int which, int mode)
 
 /* ---------------------------------------------- the settings, in config.ini */
 
-/* More options (not in the original) */
+/* the settings this port adds (not in the original) */
 static int HookGetOption(int which)
 {
     switch (which) {
@@ -949,6 +961,7 @@ static void InstallHooks(void)
     orig_hooks.poll_input = PollInput;
     orig_hooks.mouse_buttons = MouseButtons;
     orig_hooks.mouse_delta = MouseDelta;
+    orig_hooks.mouse_wheel = MouseWheel;
     orig_hooks.check_ack = CheckAck;
     orig_hooks.pad_menu = PadMenu;
     orig_hooks.idle = Idle;

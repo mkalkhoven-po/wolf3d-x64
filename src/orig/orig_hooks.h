@@ -105,12 +105,16 @@ typedef struct {
     void (*idle)(void); /* a moment's rest in a 2D screen's wait loop */
 
     /*
-     * Not in the original: the More options page's settings, OPT_* below.
+     * Not in the original: the settings this port adds (the Sound and Video
+     * pages, the controller's look speed), OPT_* below.
      * The sliders go 0-9, the switches 0 / 1; the platform applies and
      * keeps them.
      */
     int (*get_option)(int which);
     void (*set_option)(int which, int value);
+
+    /* not in the original: mouse wheel notches since the last call, up positive (menus) */
+    int (*mouse_wheel)(void);
 
     /* palette: red shift 1-6, white shift 1-3, or 0 / 0 for the game palette */
     void (*set_palette_shift)(int red, int white);

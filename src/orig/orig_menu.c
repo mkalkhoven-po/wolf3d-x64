@@ -2,9 +2,10 @@
  * WL_MENU.C: the control panel (P5b). The main menu, New Game, Sound,
  * Load / Save Game, Change View, Control (mouse, joystick, Customize),
  * Read This! (orig_text.c), View Scores, Quit and the quick keys F7-F10,
- * drawn into screenbuf as the original drew them. Not in the original: the
- * Control menu's last line, More options (volumes, pad sensitivity, how the
- * picture fills the screen).
+ * drawn into screenbuf as the original drew them. Not in the original:
+ * Sound opens a page with the sound screen and the music and effects
+ * volume, Change View became Video (the view size, fill the screen,
+ * fullscreen), and the Control menu's last line sets the pad's look speed.
  *
  * Hardware the menus read directly in the original comes through hooks:
  * the keyboard table (orig_keys, as KbdDefs reads it), the mouse driver,
@@ -89,7 +90,7 @@
 #define STR_CL "Control"
 #define STR_LG "Load Game"
 #define STR_SG "Save Game"
-#define STR_CV "Change View"
+#define STR_VIDEO "Video" /* not in the original: Change View, fill and fullscreen */
 #define STR_EG "End Game"
 #define STR_BD "Back to Demo"
 #define STR_QT "Quit"
@@ -127,6 +128,9 @@ static const char endStrings[9][80] = {
     "For guns and glory, press N.\nFor work and worry, press Y.",
 };
 
+static void CP_SoundPage(int temp1);
+static void CP_Video(int temp1);
+
 /* the table entries for the routines that take a quick flag */
 static void MenuLoadGame(int temp1)
 {
@@ -144,11 +148,11 @@ static CP_iteminfo SndItems = {SM_X, SM_Y1, 12, 0, 52}, LSItems = {LSM_X, LSM_Y,
 
 CP_itemtype MainMenu[] = {
     {1, STR_NG, CP_NewGame},
-    {1, STR_SD, CP_Sound},
+    {1, STR_SD, CP_SoundPage},
     {1, STR_CL, CP_Control},
     {1, STR_LG, MenuLoadGame},
     {0, STR_SG, MenuSaveGame},
-    {1, STR_CV, CP_ChangeView},
+    {1, STR_VIDEO, CP_Video},
     {2, "Read This!", CP_ReadThis},
     {1, STR_VS, CP_ViewScores},
     {1, STR_BD, NULL},
@@ -263,7 +267,7 @@ void US_ControlPanel(byte scancode)
         return;
 
     case sc_F4:
-        CP_Sound(0);
+        CP_SoundPage(0);
         CleanupControlPanel();
         return;
 
@@ -418,7 +422,7 @@ void CP_ReadThis(int temp1)
 #define CTL_X 24
 #define CTL_Y 70
 #define CTL_W 284
-#define CTL_H (13 * 8 - 7) /* the original's 13*7-7, plus a line for More options */
+#define CTL_H (13 * 8 - 7) /* the original's 13*7-7, plus a line for the controller */
 
 #define CST_X 20
 #define CST_Y 48
@@ -431,7 +435,8 @@ void CP_ReadThis(int temp1)
 #define STR_GAMEPAD "Gravis GamePad Enabled"
 #define STR_SENS "Mouse Sensitivity"
 #define STR_CUSTOM "Customize controls"
-#define STR_MOREOPT "More options" /* not in the original */
+#define STR_PADSPEED "Controller look speed" /* not in the original */
+#define STR_PADADJ "Adjust Controller Look Speed"
 #define STR_MOUSEADJ "Adjust Mouse Sensitivity"
 #define STR_SLOW "Slow"
 #define STR_FAST "Fast"
@@ -446,7 +451,7 @@ void CP_ReadThis(int temp1)
 
 static void MouseSensitivity(int temp1);
 static void CustomControls(int temp1);
-static void CP_MoreOptions(int temp1);
+static void ControllerSpeed(int temp1);
 
 static CP_iteminfo CtlItems = {CTL_X, CTL_Y, 7, -1, 56}, CusItems = {8, CST_Y + 13 * 2, 9, -1, 0};
 
@@ -457,7 +462,7 @@ static CP_itemtype CtlMenu[] = {
     {0, STR_GAMEPAD, NULL},
     {0, STR_SENS, MouseSensitivity},
     {1, STR_CUSTOM, CustomControls},
-    {1, STR_MOREOPT, CP_MoreOptions},
+    {1, STR_PADSPEED, ControllerSpeed},
 };
 
 static CP_itemtype CusMenu[] = {
@@ -477,7 +482,7 @@ static void DrawCtlScreen(void);
 
 void CP_Control(int temp1)
 {
-    enum { MOUSEENABLE, JOYENABLE, USEPORT2, PADENABLE, MOUSESENS, CUSTOMIZE, MOREOPTIONS };
+    enum { MOUSEENABLE, JOYENABLE, USEPORT2, PADENABLE, MOUSESENS, CUSTOMIZE, PADSPEED };
     int which;
 
     (void)temp1;
@@ -517,28 +522,33 @@ void CP_Control(int temp1)
 
         case MOUSESENS:
         case CUSTOMIZE:
-        case MOREOPTIONS:
+        case PADSPEED:
             DrawCtlScreen();
             MenuFadeIn();
             WaitKeyUp();
             break;
         }
+        /*
+         * Not in the original: a mouse or pad button still down would choose
+         * the switch again at once (the keyboard's keys were cleared).
+         */
+        WaitKeyUp();
     } while (which >= 0 && !orig_quit);
 
     MenuFadeOut();
 }
 
 /* the slider of the mouse sensitivity screen */
-static void DrawMouseSensBar(void)
+static void DrawSliderBar(int value)
 {
     VWB_Bar(60, 97, 200, 10, TEXTCOLOR);
     DrawOutline(60, 97, 200, 10, 0, HIGHLIGHT);
-    DrawOutline(60 + 20 * mouseadjustment, 97, 20, 10, 0, READCOLOR);
-    VWB_Bar(61 + 20 * mouseadjustment, 98, 19, 9, READHCOLOR);
+    DrawOutline(60 + 20 * value, 97, 20, 10, 0, READCOLOR);
+    VWB_Bar(61 + 20 * value, 98, 19, 9, READHCOLOR);
 }
 
 /* DRAW MOUSE SENSITIVITY SCREEN */
-static void DrawMouseSens(void)
+static void DrawSliderScreen(const char *title, int value)
 {
     ClearMScreen();
     VWB_DrawPic(112, 184, C_MOUSELBACKPIC);
@@ -548,7 +558,7 @@ static void DrawMouseSens(void)
     WindowW = 320;
     PrintY = 82;
     SETFONTCOLOR(READCOLOR, BKGDCOLOR);
-    US_CPrint(STR_MOUSEADJ);
+    US_CPrint(title);
 
     SETFONTCOLOR(TEXTCOLOR, BKGDCOLOR);
     PrintX = 14;
@@ -557,7 +567,7 @@ static void DrawMouseSens(void)
     PrintX = 269;
     US_Print(STR_FAST);
 
-    DrawMouseSensBar();
+    DrawSliderBar(value);
 
     VW_UpdateScreen();
     MenuFadeIn();
@@ -571,23 +581,22 @@ static void WaitKeyRelease(byte scan)
     }
 }
 
-/* ADJUST MOUSE SENSITIVITY */
-static void MouseSensitivity(int temp1)
+/* ADJUST MOUSE SENSITIVITY: value 0-9, apply on each step, put back on Esc */
+static void SliderScreen(const char *title, int value, void (*apply)(int value))
 {
     ControlInfo ci;
-    int exit = 0, oldMA;
+    int exit = 0;
+    const int old = value;
 
-    (void)temp1;
-    oldMA = mouseadjustment;
-    DrawMouseSens();
+    DrawSliderScreen(title, value);
     do {
         ReadAnyControl(&ci);
         switch (ci.dir) {
         case dir_North:
         case dir_West:
-            if (mouseadjustment) {
-                mouseadjustment--;
-                DrawMouseSensBar();
+            if (value) {
+                apply(--value);
+                DrawSliderBar(value);
                 VW_UpdateScreen();
                 OrigSD_PlaySound(MOVEGUN1SND);
                 WaitKeyRelease(sc_LeftArrow);
@@ -597,9 +606,9 @@ static void MouseSensitivity(int temp1)
 
         case dir_South:
         case dir_East:
-            if (mouseadjustment < 9) {
-                mouseadjustment++;
-                DrawMouseSensBar();
+            if (value < 9) {
+                apply(++value);
+                DrawSliderBar(value);
                 VW_UpdateScreen();
                 OrigSD_PlaySound(MOVEGUN1SND);
                 WaitKeyRelease(sc_RightArrow);
@@ -620,7 +629,7 @@ static void MouseSensitivity(int temp1)
     } while (!exit);
 
     if (exit == 2) {
-        mouseadjustment = (int16_t)oldMA;
+        apply(old);
         OrigSD_PlaySound(ESCPRESSEDSND);
     } else {
         OrigSD_PlaySound(SHOOTSND);
@@ -628,6 +637,42 @@ static void MouseSensitivity(int temp1)
 
     WaitKeyUp();
     MenuFadeOut();
+}
+
+static void ApplyMouseSens(int value)
+{
+    mouseadjustment = (int16_t)value;
+}
+
+static void MouseSensitivity(int temp1)
+{
+    (void)temp1;
+    SliderScreen(STR_MOUSEADJ, mouseadjustment, ApplyMouseSens);
+}
+
+/* the platform's settings (not in the original) */
+static int GetOption(int which)
+{
+    return orig_hooks.get_option ? orig_hooks.get_option(which) : 0;
+}
+
+static void SetOption(int which, int value)
+{
+    if (orig_hooks.set_option) {
+        orig_hooks.set_option(which, value);
+    }
+}
+
+static void ApplyPadSpeed(int value)
+{
+    SetOption(OPT_PADSENS, value);
+}
+
+/* not in the original: how fast the pad's right stick turns, as Mouse Sensitivity */
+static void ControllerSpeed(int temp1)
+{
+    (void)temp1;
+    SliderScreen(STR_PADADJ, GetOption(OPT_PADSENS), ApplyPadSpeed);
 }
 
 /* DRAW CONTROL MENU SCREEN */
@@ -1211,64 +1256,70 @@ static void DrawCustKeys(int hilight)
 /*
 ====================
 =
-= CP_MoreOptions
+= Settings pages
 =
-= Not in the original: the settings this port adds (music and effects
-= volume, pad sensitivity, how the picture fills the screen, fullscreen),
-= on a page drawn like the Control menu. The sliders work as Mouse
-= Sensitivity's: choose one, then left and right, Enter keeps and Esc
-= puts it back. The values live with the platform (get_option /
-= set_option); a slider's change is heard at once.
+= Not in the original: the settings this port adds, on pages drawn like
+= the Control menu. Sound has the original sound screen, then music and
+= effects volume; Video has the original Change View, then fill the screen
+= and fullscreen. A slider works as in Mouse Sensitivity: choose it, then
+= left and right (or the mouse wheel), Enter keeps and Esc puts it back; a
+= change is heard at once. The values live with the platform (get_option /
+= set_option).
 =
 ====================
 */
 
-#define MO_X 24
-#define MO_Y 62
-#define MO_W 284
-#define MO_H (13 * 5 + 6)
-#define MO_BARX 188 /* the sliders: ten steps of 10 pixels */
-#define MO_BARW 100
+#define SP_X 24
+#define SP_Y 70
+#define SP_W 284
+#define SP_BARX 188 /* the sliders: ten steps of 10 pixels */
+#define SP_BARW 100
 
-static CP_iteminfo MoreItems = {MO_X, MO_Y, NUMOPTIONS, 0, 56};
+typedef struct {
+    const char *title;
+    CP_iteminfo *info;
+    CP_itemtype *items;
+    const int8_t *option;    /* OPT_* for each line, or -1 for the line that opens a screen */
+    void (*open)(int temp1); /* that screen */
+} settings_t;
 
-static CP_itemtype MoreMenu[NUMOPTIONS] = {
+static CP_iteminfo SoundItems = {SP_X, SP_Y, 3, 0, 56}, VideoItems = {SP_X, SP_Y, 3, 0, 56};
+
+static CP_itemtype SoundPage[] = {
+    {1, "Sound devices", NULL},
     {1, "Music", NULL},
     {1, "Effects", NULL},
-    {1, "Pad turning", NULL},
+};
+static const int8_t soundoptions[] = {-1, OPT_MUSICVOL, OPT_EFFECTSVOL};
+
+static CP_itemtype VideoPage[] = {
+    {1, "View size", NULL},
     {1, "Fill the screen", NULL},
     {1, "Fullscreen", NULL},
 };
+static const int8_t videooptions[] = {-1, OPT_FILLSCREEN, OPT_FULLSCREEN};
 
-static int GetOption(int which)
-{
-    return orig_hooks.get_option ? orig_hooks.get_option(which) : 0;
-}
+static const settings_t soundsettings = {"Sound", &SoundItems, SoundPage, soundoptions, CP_Sound},
+                        videosettings = {"Video", &VideoItems, VideoPage, videooptions,
+                                         CP_ChangeView};
 
-static void SetOption(int which, int value)
+static boolean IsSlider(int option)
 {
-    if (orig_hooks.set_option) {
-        orig_hooks.set_option(which, value);
-    }
-}
-
-static boolean IsSlider(int which)
-{
-    return which == OPT_MUSICVOL || which == OPT_EFFECTSVOL || which == OPT_PADSENS;
+    return option == OPT_MUSICVOL || option == OPT_EFFECTSVOL;
 }
 
 /* a slider as Mouse Sensitivity draws it, scaled to the row */
-static void DrawOptionBar(int which, int value)
+static void DrawOptionBar(int line, int value)
 {
-    const int y = MO_Y + which * 13 + 1;
+    const int y = SP_Y + line * 13 + 1;
 
-    VWB_Bar(MO_BARX, y, MO_BARW, 9, TEXTCOLOR);
-    DrawOutline(MO_BARX, y, MO_BARW, 9, 0, HIGHLIGHT);
-    DrawOutline(MO_BARX + 10 * value, y, 10, 9, 0, READCOLOR);
-    VWB_Bar(MO_BARX + 1 + 10 * value, y + 1, 9, 8, READHCOLOR);
+    VWB_Bar(SP_BARX, y, SP_BARW, 9, TEXTCOLOR);
+    DrawOutline(SP_BARX, y, SP_BARW, 9, 0, HIGHLIGHT);
+    DrawOutline(SP_BARX + 10 * value, y, 10, 9, 0, READCOLOR);
+    VWB_Bar(SP_BARX + 1 + 10 * value, y + 1, 9, 8, READHCOLOR);
 }
 
-static void DrawMoreOptions(void)
+static void DrawSettings(const settings_t *page)
 {
     int i;
 
@@ -1281,38 +1332,43 @@ static void DrawMoreOptions(void)
     WindowX = 0;
     WindowW = 320;
     PrintY = 14;
-    US_CPrint("More Options");
+    US_CPrint(page->title);
 
-    DrawWindow(MO_X - 8, MO_Y - 5, MO_W, MO_H, BKGDCOLOR);
-    DrawMenu(&MoreItems, &MoreMenu[0]);
+    DrawWindow(SP_X - 8, SP_Y - 5, SP_W, 13 * page->info->amount + 6, BKGDCOLOR);
+    DrawMenu(page->info, page->items);
 
-    for (i = 0; i < NUMOPTIONS; i++) {
-        if (IsSlider(i)) {
-            DrawOptionBar(i, GetOption(i));
-        } else {
-            VWB_DrawPic(MO_X + MoreItems.indent - 24, MO_Y + i * 13 + 3,
-                        GetOption(i) ? C_SELECTEDPIC : C_NOTSELECTEDPIC);
+    for (i = 0; i < page->info->amount; i++) {
+        const int option = page->option[i];
+
+        if (IsSlider(option)) {
+            DrawOptionBar(i, GetOption(option));
+        } else if (option >= 0) {
+            VWB_DrawPic(SP_X + page->info->indent - 24, SP_Y + i * 13 + 3,
+                        GetOption(option) ? C_SELECTEDPIC : C_NOTSELECTEDPIC);
         }
     }
 
-    DrawMenuGun(&MoreItems);
+    DrawMenuGun(page->info);
     VW_UpdateScreen();
 }
 
-/* left and right move the slider, Enter keeps it, Esc puts it back */
-static void AdjustOption(int which)
+/* right / up (or the wheel up) for more, left / down for less; Enter keeps it, Esc puts it back */
+static void AdjustOption(int line, int option)
 {
     ControlInfo ci;
-    int exit = 0, value = GetOption(which);
+    int exit = 0, value = GetOption(option), step;
     const int old = value;
 
     WaitKeyUp();
     do {
         ReadAnyControl(&ci);
-        if ((ci.dir == dir_West && value > 0) || (ci.dir == dir_East && value < 9)) {
-            value += ci.dir == dir_West ? -1 : 1;
-            SetOption(which, value);
-            DrawOptionBar(which, value);
+        step = (ci.dir == dir_East || ci.dir == dir_North)  ? 1
+               : (ci.dir == dir_West || ci.dir == dir_South) ? -1
+                                                              : 0;
+        if (step && value + step >= 0 && value + step <= 9) {
+            value += step;
+            SetOption(option, value);
+            DrawOptionBar(line, value);
             VW_UpdateScreen();
             OrigSD_PlaySound(MOVEGUN1SND);
             TicDelay(20);
@@ -1326,8 +1382,8 @@ static void AdjustOption(int which)
     } while (!exit);
 
     if (exit == 2) {
-        SetOption(which, old);
-        DrawOptionBar(which, old);
+        SetOption(option, old);
+        DrawOptionBar(line, old);
         VW_UpdateScreen();
         OrigSD_PlaySound(ESCPRESSEDSND);
     } else {
@@ -1337,29 +1393,51 @@ static void AdjustOption(int which)
     IN_ClearKeysDown();
 }
 
-static void CP_MoreOptions(int temp1)
+static void SettingsPage(const settings_t *page)
 {
     int which;
 
-    (void)temp1;
-    DrawMoreOptions();
+    DrawSettings(page);
     MenuFadeIn();
     WaitKeyUp();
 
     do {
-        which = HandleMenu(&MoreItems, &MoreMenu[0], NULL);
-        if (which >= 0) {
-            if (IsSlider(which)) {
-                AdjustOption(which);
-            } else {
-                SetOption(which, !GetOption(which));
-                ShootSnd();
-            }
-            DrawMoreOptions();
+        which = HandleMenu(page->info, page->items, NULL);
+        if (which < 0) {
+            break;
         }
-    } while (which >= 0 && !orig_quit);
+        if (page->option[which] < 0) { /* the original screen */
+            ShootSnd();
+            MenuFadeOut();
+            page->open(0);
+            DrawSettings(page);
+            MenuFadeIn();
+        } else if (IsSlider(page->option[which])) {
+            AdjustOption(which, page->option[which]);
+            DrawSettings(page);
+        } else {
+            SetOption(page->option[which], !GetOption(page->option[which]));
+            ShootSnd();
+            DrawSettings(page);
+        }
+        WaitKeyUp(); /* a button still down would choose again at once */
+    } while (!orig_quit);
 
     MenuFadeOut();
+}
+
+/* SOUND: the devices (CP_Sound), music and effects volume */
+static void CP_SoundPage(int temp1)
+{
+    (void)temp1;
+    SettingsPage(&soundsettings);
+}
+
+/* VIDEO: the view size (CP_ChangeView), fill the screen, fullscreen */
+static void CP_Video(int temp1)
+{
+    (void)temp1;
+    SettingsPage(&videosettings);
 }
 
 /*
@@ -2187,6 +2265,9 @@ void DrawOutline(int x, int y, int w, int h, int color1, int color2)
 /* the mouse driver's position, homed at CENTER (Mouse(3) / Mouse(4)) */
 static int mousex = CENTER, mousey = CENTER;
 
+static int wheelsteps; /* not in the original: mouse wheel notches still to give, up positive */
+static boolean wheelgiven;
+
 static void HomeMouse(void)
 {
     int dx, dy;
@@ -2195,6 +2276,10 @@ static void HomeMouse(void)
     if (orig_hooks.mouse_delta) {
         orig_hooks.mouse_delta(&dx, &dy);
     }
+    if (orig_hooks.mouse_wheel) {
+        (void)orig_hooks.mouse_wheel(); /* turns made during play */
+    }
+    wheelsteps = 0;
 }
 
 /* the episodes this pack has (CheckForEpisodes, WL_MENU.C) */
@@ -2676,6 +2761,22 @@ void ReadAnyControl(ControlInfo *ci)
         }
         StickControl(ci, jx, jy, orig_hooks.joy_buttons ? orig_hooks.joy_buttons() : 0,
                      joypadenabled);
+    }
+
+    /*
+     * Not in the original: the mouse wheel, one notch as one press of up or
+     * down, with a read without it between (so TicDelay ends and the next
+     * notch moves again).
+     */
+    if (orig_hooks.mouse_wheel) {
+        wheelsteps += orig_hooks.mouse_wheel();
+    }
+    if (wheelsteps && !wheelgiven && ci->dir == dir_None) {
+        ci->dir = wheelsteps > 0 ? dir_North : dir_South;
+        wheelsteps += wheelsteps > 0 ? -1 : 1;
+        wheelgiven = true;
+    } else {
+        wheelgiven = false;
     }
 
     /* not in the original: a game pad, whether or not the joystick is enabled for play */

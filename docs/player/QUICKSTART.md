@@ -94,8 +94,8 @@ The original defaults:
 | Esc | The control panel |
 | F1 | Help (Read This!) |
 | F2 / F3 | Save Game / Load Game |
-| F4 | Sound |
-| F5 | Change View |
+| F4 | Sound (devices and volume) |
+| F5 | Change View (view size) |
 | F6 | Control |
 | F7 | End the game |
 | F8 / F9 | Quick save / quick load: the slot last used in the Save or Load menu |
@@ -103,25 +103,19 @@ The original defaults:
 | Pause | Pause |
 | F11 | Fullscreen toggle |
 
-In the control panel: arrows (or the mouse, with Mouse Enabled on) move the
-gun, **Enter** / **Space** / **Ctrl** / left click choose, **Esc** / **Alt** /
-right click go back, and the first letter of an item jumps to it, as in the
-original. Questions take **Y** or **N**. The window scale is `scale` in
+In the control panel: arrows, the mouse wheel (or moving the mouse, with
+Mouse Enabled on) move the gun, **Enter** / **Space** / **Ctrl** / left click
+choose, **Esc** / **Alt** / right click go back, and the first letter of an
+item jumps to it, as in the original. Questions take **Y** or **N**. The window scale is `scale` in
 `config.ini`.
 
-**Control** has the original's settings: Mouse Enabled, Mouse Sensitivity and
-**Customize controls** (pick a row, **Enter**, then press the new key or
-button; **Esc** cancels). Its last line, **More options**, is not in the
-original:
+The settings, kept in `config.ini`. Where the menus differ from the original:
 
-| Setting | |
-|---------|-|
-| Music / Effects | volume, each on its own (Enter, then left / right; Enter keeps, Esc puts it back) |
-| Pad turning | how fast the right stick turns |
-| Fill the screen | off: whole multiples of 320×240 with black borders; on: as large as fits at 4:3, with sharp pixel edges |
-| Fullscreen | as **F11** |
-
-Everything is kept in `config.ini`.
+| Menu | |
+|------|-|
+| **Sound** | **Sound devices** is the original screen (AdLib effects, digitized sound, music on or off); **Music** and **Effects** set each volume on its own (Enter, then left / right or the wheel; Enter keeps it, Esc puts it back) |
+| **Video** (the original's Change View) | **View size** is the original Change View screen; **Fill the screen** off: whole multiples of 320×240 with black borders, on: as large as fits at 4:3 with sharp pixel edges; **Fullscreen** as **F11** |
+| **Control** | the original's Mouse Enabled, Mouse Sensitivity and **Customize controls** (pick a row, **Enter**, then press the new key or button; **Esc** cancels), plus **Controller look speed**: how fast the pad's right stick turns |
 
 With **Mouse Enabled** on (Control menu) the mouse turns and moves, and its
 buttons shoot, strafe and open doors (Customize controls changes which). When you die, BJ turns towards the
@@ -173,7 +167,7 @@ choice is kept in `config.ini` (`sfx_on`, `digi_on`, `music_on`).
 ## Where settings live
 ```
 %APPDATA%\Wolf3DWin64\
-  config.ini        scale, fullscreen, the Control and Sound menus, More options, view size, last_data
+  config.ini        scale, fullscreen, the Sound, Video and Control menus, last_data
   scores.WL6 / .WL1 the high score table of each pack
   savegam0.WL6 …    the ten save slots of each pack
 ```

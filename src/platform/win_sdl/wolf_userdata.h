@@ -31,7 +31,7 @@ typedef struct {
     int key_dirs[4];                   /* dirscan: forward, right, back, left */
     int mouse_buttons[4];              /* buttonmouse: the action of each button */
     int joy_buttons[4];                /* buttonjoy */
-    /* More options (not in the original) */
+    /* the settings this port adds (not in the original) */
     int music_volume, effects_volume; /* 0..9 */
     int pad_sens;                      /* 0..9 */
     int fill_screen;
