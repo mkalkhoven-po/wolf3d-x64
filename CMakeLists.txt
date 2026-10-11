@@ -58,6 +58,7 @@ set(WOLF_PLATFORM_SOURCES
   src/platform/win_sdl/pad_map.c
   src/platform/win_sdl/wolf_icon.c
   src/platform/win_sdl/wolf_message.c
+  src/platform/win_sdl/wolf_folder.c
 )
 
 # Faithful engine (P4, ADR-002). No SDL dependency; built next to the legacy engine.
@@ -115,6 +116,9 @@ if(WIN32)
   target_sources(wolf3d PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/wolf3d-x64.rc)
 endif()
 target_link_libraries(wolf3d PRIVATE SDL2::SDL2)
+if(WIN32)
+  target_link_libraries(wolf3d PRIVATE ole32 uuid) # the folder dialog (IFileOpenDialog)
+endif()
 
 # Applies to project targets only, never to SDL2.
 function(wolf_apply_hardening target)

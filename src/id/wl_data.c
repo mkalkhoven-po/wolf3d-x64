@@ -10,12 +10,16 @@
 #define WOLF_STAT _stat
 #define WOLF_ISDIR(m) (((m) & _S_IFDIR) != 0)
 #define WOLF_SEP '\\'
+#define WOLF_EXE "wolf3d.exe"
+#define WOLF_SETENV "set "
 #else
 #include <dirent.h>
 #include <strings.h>
 #define WOLF_STAT stat
 #define WOLF_ISDIR(m) S_ISDIR(m)
 #define WOLF_SEP '/'
+#define WOLF_EXE "./wolf3d"
+#define WOLF_SETENV ""
 #endif
 
 #include "wolf_winutil.h"
@@ -287,9 +291,9 @@ void Wolf_PrintDataUsage(void)
 {
     fprintf(stderr,
             "Usage:\n"
-            "  wolf3d.exe --data <dir> [--smoke-only]\n"
-            "  set WOLF3D_DATA=<dir> && wolf3d.exe [--smoke-only]\n"
-            "  wolf3d.exe --data <dir> [--map N] [--skill 0-3] [--viewsize 4-20]\n"
+            "  " WOLF_EXE " --data <dir> [--smoke-only]\n"
+            "  " WOLF_SETENV "WOLF3D_DATA=<dir> && " WOLF_EXE " [--smoke-only]\n"
+            "  " WOLF_EXE " --data <dir> [--map N] [--skill 0-3] [--viewsize 4-20]\n"
             "             [--demo 0-3] [--load 0-9] [--screenshot N file.bmp]\n"
             "    (any of these starts the game directly instead of the menu;\n"
             "     in the game Esc opens the menu, F8 / F9 quick save and load)\n"

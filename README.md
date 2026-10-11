@@ -21,7 +21,7 @@ Full guide: **[docs/player/QUICKSTART.md](docs/player/QUICKSTART.md)** (finding 
 build\wolf3d.exe --data D:\path\to\your\wolf3d
 ```
 
-The game also looks for a `Wolf3dgame` or `data` folder next to the exe, and remembers the last folder it used. Any game option starts a game directly:
+The game also looks for a `Wolf3dgame` or `data` folder next to the exe; when it finds no game files it asks for the folder, and remembers it. Any game option starts a game directly:
 
 ```bat
 build\wolf3d.exe --data D:\path\to\your\wolf3d --map 0 --skill 3
