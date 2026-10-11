@@ -4,15 +4,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #ifdef _WIN32
 #include <direct.h>
+#define WOLF_PATH_SEP '\\'
+#ifndef S_IFMT
+#define S_IFMT _S_IFMT
+#define S_IFDIR _S_IFDIR
+#endif
 #include <process.h>
 #define WOLF_GETPID() _getpid()
 #define WOLF_MKDIR(p) _mkdir(p)
 #else
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
+#define WOLF_PATH_SEP '/'
 #define WOLF_GETPID() getpid()
 #define WOLF_MKDIR(p) mkdir((p), 0755)
 #endif
@@ -21,38 +28,65 @@
 wolf_config_t g_config;
 boolean g_config_found;
 
-boolean Wolf_GetAppDataDir(char *out, size_t out_sz)
+/* where the per-user folders live: %APPDATA% (Windows), ~/.local/share (elsewhere) */
+static boolean user_base_dir(char *out, size_t out_sz)
 {
-    if (!out || out_sz < 16) {
+#ifdef _WIN32
+    const char *appdata = getenv("APPDATA");
+    const char *up;
+
+    if (appdata && appdata[0]) {
+        snprintf(out, out_sz, "%s", appdata);
+        return true;
+    }
+    up = getenv("USERPROFILE");
+    if (!up || !up[0]) {
         return false;
     }
-#ifdef _WIN32
-    {
-        const char *appdata = getenv("APPDATA");
-        const char *up;
-        if (appdata && appdata[0]) {
-            snprintf(out, out_sz, "%s\\%s", appdata, WOLF_APPDATA_DIRNAME);
-        } else {
-            up = getenv("USERPROFILE");
-            if (!up || !up[0]) {
-                return false;
-            }
-            snprintf(out, out_sz, "%s\\AppData\\Roaming\\%s", up, WOLF_APPDATA_DIRNAME);
-        }
-        WOLF_MKDIR(out);
-        return true;
-    }
+    snprintf(out, out_sz, "%s\\AppData\\Roaming", up);
+    return true;
 #else
-    {
-        const char *home = getenv("HOME");
-        if (!home) {
-            return false;
-        }
-        snprintf(out, out_sz, "%s/.local/share/%s", home, WOLF_APPDATA_DIRNAME);
-        WOLF_MKDIR(out);
-        return true;
+    const char *home = getenv("HOME");
+
+    if (!home || !home[0]) {
+        return false;
     }
+    snprintf(out, out_sz, "%s/.local/share", home);
+    return true;
 #endif
+}
+
+static boolean dir_exists(const char *path)
+{
+    struct stat st;
+
+    return stat(path, &st) == 0 && (st.st_mode & S_IFMT) == S_IFDIR;
+}
+
+boolean Wolf_GetAppDataDir(char *out, size_t out_sz)
+{
+    char base[WOLF_PATH_MAX];
+
+    if (!out || out_sz < 16 || !user_base_dir(base, sizeof(base))) {
+        return false;
+    }
+    snprintf(out, out_sz, "%s%c%s", base, WOLF_PATH_SEP, WOLF_APPDATA_DIRNAME);
+
+    /* the folder before the x64 name: moved over once, with its config, saves and scores */
+    if (!dir_exists(out)) {
+        char old[WOLF_PATH_MAX + 32];
+
+        snprintf(old, sizeof(old), "%s%c%s", base, WOLF_PATH_SEP, WOLF_APPDATA_OLDNAME);
+        if (dir_exists(old)) {
+            if (rename(old, out) == 0) {
+                printf("Settings moved: %s -> %s\n", old, out);
+            } else {
+                fprintf(stderr, "Could not move %s to %s; starting with new settings\n", old, out);
+            }
+        }
+    }
+    WOLF_MKDIR(out);
+    return true;
 }
 
 boolean Wolf_GetAppDataPath(const char *filename, char *out, size_t out_sz)
@@ -247,7 +281,7 @@ boolean Wolf_ConfigSave(void)
     if (!f) {
         return false;
     }
-    fprintf(f, "# Wolf3D Win64 config (do not put next to Program Files)\n");
+    fprintf(f, "# Wolf3D x64 config (do not put next to Program Files)\n");
     fprintf(f, "scale=%d\n", g_config.scale);
     fprintf(f, "fullscreen=%d\n", g_config.fullscreen);
     fprintf(f, "mouse_look=%d\n", g_config.mouse_look);

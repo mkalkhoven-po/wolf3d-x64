@@ -1,6 +1,6 @@
 # QA docs index
 
-Phase 2 of the Wolf3D Win64 port: **testing, playtest, and bugfix**.
+Phase 2 of the Wolf3D x64 port: **testing, playtest, and bugfix**.
 
 | Doc | Purpose |
 |-----|---------|
@@ -17,8 +17,8 @@ Phase 2 of the Wolf3D Win64 port: **testing, playtest, and bugfix**.
 |-------|-----|
 | **Delivery (M0–M8, done)** | https://github.com/users/mkalkhoven-po/projects/1 |
 | **QA & Stabilization (Q0–Q5)** | https://github.com/users/mkalkhoven-po/projects/2 |
-| Repo issues | https://github.com/mkalkhoven-po/wolf3d-win64/issues |
-| Milestones | https://github.com/mkalkhoven-po/wolf3d-win64/milestones |
+| Repo issues | https://github.com/mkalkhoven-po/wolf3d-x64/issues |
+| Milestones | https://github.com/mkalkhoven-po/wolf3d-x64/milestones |
 
 ## Epics (repo issues)
 

@@ -8,7 +8,8 @@
 #define WOLF_PATH_MAX 512
 #endif
 
-#define WOLF_APPDATA_DIRNAME "Wolf3DWin64"
+#define WOLF_APPDATA_DIRNAME "Wolf3D-x64"
+#define WOLF_APPDATA_OLDNAME "Wolf3DWin64" /* before R1: moved to the new name on first start */
 #define WOLF_CONFIG_NAME "config.ini"
 #define WOLF_SAVE_MAGIC "W64S"
 #define WOLF_SAVE_VERSION 2 /* 1 was the legacy engine; see ADR-002 */
@@ -41,7 +42,7 @@ typedef struct {
 extern wolf_config_t g_config;
 extern boolean g_config_found; /* a config.ini was there to load: not the first run */
 
-/* Resolve %APPDATA%\Wolf3DWin64 (creates directory). */
+/* Resolve %APPDATA%\Wolf3D-x64 or ~/.local/share/Wolf3D-x64 (creates it, moving an old Wolf3DWin64 over). */
 boolean Wolf_GetAppDataDir(char *out, size_t out_sz);
 
 /* Full path under AppData. */

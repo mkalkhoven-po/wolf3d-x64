@@ -1,17 +1,17 @@
-# wolf3d-win64
+# Wolf3D x64
 
 A faithful **x64 port of the 1992 *Wolfenstein 3-D* engine**, rebuilt from id Software's original source code: the same fixed-point maths, 70 Hz game clock, AI, renderer and screens, so it plays like the DOS game. Windows 11 today; Linux comes with the first release (R1).
 
 You bring the game files: the free **shareware** episode (WL1, Apogee 1.4) or the **full game** (WL6, registered 1.4). No game data is in this repository.
 
-> **Status (2026-10-11):** the faithful engine and all of the original's screens are done (P1–P5) and the go/no-go was signed off **Go**. Next is **R1**: license, icon, a downloadable package for Windows and Linux. The repository is private until then.
+> **Status:** the faithful engine and all of the original's screens are done (P1–P5) and the go/no-go was signed off **Go** (2026-10-11). In progress: **R1**, a downloadable package for Windows and Linux. The repository is private until then.
 
 ## What you get
 
 - **The original engine**, ported from `WL_*.C` in 16.16 fixed point: original AI and state tables, doors, pushwalls, the raycaster and sprite scaler, `US_RndT`. All eight original demos replay in sync ([ADR-002](docs/adr/002-faithful-fixed-point-port.md)).
 - **The original screens**: rating screen, title, credits and high scores with the demos in between; the full control panel (new game, sound, control and Customize, load and save with ten named slots, view size, Read This! for the shareware); "Get Psyched!", the intermission tally, victory, high score entry, the death cam.
 - **Sound as on a Sound Blaster Pro**: digitized effects placed left and right, and AdLib music and effects through an OPL2 emulator written for this port ([ADR-003](docs/adr/003-own-opl2-emulator.md)).
-- **Modern additions, kept apart from the game logic**: XInput and other game pads (twin-stick), separate music and effects volume, controller look speed, fill-the-screen scaling with sharp pixels, fullscreen, mouse wheel in the menus, settings and saves in `%APPDATA%\Wolf3DWin64\`.
+- **Modern additions, kept apart from the game logic**: XInput and other game pads (twin-stick), separate music and effects volume, controller look speed, fill-the-screen scaling with sharp pixels, fullscreen, mouse wheel in the menus, settings and saves in `%APPDATA%\Wolf3D-x64\`.
 
 ## Play
 
@@ -48,7 +48,7 @@ cmake -S . -B build
 ctest --test-dir build --output-on-failure
 ```
 
-Without game data the unit tests run (also in CI). With one or both packs set at configure time, the engine tests run on real data: demo sync per view size, golden frames, the E1M1 route, every menu and screen driven by scripted input with pinned screenshots, smoke, cold start (48 tests with both packs). `-DWOLF_SANITIZE=ON` builds with sanitizers where the compiler has them.
+Without game data the unit tests run (also in CI). With one or both packs set at configure time, the engine tests run on real data: demo sync per view size, golden frames, the E1M1 route, every menu and screen driven by scripted input with pinned screenshots, smoke, cold start, settings migration (49 tests with both packs). `-DWOLF_SANITIZE=ON` builds with sanitizers where the compiler has them.
 
 Troubleshooting: with Windows 11 **Smart App Control** on, a freshly built unsigned `wolf3d.exe` or `SDL2.dll` can be blocked ("Bad Image", status `0xc0e90002`, or ctest "BAD_COMMAND"; Code Integrity event 3077). That is an OS policy, not a build error.
 
@@ -60,11 +60,11 @@ Troubleshooting: with Windows 11 **Smart App Control** on, a freshly built unsig
 | P1–P3 | Safety net (warnings, unit tests, CI), honest docs, WL1 data layer | Done |
 | P4 | The faithful engine core: fixed point, 70 Hz, original AI, player, renderer; fidelity gate | Done |
 | P5 | The original game flow: menus, intermission, attract loop; audio pass and go/no-go (Go) | Done |
-| **R1** | **Release: GPL-2.0 license, icon, Windows zip and Linux build, first-run folder picker** | **Next** |
+| **R1** | **Release: GPL-2.0 license, icon, Windows zip and Linux build, first-run folder picker** | **In progress** |
 | P6 | Live playtest after release, bugs as issues | Planned |
 | F4 | Dual pistols (optional) | Deferred |
 
-Details: [docs/epics/README.md](docs/epics/README.md). Boards: [Wolf3D Win64 Port](https://github.com/users/mkalkhoven-po/projects/1) (delivery) and [QA & Stabilization](https://github.com/users/mkalkhoven-po/projects/2).
+Details: [docs/epics/README.md](docs/epics/README.md). Boards: [Wolf3D x64 — Delivery](https://github.com/users/mkalkhoven-po/projects/1) and [Wolf3D x64 — QA & Stabilization](https://github.com/users/mkalkhoven-po/projects/2).
 
 ## Docs
 
@@ -81,10 +81,11 @@ Details: [docs/epics/README.md](docs/epics/README.md). Boards: [Wolf3D Win64 Por
 | [`reference/original/`](reference/original/) | id's original DOS sources, unmodified (the reference) |
 | [`tests/`](tests/) | Unit and engine tests (CTest) |
 
-## Legal
+## License
 
-- No game data is in this repository; point the game at files you are entitled to use ([GAME_DATA.md](docs/product/GAME_DATA.md)). Pull requests adding `.WL1` / `.WL6` files are not accepted.
-- The code derives from id Software's *Wolfenstein 3-D* source release; the project will carry the **GPL-2.0** (as id's 2012 source release) from R1.
+Wolf3D x64 is free software under the **GNU General Public License, version 2** ([LICENSE](LICENSE)), as id Software's 2012 release of the *Wolfenstein 3-D* source it derives from. SDL2 is under the zlib license; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+- No game data is in this repository and the license does not cover it: point the game at files you are entitled to use ([GAME_DATA.md](docs/product/GAME_DATA.md)). Pull requests adding `.WL1` / `.WL6` files are not accepted.
 - *Wolfenstein* is a trademark of ZeniMax Media; this project is not affiliated with or endorsed by id Software or ZeniMax.
 
 ## Credits

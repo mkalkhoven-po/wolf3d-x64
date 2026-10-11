@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Wolf3D Win64 — local smoke harness (Q1).
+# Wolf3D x64 — local smoke harness (Q1).
 # Runs good-path --smoke-only + bad-path failure check + log marker asserts.
 # Never commits or requires packing commercial assets into git.
 #
@@ -154,7 +154,7 @@ fi
 # Required markers for Q1 #47 — must all appear in good log.
 # Keep list stable; bump docs/qa/SMOKE.md when changing.
 REQUIRED_MARKERS=(
-  "wolf3d-win64 smoke OK"
+  "wolf3d-x64 smoke OK"
   "TITLEPIC loaded"
   "VSWAP chunks="
   "VGAGRAPH open"
@@ -206,7 +206,7 @@ else
   exit 4
 fi
 
-if grep -F -q "wolf3d-win64 smoke OK" "$BAD_LOG"; then
+if grep -F -q "wolf3d-x64 smoke OK" "$BAD_LOG"; then
   fail "bad-path log unexpectedly contains smoke OK"
   echo "RESULT: FAILED (bad-path markers)"
   exit 4

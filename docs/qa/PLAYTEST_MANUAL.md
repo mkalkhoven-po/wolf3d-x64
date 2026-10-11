@@ -42,7 +42,7 @@ Step-by-step + fidelity snapshot: [E1M1_ANYPERCENT_REFERENCE.md](E1M1_ANYPERCENT
 | 2 | Music in the menus and on every floor | Pass | `smoke_only` (music keys notes); level music table identical to the original; maintainer ear check |
 | 3 | Sound → Sound devices: effects, digitized and music off still runs, silent | Pass | `smoke_only` (each switch); maintainer 2026-10-11 |
 | 4 | Sound → Music / Effects volume: each on its own, 0 is silent | Pass | `smoke_only` (the mixer at 0 and at full); maintainer 2026-10-10 |
-| 5 | Save Game (F2) with a typed name creates `%APPDATA%\Wolf3DWin64\savegam<slot>.WL6` (or `.WL1`); F8 then saves there at once | Pass | `test_orig_menu` (save, F8) |
+| 5 | Save Game (F2) with a typed name creates `%APPDATA%\Wolf3D-x64\savegam<slot>.WL6` (or `.WL1`); F8 then saves there at once | Pass | `test_orig_menu` (save, F8) |
 | 6 | Load Game (F3) / F9 restores the level exactly (actors, doors, pickups, position) | Pass | `orig_loop_maps` (a save halfway through a demo ends identically) |
 | 7 | config.ini keeps the settings (scale, fullscreen, menus, last_data) | Pass | `smoke_only` (config roundtrip); `cold_start` |
 | 8 | No need to write next to Program Files; no admin rights | Pass | `cold_start`; all runs non-elevated (2026-10-11) |

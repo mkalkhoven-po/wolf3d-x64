@@ -133,7 +133,7 @@ boolean Wolf_PresentCreate(wolf_present_t *pr, const char *title, int scale,
     h = 240 * pr->scale;
 
     pr->window = SDL_CreateWindow(
-        title ? title : "Wolf3D Win64",
+        title ? title : "Wolf3D x64",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         w,
