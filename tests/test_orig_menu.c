@@ -752,6 +752,31 @@ static void test_intermission(void)
           LevelRatios[0].treasure == tr && LevelRatios[0].time == 60);
     CHECK(count_sound(PERCENT100SND) == 1 && count_sound(NOBONUSSND) == 1);
 
+    /*
+     * BJ breathes while the screen waits: L_GUY2PIC every 35 tics. The
+     * shareware has two different pictures; in the registered data both
+     * are the same, so there he stands still (as in the original).
+     */
+    {
+        static const press_t wait[] = {
+            {sc_None, 0, "breathe1"}, /* no key: just a look */
+            {sc_None, 0, NULL},       /* 43 tics later, past one breath (every 35) */
+            SNAPKEY(sc_Return, "breathe2"),
+        };
+        uint32_t first, second;
+
+        finish_floor(0);
+        run_script(wait, N(wait));
+        orig_hooks.check_ack = key_ack;
+        g_phase = -1000;
+        LevelCompleted();
+        first = snap_hash("breathe1");
+        second = snap_hash("breathe2");
+        printf("  breathing: %s\n", first != second ? "yes" : "no (the same picture twice)");
+        CHECK(g_wl1 ? first != second : first == second);
+        CHECK(memcmp(grsegs[L_GUYPIC], grsegs[L_GUY2PIC], 104 * 88) == 0 ? !g_wl1 : g_wl1);
+    }
+
     /* the secret floor: no tally, 15000 */
     {
         static const press_t secret[] = {
