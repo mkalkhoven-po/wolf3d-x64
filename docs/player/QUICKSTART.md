@@ -38,14 +38,17 @@ build\wolf3d.exe --data "%WOLF3D_DATA%"
 ### Play
 1. Double-click `build\wolf3d.exe` (with the pack as above), or use `--data`.
    In PowerShell start it as `.\build\wolf3d.exe`.
-2. Any key on the title page → the original control panel (**Options**).
+2. As the original, it shows the rating screen, then cycles through the
+   title page, the credits, the high scores and a demo. Any key (or a mouse
+   or pad button) → the original control panel (**Options**).
 3. **New Game** → pick an episode and how tough you are, or **Load Game**.
 
 The game is a faithful port of the original engine (fixed point, 70 Hz, the
-original AI and renderer, the original control panel; see ADR-002). **Esc**
-in the game opens the control panel; **Back to Game** returns. Still to come
-in P5: the credits / high scores / demos
-between title pages (P5d).
+original AI and renderer, the original screens and control panel; see
+ADR-002). **Esc** in the game opens the control panel; **Back to Game**
+returns, **Back to Demo** goes back to the title pages and demos. The demos
+play at your view size, as in the original (which is why some of them only
+stay in sync at certain sizes).
 
 Smoke harness (no full play loop):
 ```bat

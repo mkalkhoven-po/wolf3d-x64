@@ -10,7 +10,8 @@
  * the mouse wheel, fill the screen, fullscreen, view size) and Read This!,
  * and the screens between floors: the intermission (with its tally, a key
  * skipping it, the secret floor), the victory and end text, a high score's
- * name typed in, "Let's see that again!".
+ * name typed in, "Let's see that again!", and the attract loop (the rating,
+ * title, credits and high scores pages, a demo, the control panel on a key).
  *
  * UI_DUMP=name writes the screens the script marks as name.<screen>.bmp.
  */
@@ -335,6 +336,9 @@ static void check_screens(void)
         {"endtext", 0xe60bfeacu, 0xe60bfeacu},
         {"scorename", 0x9e60ec9au, 0x833153a4u},
         {"deathcam", 0x3865f1dfu, 0x24af147du},
+        {"pg13", 0xa290fcfau, 0xa290fcfau},
+        {"title", 0x4b172b02u, 0x4b172b02u},
+        {"credits", 0x55bac378u, 0x3b406003u}, /* the shareware's names Apogee too */
     };
     size_t i;
 
@@ -861,6 +865,67 @@ static void test_death_cam_text(void)
     snap("deathcam");
 }
 
+/* ---------------------------------------------------------- the attract loop */
+
+/* each page's wait (IN_UserInput): the screen, how long; a key on the second title page */
+static int g_waits, g_waittics[16], g_demoframes, g_configs;
+
+static boolean page_wait(int32_t tics)
+{
+    static const char *const names[] = {"pg13", "title", "credits", "scores"};
+
+    if (g_waits < 4) {
+        snap(names[g_waits]);
+    }
+    if (g_waits < 16) {
+        g_waittics[g_waits] = (int)tics;
+    }
+    g_waits++;
+    return g_waits == 5; /* the title page again, after the demo: a key */
+}
+
+static void demo_frame(void)
+{
+    g_demoframes++;
+}
+
+static void count_config(void)
+{
+    g_configs++;
+}
+
+static void test_demo_loop(void)
+{
+    /* the control panel after the key: Quit, yes */
+    static const press_t quit[] = {
+        KEY(sc_Escape),
+        KEY(sc_Y),
+    };
+
+    run_script(quit, N(quit));
+    orig_hooks.user_input = page_wait;
+    orig_hooks.present_frame = demo_frame;
+    orig_hooks.check_ack = NULL; /* nothing ends the demo early */
+    orig_hooks.write_config = count_config;
+    g_waits = g_demoframes = g_configs = 0;
+    NewViewSize(15);
+    ingame = false;
+
+    DemoLoop();
+    printf("  demo loop: waits %d %d %d %d %d, demo %d frames on map %d, configs %d\n",
+           g_waittics[0], g_waittics[1], g_waittics[2], g_waittics[3], g_waittics[4],
+           g_demoframes, gamestate.mapon, g_configs);
+    CHECK(script_done() && orig_quit);
+    CHECK(g_waits == 5);
+    CHECK(g_waittics[0] == 7 * 70 && g_waittics[1] == 15 * 70 && g_waittics[2] == 10 * 70 &&
+          g_waittics[3] == 10 * 70 && g_waittics[4] == 15 * 70);
+    CHECK(g_demoframes > 100);
+    CHECK(gamestate.mapon == (g_wl1 ? 0 : 37)); /* demo 0: WL6 map 37, WL1 map 0 (absolute, episode 0) */
+    CHECK(g_configs == 1); /* after the control panel */
+    orig_quit = false;
+    abortgame = false;
+}
+
 int main(int argc, char **argv)
 {
     wolf_data_dir_t dir;
@@ -898,6 +963,7 @@ int main(int argc, char **argv)
     test_victory();
     test_high_score_entry();
     test_death_cam_text();
+    test_demo_loop();
 
     check_screens();
 
