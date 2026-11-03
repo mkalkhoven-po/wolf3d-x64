@@ -1,5 +1,7 @@
 # F4 — Dual pistols / pistols akimbo (original weapon)
 
+> **Not planned** (maintainer, 2026-11-03). This plan was written for the float engine that P4 replaced with the faithful port, and depends on F2 #77, which no longer exists. Dual pistols are not in the original game; in the faithful engine they would touch demos, saves and balance. Epic #96 and stories #97–#100 are closed; if the idea comes back after 1.0.0 it starts as one new issue. Kept for reference.
+
 ## Origin
 Player idea (locked for this port): first **original** weapon variant after stock fidelity.  
 **Not** classic DOS loadout — optional progression flavor that still *feels* Wolfenstein.

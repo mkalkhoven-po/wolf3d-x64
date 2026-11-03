@@ -13,7 +13,7 @@ Direction ([ADR-002](../adr/002-faithful-fixed-point-port.md)): reimplement game
 | P5 | Game flow: real menus (episode and skill choice, save slots with names, sound and control settings with **separate music and effects volume**), intermission, attract loop + demo playback; then **Q4** audio and **Q5** go/no-go | **Done** (P5a-P5e); go/no-go signed off **Go** on 2026-10-11 |
 | R1 | Release readiness (after P5): a shareable x64 download where players drop in their own WL1/WL6 files, for **Windows and Linux** | **Done**: version 0.9.0 (preview) released for Windows and Linux, the repository public (see the R1 breakdown below) |
 | P6 | Live playtest after release: the maintainer and the players play the shareware and the full game; what they find is filed as issues and fixed (no full playthrough before release); then 1.0.0 | **Next** |
-| F4 | Dual pistols — optional, **last**, only after P6 | Deferred |
+| F4 | Dual pistols — optional | **Not planned** (2026-11-03): the stories were for the float engine P4 replaced; #96–#100 closed. A new, freshly scoped issue if it comes back after 1.0.0 |
 
 P1 delivered: `-Wall -Wextra -Wpedantic` (`/W4` on MSVC) with zero project warnings, `-DWOLF_SANITIZE=ON`, `tests/test_decoders.c` via CTest, optional `smoke_only` CTest when `WOLF3D_DATA` is set at configure time, Windows CI (green).
 
@@ -117,7 +117,7 @@ Board: [Project #1 delivery](https://github.com/users/mkalkhoven-po/projects/1) 
 | F1 | [Status HUD & Get Psyched!](F1-status-hud-get-psyched.md) · #76 | `GETPSYCHEDPIC`, `STATUSBARPIC`, digits/face/weapon icon · **Done #95** |
 | F2 | [First-person weapon view](F2-weapon-view.md) · #77 | Hands+gun overlay, fire frames, 1–4 switch · **Done #103** |
 | F3 | [World statics & corpses](F3-world-statics-corpses.md) · #78 | VSWAP props/enemies/bodies · **Done #104** · authentic projection **#108** |
-| F4 | [Dual pistols / akimbo](F4-dual-pistols.md) · #96 | Optional original: mirror pistol pair, alt-fire, same dmg/shot · **deferred — last, after P6** |
+| F4 | [Dual pistols / akimbo](F4-dual-pistols.md) · #96 | Optional original: mirror pistol pair, alt-fire, same dmg/shot · **not planned** (closed 2026-11-03) |
 
 References: `docs/product/references/fidelity/ref-f{1,2,3}.png`.  
 In-motion E1M1 any% flow (doors → elevator, HUD/gun/enemy glance): [`docs/qa/E1M1_ANYPERCENT_REFERENCE.md`](../qa/E1M1_ANYPERCENT_REFERENCE.md).  
@@ -131,6 +131,6 @@ Runtime pack = WL6 under `Wolf3dgame/` (not `assets/` PNG sheets) — [`docs/pro
 |-----------|------------|--------|
 | L1 | [Level geometry & secrets](L1-level-geometry-secrets.md) · **#109** | Pushwalls #110 · projection #111 · floor/ceil #112 · textures #113 · matrix #114 |
 
-**Recommended order of open work:** P1 → P2 → P3 (WL1) → P4 → P5 (incl. **Q4**, **Q5**) → **R1** (release, Windows + Linux) → P6 (WL6) → **F4**. The older L1-first order is superseded.
+**Recommended order of open work:** P1 → P2 → P3 (WL1) → P4 → P5 (incl. **Q4**, **Q5**) → **R1** (release, Windows + Linux) → **P6** (live playtest) → 1.0.0. F4 is not planned. The older L1-first order is superseded.
 
 Gap seed (historical): [LEVEL_GEOMETRY_AUTHENTICITY.md](LEVEL_GEOMETRY_AUTHENTICITY.md) (points at L1).
