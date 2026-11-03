@@ -92,7 +92,7 @@ Troubleshooting: with Windows 11 **Smart App Control** on, a freshly built unsig
 | P5 | The original game flow: menus, intermission, attract loop; audio pass and go/no-go (Go) | Done |
 | R1 | Release 0.9.0: GPL-2.0 license, icon, Windows zip and Linux tarball, first-run folder picker | Done |
 | **P6** | **Live playtest after release, bugs as issues; then 1.0.0** | **Next** |
-| F4 | Dual pistols (optional) | Deferred |
+| F4 | Dual pistols (optional) | Not planned (2026-11-03) |
 
 Details: [docs/epics/README.md](docs/epics/README.md). Boards: [Wolf3D x64 — Delivery](https://github.com/users/mkalkhoven-po/projects/1) and [Wolf3D x64 — QA & Stabilization](https://github.com/users/mkalkhoven-po/projects/2).
 
